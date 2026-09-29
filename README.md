@@ -19,7 +19,7 @@ Run unmodified ESP-IDF firmware in your browser or on your desktop.
 
 **English** | [简体中文](docs/i18n/zh-CN/README.md) | [日本語](docs/i18n/ja/README.md) | [Français](docs/i18n/fr/README.md)
 
-<img src="docs/images/web-simple.png" alt="PassportSim in the browser: the emulated device running the official demo, a firmware card and the log" width="900">
+<img src="docs/images/en/web-simple.png" alt="PassportSim in the browser: the emulated device running the official demo, a firmware card and the log" width="900">
 
 </div>
 
@@ -77,13 +77,13 @@ With `make`, pass arguments as variables: `make run PORT=8080`, `make cli ARGS="
 The page is available in English, Chinese, Japanese and French, in light and dark themes.
 
 <div align="center">
-<img src="docs/images/web-advanced.png" alt="Advanced mode with the serial console and every device card" width="900">
-<br><sub>Advanced mode: run control, the serial console, and the cards for battery, USB, audio, Wi-Fi, Bluetooth, NFC and snapshots</sub>
+<img src="docs/images/en/web-advanced.png" alt="Advanced mode running the demo, with the serial console filtered to the bootloader lines and every device card" width="900">
+<br><sub>Advanced mode: run control, the serial console (filtered to <code>boot</code>), and the cards for battery, USB, audio, Wi-Fi, Bluetooth, NFC and snapshots</sub>
 </div>
 
 <div align="center">
-<img src="docs/images/web-simple-dark.png" alt="Simple mode in Chinese and the dark theme, right after a firmware was loaded" width="900">
-<br><sub>Loading your own firmware</sub>
+<img src="docs/images/en/web-simple-dark.png" alt="Simple mode in the dark theme, right after the Passport Keys firmware was loaded" width="900">
+<br><sub>Loading your own firmware (here Passport Keys)</sub>
 </div>
 
 ## From the command line
@@ -115,7 +115,7 @@ screenshots. Add the [agent skill](skills/passportsim/SKILL.md) with
 directory.
 
 <div align="center">
-<img src="docs/images/web-advanced-ui-tree.png" alt="The UI tree tab: the widget tree an agent reads, with the hovered widget outlined on the screen" width="900">
+<img src="docs/images/en/web-advanced-ui-tree.png" alt="The UI tree tab: the widget tree an agent reads, with the hovered widget outlined on the screen" width="900">
 <br><sub>The UI tree an agent reads, with the hovered widget outlined on the screen</sub>
 </div>
 

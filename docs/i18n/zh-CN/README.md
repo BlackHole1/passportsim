@@ -19,7 +19,7 @@
 
 [English](../../../README.md) | **简体中文** | [日本語](../ja/README.md) | [Français](../fr/README.md)
 
-<img src="../../images/web-simple.png" alt="浏览器中的 PassportSim：模拟设备正在运行官方演示固件，旁边是固件卡片和日志" width="900">
+<img src="../../images/zh-CN/web-simple.png" alt="浏览器中的 PassportSim：模拟设备正在运行官方演示固件，旁边是固件卡片和日志" width="900">
 
 </div>
 
@@ -71,13 +71,13 @@ just run      # 构建并打开网页界面 http://127.0.0.1:4173/
 界面支持中文、英文、日文和法文，以及浅色和深色主题。
 
 <div align="center">
-<img src="../../images/web-advanced.png" alt="高级模式：串口控制台与全部设备卡片" width="900">
+<img src="../../images/zh-CN/web-advanced.png" alt="高级模式：串口控制台与全部设备卡片" width="900">
 <br><sub>高级模式：运行控制、串口控制台，以及电池、USB、音频、Wi-Fi、蓝牙、NFC 和快照卡片</sub>
 </div>
 
 <div align="center">
-<img src="../../images/web-simple-dark.png" alt="中文深色主题下的简洁模式，刚加载了一份固件" width="900">
-<br><sub>加载自己的固件</sub>
+<img src="../../images/zh-CN/web-simple-dark.png" alt="深色主题下的简洁模式，刚加载了 Passport Keys 固件" width="900">
+<br><sub>加载自己的固件(图中为 Passport Keys)</sub>
 </div>
 
 ## 使用命令行
@@ -105,7 +105,7 @@ Windows 上的可执行文件是 `passportsim.exe`。各系统首次启动的说
 智能体可以启动固件、按键、等待某行串口输出、读取 UI 控件树和截图。用 `npx skills add BlackHole1/passportsim` 添加[智能体技能说明](../../../skills/passportsim/SKILL.md)，或把 `skills/passportsim/` 复制到智能体的技能目录。
 
 <div align="center">
-<img src="../../images/web-advanced-ui-tree.png" alt="UI 控件树标签页：智能体读取的控件树，鼠标所指的控件在屏幕上被框出" width="900">
+<img src="../../images/zh-CN/web-advanced-ui-tree.png" alt="UI 控件树标签页：智能体读取的控件树，鼠标所指的控件在屏幕上被框出" width="900">
 <br><sub>智能体读取的 UI 控件树，鼠标所指的控件会在屏幕上框出</sub>
 </div>
 

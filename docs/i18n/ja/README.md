@@ -19,7 +19,7 @@
 
 [English](../../../README.md) | [简体中文](../zh-CN/README.md) | **日本語** | [Français](../fr/README.md)
 
-<img src="../../images/web-simple.png" alt="ブラウザ上の PassportSim：公式デモを動かすエミュレートされたデバイス、ファームウェアカード、ログ" width="900">
+<img src="../../images/ja/web-simple.png" alt="ブラウザ上の PassportSim：公式デモを動かすエミュレートされたデバイス、ファームウェアカード、ログ" width="900">
 
 </div>
 
@@ -71,13 +71,13 @@ just run      # ビルドして Web UI を http://127.0.0.1:4173/ で開く
 日本語、英語、中国語、フランス語に対応し、ライトテーマとダークテーマを選べます。
 
 <div align="center">
-<img src="../../images/web-advanced.png" alt="シリアルコンソールとすべてのデバイスカードを表示したアドバンスモード" width="900">
-<br><sub>アドバンスモード：実行制御、シリアルコンソール、バッテリー、USB、オーディオ、Wi-Fi、Bluetooth、NFC、スナップショットのカード</sub>
+<img src="../../images/ja/web-advanced.png" alt="デモを実行中のアドバンスモード。シリアルコンソールをブートローダーの行で絞り込み、すべてのデバイスカードを表示" width="900">
+<br><sub>アドバンスモード：実行制御、シリアルコンソール(<code>boot</code> で絞り込み)、バッテリー、USB、オーディオ、Wi-Fi、Bluetooth、NFC、スナップショットのカード</sub>
 </div>
 
 <div align="center">
-<img src="../../images/web-simple-dark.png" alt="中国語・ダークテーマのシンプルモード、ファームウェアを読み込んだ直後" width="900">
-<br><sub>自分のファームウェアを読み込む</sub>
+<img src="../../images/ja/web-simple-dark.png" alt="ダークテーマのシンプルモード、Passport Keys ファームウェアを読み込んだ直後" width="900">
+<br><sub>自分のファームウェアを読み込む(画像は Passport Keys)</sub>
 </div>
 
 ## コマンドラインで使う
@@ -105,7 +105,7 @@ Windows では実行ファイル名が `passportsim.exe` です。各 OS での�
 エージェントはファームウェアの起動、ボタン操作、シリアル出力の待機、UI ツリーの読み取り、スクリーンショットができます。[エージェント用スキル](../../../skills/passportsim/SKILL.md)は `npx skills add BlackHole1/passportsim` で追加するか、`skills/passportsim/` をエージェントのスキルディレクトリにコピーしてください。
 
 <div align="center">
-<img src="../../images/web-advanced-ui-tree.png" alt="UI ツリータブ：エージェントが読むウィジェットツリー。ホバー中のウィジェットが画面上で枠表示される" width="900">
+<img src="../../images/ja/web-advanced-ui-tree.png" alt="UI ツリータブ：エージェントが読むウィジェットツリー。ホバー中のウィジェットが画面上で枠表示される" width="900">
 <br><sub>エージェントが読む UI ツリー。ホバー中のウィジェットが画面上で枠表示されます</sub>
 </div>
 

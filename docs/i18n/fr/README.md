@@ -19,7 +19,7 @@ Exécutez un firmware ESP-IDF non modifié dans votre navigateur ou sur votre or
 
 [English](../../../README.md) | [简体中文](../zh-CN/README.md) | [日本語](../ja/README.md) | **Français**
 
-<img src="../../images/web-simple.png" alt="PassportSim dans le navigateur : l'appareil émulé exécute la démo officielle, à côté de la carte firmware et du journal" width="900">
+<img src="../../images/fr/web-simple.png" alt="PassportSim dans le navigateur : l'appareil émulé exécute la démo officielle, à côté de la carte firmware et du journal" width="900">
 
 </div>
 
@@ -81,13 +81,13 @@ Avec `make`, les arguments passent par des variables : `make run PORT=8080`,
 La page existe en français, anglais, chinois et japonais, en thème clair et sombre.
 
 <div align="center">
-<img src="../../images/web-advanced.png" alt="Mode avancé avec la console série et toutes les cartes de l'appareil" width="900">
-<br><sub>Le mode avancé : contrôle de l'exécution, console série et cartes batterie, USB, audio, Wi-Fi, Bluetooth, NFC et instantanés</sub>
+<img src="../../images/fr/web-advanced.png" alt="Mode avancé exécutant la démo, la console série filtrée sur les lignes du bootloader et toutes les cartes de l'appareil" width="900">
+<br><sub>Le mode avancé : contrôle de l'exécution, console série (filtrée sur <code>boot</code>) et cartes batterie, USB, audio, Wi-Fi, Bluetooth, NFC et instantanés</sub>
 </div>
 
 <div align="center">
-<img src="../../images/web-simple-dark.png" alt="Mode simple en chinois et en thème sombre, juste après le chargement d'un firmware" width="900">
-<br><sub>Charger votre propre firmware</sub>
+<img src="../../images/fr/web-simple-dark.png" alt="Mode simple en thème sombre, juste après le chargement du firmware Passport Keys" width="900">
+<br><sub>Charger votre propre firmware (ici Passport Keys)</sub>
 </div>
 
 ## En ligne de commande
@@ -120,7 +120,7 @@ l'arbre de l'interface et faire des captures d'écran. Ajoutez la
 compétences de votre agent.
 
 <div align="center">
-<img src="../../images/web-advanced-ui-tree.png" alt="L'onglet arbre de l'interface : l'arbre des widgets que lit un agent, le widget survolé encadré à l'écran" width="900">
+<img src="../../images/fr/web-advanced-ui-tree.png" alt="L'onglet arbre de l'interface : l'arbre des widgets que lit un agent, le widget survolé encadré à l'écran" width="900">
 <br><sub>L'arbre de l'interface que lit un agent, le widget survolé encadré à l'écran</sub>
 </div>
 
