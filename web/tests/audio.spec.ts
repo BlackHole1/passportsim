@@ -7,8 +7,9 @@
 // device); the install hint of `browsers.ts` for a missing browser; `bun-not-on-path` when the
 // probe cannot be bundled; `no-audio-output` for the playback tests when the browser starts no
 // audio clock (Firefox on a hosted Windows runner, which has no audio device); `host-not-real-time`
-// for the underrun and overflow counts when the host's audio clock or timers did not keep to the
-// wall clock (a hosted CI runner with no audio device), measured by `realTimeGap`.
+// for the underrun and overflow counts and the pitch of the rate-change test when the host's audio
+// clock or timers did not keep to the wall clock (a hosted CI runner with no audio device), measured
+// by `realTimeGap`.
 
 import { expect, test as base, type Page } from "@playwright/test";
 import { spawnSync } from "node:child_process";
@@ -186,10 +187,13 @@ for (const isolated of [true, false]) {
       ],
       [450, 1_150],
     );
+    expect(result.counters?.straySamples).toBe(0);
+    // An underrun or overflow in a window puts a gap or a jump in its zero crossings.
+    const gap = realTimeGap(result);
+    test.skip(gap !== null, gap ?? "");
     // Played at the wrong rate, the second segment would sound at 587 Hz (880 * 16 / 24).
     expectTone(result.heard[0], 440);
     expectTone(result.heard[1], 880);
-    expect(result.counters?.straySamples).toBe(0);
   });
 
   test(`capture over ${transport} journals 240-frame chunks of the fake microphone at 16 kHz`, async ({
