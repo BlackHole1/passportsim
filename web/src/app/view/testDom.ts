@@ -29,6 +29,23 @@ const GLOBALS = [
 
 let installed: Window | null = null;
 
+/** The longest markup a failed assertion prints for one node. */
+const MAX_PRINTED = 2_000;
+
+/**
+ * Makes `expect` print a node as its markup. Bun's matcher message otherwise walks every property
+ * of the received value, and a happy-dom node reaches the whole window and React's fiber tree: one
+ * failing `expect(element).toBeNull()` spent 30 s on its message on macOS and then passed, and on
+ * Windows asked for 32 GiB and aborted the run.
+ */
+function printNodesAsMarkup(window: Window): void {
+  const prototype = window.Node.prototype as unknown as Record<symbol, unknown>;
+  prototype[Symbol.for("nodejs.util.inspect.custom")] = function (this: { nodeName: string; outerHTML?: string; textContent: string | null }) {
+    const text = this.outerHTML ?? `${this.nodeName} ${JSON.stringify(this.textContent ?? "")}`;
+    return text.length > MAX_PRINTED ? `${text.slice(0, MAX_PRINTED)}... (${text.length} characters)` : text;
+  };
+}
+
 export function installDom(): Window {
   if (installed !== null) {
     return installed;
@@ -46,6 +63,7 @@ export function installDom(): Window {
       value: typeof value === "function" && /^[a-z]/.test(name) ? (value as () => unknown).bind(window) : value,
     });
   }
+  printNodesAsMarkup(window);
   installed = window;
   return window;
 }

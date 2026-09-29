@@ -169,7 +169,8 @@ describe("a radio with no module bound", () => {
   const NO_BLE = { code: "E_STATE", message: "this instance has no bound BLE module, so it has no virtual central" };
 
   test("the BLE card shows it as its state, and the raw refusal goes to the log", async () => {
-    const { page, mount } = mountPage({ search: "?mode=advanced", refuse: { ble_scan: NO_BLE } });
+    const refuse: Record<string, { code: string; message: string }> = { ble_scan: NO_BLE };
+    const { page, mount } = mountPage({ search: "?mode=advanced", refuse });
     page.ready("demo");
     await settle();
     const card = mount.querySelector("[data-card=ble]") as HTMLElement;
@@ -182,7 +183,9 @@ describe("a radio with no module bound", () => {
     const steps = [...mount.querySelectorAll(".console .log-page")].map((line) => line.textContent ?? "");
     expect(steps.at(-1)).toContain("ble_scan was refused: E_STATE: this instance has no bound BLE module");
 
-    // Another machine may bind one: what the card learned was about the last.
+    // Another machine may bind one: what the card learned was about the last. The card reads the
+    // radio again for the new machine, so this one must answer rather than refuse.
+    delete refuse.ble_scan;
     page.ready();
     await settle();
     expect(card.querySelector("[data-radio-unbound]")).toBeNull();
