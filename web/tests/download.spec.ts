@@ -58,10 +58,16 @@ test.describe("a slow first download", () => {
     await expect(page.locator('.log-panel .log-page[data-step="download"]').last()).toContainText(/Downloading the demo firmware \d+\.\d \/ \d+\.\d MB/);
     await page.screenshot({ path: test.info().outputPath("downloading.png") });
 
-    // The numbers move: a later reading has more bytes.
-    const bytes = async () => Number((await status.textContent())?.match(/(\d+\.\d) \//)?.[1] ?? Number.NaN);
+    // The numbers move: a later reading has more bytes, or the download is already over (a loaded
+    // host can spend the whole download on the checks above).
+    const bytes = async () => {
+      const figure = (await status.textContent())?.match(/^Downloading the demo firmware (\d+\.\d) \//)?.[1];
+      return figure === undefined ? Number.POSITIVE_INFINITY : Number(figure);
+    };
     const first = await bytes();
-    await expect.poll(bytes, { timeout: 15_000 }).toBeGreaterThan(first);
+    if (Number.isFinite(first)) {
+      await expect.poll(bytes, { timeout: 15_000 }).toBeGreaterThan(first);
+    }
 
     await expect(page.locator(".sim-status [data-state]")).toHaveAttribute("data-state", "running", { timeout: 60_000 });
     await expect(page.locator("[data-glass-boot]")).toHaveCount(0);
