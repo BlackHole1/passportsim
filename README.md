@@ -1,6 +1,11 @@
 <div align="center">
 
-# PassportSim
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/logo-full-dark.svg">
+    <img src="docs/images/logo-full.svg" alt="PassportSim" height="72">
+  </picture>
+</h1>
 
 **Develop and debug FoloToy AI Passport firmware without the device.**<br>
 Run unmodified ESP-IDF firmware in your browser or on your desktop.

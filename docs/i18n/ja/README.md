@@ -1,6 +1,11 @@
 <div align="center">
 
-# PassportSim
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../../images/logo-full-dark.svg">
+    <img src="../../images/logo-full.svg" alt="PassportSim" height="72">
+  </picture>
+</h1>
 
 **実機なしで FoloToy AI Passport のファームウェアを開発・デバッグ。**<br>
 改変していない ESP-IDF ファームウェアを、ブラウザやデスクトップでそのまま動かせます。

@@ -1,6 +1,11 @@
 <div align="center">
 
-# PassportSim
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../../images/logo-full-dark.svg">
+    <img src="../../images/logo-full.svg" alt="PassportSim" height="72">
+  </picture>
+</h1>
 
 **Développez et déboguez le firmware du FoloToy AI Passport sans l'appareil.**<br>
 Exécutez un firmware ESP-IDF non modifié dans votre navigateur ou sur votre ordinateur.
