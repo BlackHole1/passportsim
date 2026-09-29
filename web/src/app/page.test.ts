@@ -4,7 +4,7 @@
 import { describe, expect, test } from "bun:test";
 import { EventKind } from "../worker/layout";
 import { createPage, sessionStart, type Page } from "./page";
-import { installDom, settle } from "./view/testDom";
+import { installDom, settle, settleUntil } from "./view/testDom";
 
 const window = installDom();
 const document = window.document as unknown as Document;
@@ -410,9 +410,9 @@ describe("the NFC card", () => {
   test("once locked, the editor stops offering writes the tag can no longer take", async () => {
     const app = mountPage();
     query(app.mount, '[data-action="ndef-add"]').click();
-    await settle();
+    await settleUntil(() => app.mount.querySelectorAll(".ndef-list li").length === 1);
     buttonNamed(app.mount, "Lock tag").click();
-    await settle();
+    await settleUntil(() => (query(app.mount, '[data-action="ndef-add"]') as HTMLButtonElement).disabled);
 
     expect((query(app.mount, '[data-action="ndef-add"]') as HTMLButtonElement).disabled).toBe(true);
     expect(buttonNamed(query(app.mount, ".ndef-list"), "remove").disabled).toBe(true);
