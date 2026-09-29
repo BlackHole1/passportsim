@@ -609,7 +609,8 @@ mod tests {
     ///   Ctrl-Break, reporting whether each reached the flag.
     /// - `close`: alone in its own console with a window, installs the handler, posts `WM_CLOSE`
     ///   to that window, reports whether the close reached the flag, and exits after a second of
-    ///   "flush" while the handler holds.
+    ///   "flush" while the handler holds. A window that is not a classic console window is
+    ///   reported as `window-class <name>` instead, and nothing is posted.
     /// - `job <breakaway-ok|no-breakaway>`: joins a kill-on-close job, spawns a detached `append`,
     ///   reports whether that child is in the job, and exits, which closes the job.
     #[test]
@@ -670,12 +671,20 @@ mod tests {
             Some("close") => {
                 use windows_sys::Win32::System::Console::GetConsoleWindow;
                 use windows_sys::Win32::UI::WindowsAndMessaging::{
-                    PostMessageW, SW_HIDE, ShowWindow, WM_CLOSE,
+                    GetClassNameW, PostMessageW, SW_HIDE, ShowWindow, WM_CLOSE,
                 };
                 let flag = Windows.install_shutdown().expect("a console of its own");
                 // SAFETY: no arguments; null when the console has no window.
                 let window = unsafe { GetConsoleWindow() };
                 assert!(!window.is_null(), "a console created with a window");
+                let mut class = [0u16; 256];
+                // SAFETY: the same window, and a buffer of the length passed.
+                let len = unsafe { GetClassNameW(window, class.as_mut_ptr(), class.len() as i32) };
+                let class = String::from_utf16_lossy(&class[..len.max(0) as usize]);
+                if class != CONSOLE_WINDOW_CLASS {
+                    append(&report, &format!("window-class {class}"));
+                    return;
+                }
                 // SAFETY: the window of this process's own console; hiding it first keeps a run
                 // on an interactive desktop to a flash.
                 unsafe { ShowWindow(window, SW_HIDE) };
@@ -1036,20 +1045,38 @@ mod tests {
         std::fs::remove_dir_all(&dir).ok();
     }
 
+    /// The window class of a console that conhost draws itself.
+    const CONSOLE_WINDOW_CLASS: &str = "ConsoleWindowClass";
+
     /// The helper gets its own console with a window (`CREATE_NEW_CONSOLE`; a `CREATE_NO_WINDOW`
     /// console has none to close) and posts `WM_CLOSE` to it, which sends `CTRL_CLOSE_EVENT` to
     /// the helper alone. Without the hold the system would end it before `flushed`.
+    ///
+    /// Skips when the new console is not a classic console window. In an interactive session
+    /// whose default terminal is Windows Terminal (the Windows 11 default), the new console is
+    /// handed to the terminal: conhost runs as a pseudoconsole, and the window `GetConsoleWindow`
+    /// returns is a `PseudoConsoleWindow` that ignores `WM_CLOSE`. There the close event comes
+    /// from the terminal closing the tab, which this test cannot drive.
     #[test]
     fn a_real_console_close_reaches_the_flag_and_leaves_time_to_flush() {
         use windows_sys::Win32::System::Threading::CREATE_NEW_CONSOLE;
+        const TEST: &str = "a_real_console_close_reaches_the_flag_and_leaves_time_to_flush";
         let (dir, report) = scratch_report("win-close");
         let status = run_helper("close", &report, CREATE_NEW_CONSOLE);
         assert!(status.success(), "{status}");
-        assert_eq!(
-            std::fs::read_to_string(&report).expect("report"),
-            "close posted=true caught=true\nflushed\n"
-        );
+        let text = std::fs::read_to_string(&report).expect("report");
         std::fs::remove_dir_all(&dir).ok();
+        if let Some(class) = text.strip_prefix("window-class ") {
+            println!(
+                "SKIP {TEST}: a new console here has a `{}` window, not conhost's own \
+                 `{CONSOLE_WINDOW_CLASS}` (a default terminal such as Windows Terminal hosts it \
+                 as a pseudoconsole), and only conhost's window turns WM_CLOSE into \
+                 CTRL_CLOSE_EVENT",
+                class.trim_end()
+            );
+            return;
+        }
+        assert_eq!(text, "close posted=true caught=true\nflushed\n");
     }
 
     #[test]
