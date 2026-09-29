@@ -1,0 +1,45 @@
+{
+  "additionalProperties": false,
+  "description": "`audio_capture` arguments.",
+  "properties": {
+    "channel": {
+      "description": "Slot to analyze (0).",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "cursor": {
+      "description": "Sample cursor to read from, without running.",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "duration_ms": {
+      "description": "Virtual ms to run and capture (1000).",
+      "maximum": 600000,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "instance": {
+      "description": "Instance id.",
+      "pattern": "^[pb][0-9]+$",
+      "type": "string"
+    },
+    "mode": {
+      "description": "Playback mode (digital).",
+      "enum": [
+        "digital",
+        "analog"
+      ],
+      "type": "string"
+    },
+    "save_as": {
+      "description": "Artifact label.",
+      "pattern": "^[a-z0-9][a-z0-9._-]*$",
+      "type": "string"
+    },
+    "wav": {
+      "description": "Write a WAV (true when the host can).",
+      "type": "boolean"
+    }
+  },
+  "type": "object"
+}

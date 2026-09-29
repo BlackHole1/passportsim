@@ -1,0 +1,15 @@
+# probe_reset overrides on top of probes/common/sdkconfig.defaults.
+#
+# The task watchdog must be present and must panic, because stage 3 of the sequence is a task
+# watchdog panic. The 1 s timeout is set at runtime; this only has to be on.
+CONFIG_ESP_TASK_WDT_INIT=y
+CONFIG_ESP_TASK_WDT_PANIC=y
+
+# The interrupt watchdog is stage 4. 300 ms is the IDF default for this chip; the probe spins for
+# two seconds with interrupts off, so any value under that works.
+CONFIG_ESP_INT_WDT=y
+CONFIG_ESP_INT_WDT_TIMEOUT_MS=300
+
+# Reboot immediately after a panic instead of waiting, and print the register dump: the panic
+# text is itself an oracle artifact.
+CONFIG_ESP_SYSTEM_PANIC_PRINT_REBOOT=y

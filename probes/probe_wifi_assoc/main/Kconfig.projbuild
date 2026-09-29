@@ -1,0 +1,72 @@
+# probe_wifi_assoc settings.
+#
+# **This probe is the one that may carry a credential, and both fields are empty here.** Its
+# sibling `probe_wifi_conn` deliberately has no password option at all, because it associates with
+# nothing, and that property must stay true. This probe is the opposite case: it needs an
+# *associated* station, which no SSID-that-does-not-exist can ever produce, so a real access
+# point is the only class A source for it.
+#
+# **The rule, which the empty defaults enforce rather than merely state.** Nobody commits an SSID
+# or a password to this file, to `sdkconfig.defaults`, or to the source (docs/secrets.md). With
+# both strings empty the probe prints a `NOTE|` and stops **before it touches the radio**, so the
+# committed tree builds a binary that cannot associate with anything and carries no credential.
+# `xtask probes` builds it in that state, which is what CI ever sees.
+#
+# **How a capture supplies them.** The person taking the capture writes a third defaults file
+# outside the checkout and passes it on the `SDKCONFIG_DEFAULTS` list, after this project's own:
+#
+#     idf.py -C $REPO/probes/probe_wifi_assoc -B <build dir outside the repo> \
+#            -DIDF_TARGET=esp32c3 \
+#            -DSDKCONFIG_DEFAULTS="$REPO/probes/common/sdkconfig.defaults;\
+#                                  $REPO/probes/probe_wifi_assoc/sdkconfig.defaults;\
+#                                  <the overlay, outside the repo>" \
+#            -DSDKCONFIG=<build dir>/sdkconfig build
+#
+# Every path is absolute: `SDKCONFIG_DEFAULTS` entries resolve against the *project* directory,
+# not the working directory, so a relative one is looked for under `probes/probe_wifi_assoc/` and
+# the configure step fails. `-DIDF_TARGET` is needed too: the `CONFIG_IDF_TARGET` of
+# `probes/common/sdkconfig.defaults` is read too late to pick the toolchain, and without it the
+# configure looks for `xtensa-esp32-elf-gcc`. `-DSDKCONFIG` keeps the generated `sdkconfig`, which
+# carries the credential in plain text, out of the checkout with the rest of the build.
+#
+# The overlay holds `CONFIG_PROBE_WIFI_ASSOC_SSID` and `CONFIG_PROBE_WIFI_ASSOC_PASSWORD` and is
+# never added, never committed and never copied into the repository. The credential then exists in
+# exactly two places, both outside the checkout: that file, and the app image built from it. The
+# app image is overwritten by the restore that follows every device capture, and with
+# `CONFIG_ESP_WIFI_NVS_ENABLED=n` and `esp_wifi_set_storage(WIFI_STORAGE_RAM)` nothing puts it
+# anywhere else on the part.
+menu "probe_wifi_assoc"
+
+    config PROBE_WIFI_ASSOC_SSID
+        string "Access point SSID (empty in the repository, always)"
+        default ""
+        help
+            The SSID the probe associates with. Empty is the committed value and makes the probe
+            stop before `esp_wifi_init`, so a build from the checkout alone reaches no radio.
+
+    config PROBE_WIFI_ASSOC_PASSWORD
+        string "Access point password (empty in the repository, always)"
+        default ""
+        help
+            Empty means an open access point, which is also what the committed tree builds. A
+            capture against a protected network supplies this through the overlay described at the
+            top of this file; it is never written into the repository.
+
+    config PROBE_WIFI_ASSOC_WAIT_MS
+        int "Milliseconds to wait for the address before giving up"
+        default 30000
+        range 1000 120000
+        help
+            The run is bounded: after this long with no address, the probe prints a `NOTE|` line
+            and goes on to its teardown, so a device run always ends.
+
+    config PROBE_WIFI_ASSOC_STOP_WHILE_ASSOCIATED
+        bool "Stop the driver while still associated, without esp_wifi_disconnect first"
+        default n
+        help
+            The teardown normally disconnects before it stops, so the capture never
+            showed what `esp_wifi_stop` of an associated station posts. With this set the probe
+            skips `esp_wifi_disconnect` and stops directly, and the console shows which events,
+            with which reason, arrive before `esp_wifi_stop` returns and after it.
+
+endmenu

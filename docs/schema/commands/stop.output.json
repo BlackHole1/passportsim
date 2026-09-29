@@ -1,0 +1,20 @@
+{
+  "properties": {
+    "final_vt_us": {
+      "type": "integer"
+    },
+    "insns": {
+      "type": "integer"
+    },
+    "instance": {
+      "type": "string"
+    },
+    "keep_artifacts": {
+      "type": "boolean"
+    },
+    "state": {
+      "type": "string"
+    }
+  },
+  "type": "object"
+}

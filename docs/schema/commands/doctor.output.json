@@ -1,0 +1,78 @@
+{
+  "description": "What `doctor` found, with a `found`, `missing` or `mismatched` status per asset. No file contents.",
+  "properties": {
+    "bundled_roms": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "config_file": {
+      "type": "string"
+    },
+    "corpus": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "corpus_file": {
+      "type": "string"
+    },
+    "demo": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "esp_rom_elfs": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "host": {
+      "description": "Host triple, OS, directory roles.",
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "ok": {
+      "description": "False when a failure rule fired.",
+      "type": "boolean"
+    },
+    "problems": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "rom_override": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "summary": {
+      "description": "Counts per status.",
+      "type": "object"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "ok",
+    "bundled_roms",
+    "rom_override",
+    "corpus",
+    "warnings",
+    "problems",
+    "summary"
+  ],
+  "type": "object"
+}

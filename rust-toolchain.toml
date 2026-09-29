@@ -1,0 +1,12 @@
+[toolchain]
+channel = "1.93.0"
+components = ["rustfmt", "clippy"]
+# The Windows msvc targets are for the `w0-*` steps of T0, which cross-check Windows from macOS:
+# about 110 MB of rust-std each, fetched once by rustup, so `cargo xtask ci` never runs
+# `rustup target add` and local CI stays network-free.
+targets = [
+  "aarch64-apple-darwin",
+  "wasm32-unknown-unknown",
+  "x86_64-pc-windows-msvc",
+  "aarch64-pc-windows-msvc",
+]

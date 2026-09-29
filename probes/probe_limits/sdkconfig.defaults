@@ -1,0 +1,5 @@
+# probe_limits overrides on top of probes/common/sdkconfig.defaults.
+#
+# Nothing beyond the shared defaults. In particular CONFIG_HEAP_ABORT_WHEN_ALLOCATION_FAILS stays
+# at its default (off): this probe allocates until an allocation fails, on purpose, and needs the
+# failure returned as NULL rather than turned into an abort.

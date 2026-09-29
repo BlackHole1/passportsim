@@ -1,0 +1,45 @@
+{
+  "properties": {
+    "compare": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "frame_gen": {
+      "type": "integer"
+    },
+    "h": {
+      "type": "integer"
+    },
+    "instance": {
+      "type": "string"
+    },
+    "panel": {
+      "type": "object"
+    },
+    "path": {
+      "type": "string"
+    },
+    "pixels_sha256": {
+      "type": "string"
+    },
+    "result": {
+      "enum": [
+        "pass",
+        "fail"
+      ],
+      "type": "string"
+    },
+    "sha256": {
+      "type": "string"
+    },
+    "view": {
+      "type": "string"
+    },
+    "w": {
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}

@@ -1,0 +1,28 @@
+# Every `env` input is journaled, and replaying the journal gives an equal digest. The scenario
+# drives one of each kind: battery, USB cable, USB client, NFC card and microphone source.
+schema: passportsim/scenario@1
+name: env-journal
+description: Every environment input this build models, applied once and journaled
+image: official
+tags: [t1, m7, env]
+setup: {power: on}
+defaults: {timeout: 2s}
+steps:
+  - name: the cell reads 3900 mV at 80 percent
+    env: {battery: {mv: 3900, soc: 80}}
+  - name: the cable comes out, which is U0 DETACHED
+    env: {usb: unplugged}
+  - name: a charger goes back in, so VBUS is there and nothing enumerates
+    env: {usb: charger}
+  - name: a host enumerates it but holds no port open, which is U2 ATTACHED_IDLE
+    env: {usb: host}
+  - name: a client opens the console, which is U3 ATTACHED_OPEN
+    env: {usb: open}
+  - name: a card enters the reader field
+    env: {nfc: {card_present: true}}
+  - name: the microphone plays a tone instead of a capture
+    env: {mic: {kind: tone, hz: 440, amplitude: 16384}}
+  - name: the card leaves the field
+    env: {nfc: {card_present: false}}
+  - name: the run reaches the journal instants, which is where they are consumed
+    delay: 10ms

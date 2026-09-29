@@ -1,0 +1,17 @@
+{
+  "properties": {
+    "artifacts_root": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "instances": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "type": "object"
+}

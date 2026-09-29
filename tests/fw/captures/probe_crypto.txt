@@ -1,0 +1,66 @@
+ESP-ROM:esp32c3-eco7-20230720
+Build:Jul 20 2023
+rst:0x1 (POWERON),boot:0xa (SPI_FAST_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5830,len:0x1564
+load:0x403cbf10,len:0xc20
+load:0x403ce710,len:0x2ff8
+entry 0x403cbf1a
+I (0) boot: ESP-IDF v5.5.3 2nd stage bootloader
+I (0) boot: chip revision: v1.1
+I (0) boot: efuse block revision: v1.3
+I (0) boot.esp32c3: SPI Speed      : 80MHz
+I (0) boot.esp32c3: SPI Mode       : SLOW READ
+I (0) boot.esp32c3: SPI Flash Size : 8MB
+I (0) boot: Enabling RNG early entropy source...
+I (0) boot: Partition Table:
+I (0) boot: ## Label            Usage          Type ST Offset   Length
+I (0) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+I (0) boot:  1 phy_init         RF data          01 01 0000f000 00001000
+I (0) boot:  2 factory          factory app      00 00 00010000 00300000
+I (0) boot:  3 cardid           WiFi data        01 02 00356000 00004000
+I (0) boot: End of partition table
+I (0) esp_image: segment 0: paddr=00010020 vaddr=3c020020 size=098b0h ( 39088) map
+I (1) esp_image: segment 1: paddr=000198d8 vaddr=3fc8b800 size=01734h (  5940) load
+I (1) esp_image: segment 2: paddr=0001b014 vaddr=40380000 size=05004h ( 20484) load
+I (1) esp_image: segment 3: paddr=00020020 vaddr=42000020 size=1c958h (117080) map
+I (2) esp_image: segment 4: paddr=0003c980 vaddr=40385004 size=067b4h ( 26548) load
+I (3) esp_image: segment 5: paddr=0004313c vaddr=50000000 size=00020h (    32) load
+I (3) boot: Loaded app from partition at offset 0x10000
+I (3) boot: Disabling RNG early entropy source...
+I (3) cpu_start: Unicore app
+I (11) cpu_start: Pro cpu start user code
+I (11) cpu_start: cpu freq: 160000000 Hz
+I (11) app_init: Application information:
+I (11) app_init: Project name:     probe_crypto
+I (11) app_init: App version:      probe
+I (11) app_init: ELF file SHA256:  9b7889032...
+I (11) app_init: ESP-IDF:          v5.5.3
+I (11) efuse_init: Min chip rev:     v0.3
+I (11) efuse_init: Max chip rev:     v1.99 
+I (11) efuse_init: Chip rev:         v1.1
+I (11) heap_init: Initializing. RAM available for dynamic allocation:
+I (11) heap_init: At 3FC8DEA0 len 00032160 (200 KiB): RAM
+I (11) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM
+I (11) heap_init: At 3FCDC710 len 0000294C (10 KiB): Retention RAM
+I (11) heap_init: At 50000020 len 00001FC8 (7 KiB): RTCRAM
+I (11) spi_flash: detected chip: gd
+I (11) spi_flash: flash io: dio
+I (11) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (11) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (11) main_task: Started on CPU0
+I (11) main_task: Calling app_main()
+PROBE|name=probe_crypto|schema=passport-emu/probe-line/1
+AES|aes_cbc128|rc=0|len=4096|fnv=548ad1731c134884|head=ba5c291702e87d24dd24342d48352132|tail=3781eb373045aadc5b01078b714b80c9|iv=3781eb373045aadc5b01078b714b80c9|dec_rc=0|dec_ok=1
+AES|aes_cbc256|rc=0|len=4096|fnv=e57ac4552f7a5686|head=5b65cf15fcd117e979741f6d8cf38ac9|tail=65749169ba3f026d4d099ba2866d027b|iv=65749169ba3f026d4d099ba2866d027b|dec_rc=0|dec_ok=1
+AES|aes_ctr128|rc=0|len=4101|fnv=3b03c716f86270c1|head=ad01bb556da7f1ec83d51667f4c52755|tail=1cb41b1ebb1a77b68a63537c5bc8bbbb|nc_off=5|nonce=8f2da901e32f03a71cfd1a9d40949b96|stream=7c5bc8bbbbce11ed1bbc0b9a1eacaf91
+AES|aes_ctr128_split|rc=0|len=4101|fnv=3b03c716f86270c1|same=1
+AES|aes_gcm128|rc=0|len=4096|fnv=00fc7371a4edf4ba|head=6e3d5aacb9628ed73c9c2e83d813e3ab|tail=57c6495f3827ef649fb1541c964a2cb0|tag=82d72d88d22d9f40b5540d1fb53146f0|dec_rc=0|dec_ok=1
+RSA|rsa_pub2048|rc=0|fnv=658ee505072456a9|head=360a61166fca9926db0411c2a8203907|tail=2ad82dc903500dbb32c0f4804dc39c8a
+MPI|mpi_mul1024|rc=0|fnv=b74707623b692cd1|head=97ccfd3e66ffbf7573a9b036268fc7c4|tail=a1cb445d531390824d6ffc7db7ad927c
+MPI|mpi_mul1536|rc=0|fnv=1b768b880f94eb80|head=12aca1cf7338120ef8607c3388061e5c|tail=f0144244b96191761db2ef9da7a1051a
+MPI|mpi_mul2048x1024|rc=0|fnv=78149654ffed5f58|head=1032460c7cdb8492f456d102a2f3dee3|tail=19a0b061425029c80dff180daf635e70
+MPI|mpi_exp2048|rc=0|fnv=1ec85460676e2f52|head=2c4c01fa911ac7afb8552e3b5b5ec6f1|tail=2fffebbdab17b272db86b6a69edd0e3d
+DONE|name=probe_crypto|status=ok
+I (11) main_task: Returned from app_main()

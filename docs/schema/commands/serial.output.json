@@ -1,0 +1,38 @@
+{
+  "properties": {
+    "bytes": {
+      "type": "integer"
+    },
+    "cursor": {
+      "type": "integer"
+    },
+    "held_bytes": {
+      "type": "integer"
+    },
+    "host_port": {
+      "type": "string"
+    },
+    "instance": {
+      "type": "string"
+    },
+    "next_cursor": {
+      "type": "integer"
+    },
+    "op": {
+      "type": "string"
+    },
+    "serial": {
+      "type": "object"
+    },
+    "stream": {
+      "type": "string"
+    },
+    "vt_us": {
+      "type": "integer"
+    },
+    "written_bytes": {
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}

@@ -1,0 +1,1059 @@
+# The fail-closed BLE binding profile for IDF 5.5.3.
+#
+# `pemu-radio` compiles this file in with `include_str!` (`crates/pemu-radio/src/ble/profile.rs`),
+# so no core crate reads a file. The parser refuses an unknown table, a hook without a section or
+# without a variant, and a variant without a size or a 64-digit hash: a row that silently parsed
+# empty would bind by guessing, and binding never guesses.
+#
+# ## Hooks
+#
+# The 7 VHCI functions of `bt/controller/esp32c3/bt.c` are replaced whole. For each one binding
+# checks presence, section, size and the SHA-256 of the skeleton of its first 32 code bytes.
+# `handler` is the `HandlerKind` number the module's hook carries.
+#
+# The functions are open-source `bt.c`, compiled into each app, so their bytes differ from build
+# to build: symbols move, so every `lui`, `auipc`, jump, branch, load and store immediate is
+# relocated per image. The hash is therefore taken over the relocation-masked instruction skeleton
+# of the first 32 code bytes: opcode, `rd`, `rs1`, `rs2` and `funct` kept, those immediates zeroed,
+# compressed instructions alike. Two relinks of one shape give one hash; a different instruction
+# does not.
+#
+# The skeleton still differs by sdkconfig: the load of `btdm_controller_status` is a `gp`-relative
+# `lw` in one build and `lui` plus `lw` in another. Each `[[variant]]` under a `[[hook]]` is one
+# accepted (size, skeleton hash) shape, with the corpus builds it was measured on (`builds`,
+# informative only). A symbol matches when some variant matches both, and the size stays exact.
+# Binding also requires the app descriptor's `idf_ver` to be `v` plus `[profile] idf`.
+#
+# `log_lines = "verified"` on a variant of `esp_bt_controller_init` says the sdkconfig-dependent
+# lines of `log-lines.toml` (`config = "pk"`) were checked against a device boot log of a build of
+# that shape: only `pk`'s. `pkgatt` is a GATT probe that links the same `bt.c` shape; its own boot
+# log was not compared, so for it the flag is UNVERIFIED. An image none of them match is
+# `unsupported image`; extending this list is how a new shape is admitted.
+#
+# The hashes were computed over the ELF section bytes at each symbol address of the corpus ELFs,
+# and the machine checks them against the boot app's flash segments, which hold the same bytes
+# (`crates/pemu-machine/src/hle.rs`).
+
+[profile]
+idf = "5.5.3"
+module = "ble"
+
+[[hook]]
+name = "esp_bt_controller_init"
+handler = 0
+section = ".flash.text"
+
+[[variant]]
+builds = "pk,pkgatt"
+size = 664
+log_lines = "verified"
+code_sha256 = "8bd3f0d09bdb3b4ce0f577c0efb653f4c18d691c9904944db5387e0e88d97f37"
+
+[[variant]]
+builds = "official"
+size = 680
+code_sha256 = "bdeb7b9fed5c196d8af18cd2322a015f73b3819c756afc7a7f74eee947a06923"
+
+[[variant]]
+builds = "probe2,scan3"
+size = 676
+code_sha256 = "bdeb7b9fed5c196d8af18cd2322a015f73b3819c756afc7a7f74eee947a06923"
+
+[[hook]]
+name = "esp_bt_controller_deinit"
+handler = 1
+section = ".flash.text"
+
+[[variant]]
+builds = "pk,pkgatt"
+size = 60
+code_sha256 = "3b6ecb33616e754ca51672a5bdc64310f6bebbf6ae66610041f32593409414a2"
+
+[[variant]]
+builds = "official,probe2,scan3"
+size = 64
+code_sha256 = "a68f33a4d643a7102a50ce7c74d6f3e77478585fa5da701471a8cf11fbf5f464"
+
+[[hook]]
+name = "esp_bt_controller_enable"
+handler = 2
+section = ".flash.text"
+
+[[variant]]
+builds = "pk,pkgatt"
+size = 212
+code_sha256 = "e9254b36bb840d1e6138a557f84faea6885c2c044a9fba39fdd5896d83828a74"
+
+[[variant]]
+builds = "official,probe2,scan3"
+size = 236
+code_sha256 = "45cb47525505e716df9e32dd4aa50e2b052a090f311f8f9cb3d8f206270ab215"
+
+[[hook]]
+name = "esp_bt_controller_disable"
+handler = 3
+section = ".flash.text"
+
+[[variant]]
+builds = "pk,pkgatt"
+size = 86
+code_sha256 = "ab2a55730dea790220b42c964372189cb16c1e8099fa6f5e0696cc7005440093"
+
+[[variant]]
+builds = "official,probe2,scan3"
+size = 102
+code_sha256 = "f92fe3f59d462888e84725b45d512a8d14b6cf52059e57c8739e217d55ddd8c4"
+
+[[hook]]
+name = "esp_vhci_host_check_send_available"
+handler = 4
+section = ".flash.text"
+
+[[variant]]
+builds = "pk,pkgatt"
+size = 28
+code_sha256 = "bd84139199fc6438a39e70fe847cbfce8c65274efd72cbcff54303b4b6af4d5f"
+
+[[variant]]
+builds = "official,probe2,scan3"
+size = 32
+code_sha256 = "5f7ee4ea4289c674a61b0b947322e39ebbaf99772a0e54e7efe932420a63d47b"
+
+[[hook]]
+name = "esp_vhci_host_send_packet"
+handler = 5
+section = ".flash.text"
+
+[[variant]]
+builds = "pk,pkgatt"
+size = 54
+code_sha256 = "dadf613bc849da716d85f47931011d3dcb6f61a56cc7f91e4717488be1433a0b"
+
+[[variant]]
+builds = "official,probe2,scan3"
+size = 58
+code_sha256 = "dad5a0613f9c064071f1a318cec7df991bb270945eb8ef5144f66ee95ffba8a4"
+
+[[hook]]
+name = "esp_vhci_host_register_callback"
+handler = 6
+section = ".flash.text"
+
+[[variant]]
+builds = "pk,pkgatt"
+size = 34
+code_sha256 = "b77c8e7f4659a9f24f5c84bef4c5397c9c0aeb8a92ce8c15a825c9e0e3352b2a"
+
+[[variant]]
+builds = "official,probe2,scan3"
+size = 38
+code_sha256 = "ed12d54440f0b00fffd6d9f64323b76d9c16c78cd740734495471e63b14ffdad"
+
+# ## Nested-call targets
+#
+# Resolved by name, never hooked. Each is required: an image that links the BLE controller but not
+# one of these cannot run the handlers, so the whole feature is `unsupported image` rather than a
+# handler failing at run time. `xQueueGiveFromISR` and `vPortYieldFromISR` are the U4 magic ISR's
+# calls, so binding checks that both are linked. `esp_log` and `esp_log_timestamp` synthesize the
+# log lines, `esp_read_mac` gives the `Bluetooth MAC` line its address, `esp_intr_alloc` routes the
+# radio source to the magic ISR in U4 and `esp_intr_free` releases it at
+# deinit.
+[[call]]
+name = "xTaskCreatePinnedToCore"
+
+[[call]]
+name = "xQueueGenericCreate"
+
+[[call]]
+name = "xQueueSemaphoreTake"
+
+[[call]]
+name = "xQueueGiveFromISR"
+
+[[call]]
+name = "vPortYieldFromISR"
+
+[[call]]
+name = "vTaskDelete"
+
+[[call]]
+name = "vQueueDelete"
+
+[[call]]
+name = "esp_log"
+
+[[call]]
+name = "esp_log_timestamp"
+
+[[call]]
+name = "esp_read_mac"
+
+[[call]]
+name = "esp_intr_alloc"
+
+[[call]]
+name = "esp_intr_free"
+
+# `heap_caps_malloc` and `heap_caps_free` hold the heap ledger's blocks (the `[[heap]]` table
+# below). They are the image's own allocator, so a ledger block is an ordinary guest heap block
+# that `inspect heap` walks and that fragments the heap like any other.
+# Every corpus image links both.
+[[call]]
+name = "heap_caps_malloc"
+
+[[call]]
+name = "heap_caps_free"
+
+# ## Data symbols
+#
+# `btdm_controller_status` is the static state variable of `bt.c` (a local symbol). The handlers
+# keep it written as the real functions do, so the real `esp_bt_controller_get_status` and
+# `esp_bt_controller_mem_release`, which stay guest code, agree with the HLE.
+
+[[data]]
+name = "btdm_controller_status"
+size = 4
+
+# ## The `btController` worker
+#
+# Priority 23 (`configMAX_PRIORITIES - 2`) and a 4,096 B stack are the checks `bt.c` makes on the
+# controller config; the task itself takes the priority, stack and core the config carries.
+# `poll_ticks` is a 20 ms poll at the 1 kHz FreeRTOS tick of these images.
+#
+# `max_scratch` is the largest scratch block a nested call from the worker task may use: the
+# worker passes each H4 packet to `notify_host_recv` in scratch, at most 259 bytes (UNVERIFIED:
+# no public source states the bound), padded to a whole word, 260. 264 leaves one spare word.
+# Handlers entered at a hook keep the core's 128 B guard.
+#
+# `isr_source` is the interrupt-matrix source `esp_bt_controller_init` allocates, number 8,
+# `ETS_RWBLE_INTR_SOURCE` of `soc/esp32c3/include/soc/interrupts.h`. Class A: the campaign capture
+# `device-probe_campaign_radio-20260924T155729Z-run1.log` L64 (after init) and L68 (after enable),
+# run2 the same lines, reads the interrupt-matrix map of the seven BT sources and finds RWBLE
+# routed to CPU line 8 and the other six (BT_MAC, BT_BB, BT_BB_NMI, RWBT, RWBT_NMI, RWBLE_NMI) at 0;
+# L57 shows all seven at 0 before init. The init allocates it in both wake modes, as the blob
+# does, at `bt.c`'s `ESP_INTR_FLAG_LEVEL3` through the guest's own `esp_intr_alloc`, which picks
+# the same CPU line 8; the magic ISR it installs only runs under U4, and the handle is freed at
+# deinit (the vector descriptor stays, as `esp_intr_free` leaves it in IDF v5.5.3 `intr_alloc.c`).
+
+[worker]
+task_name = "btController"
+priority = 23
+min_stack = 4096
+poll_ticks = 20
+max_scratch = 264
+isr_source = 8
+
+# ## The heap ledger
+#
+# The guest-heap blocks the replaced controller blob would have held. The module allocates the
+# rows with nested `heap_caps_malloc` calls into the image's own allocator and frees them newest
+# first, each row by its `lifetime` (`crates/pemu-radio/src/heap_ledger.rs`,
+# `crates/pemu-radio/src/ble/vhci.rs`): `init` (the default) from `esp_bt_controller_init` to
+# `esp_bt_controller_deinit`, `enable` from `esp_bt_controller_enable` to
+# `esp_bt_controller_disable`, and `boot` from the first init to the end of the boot, never freed
+# (a later init does not take it again). A refused block fails its call with `ESP_ERR_NO_MEM`, as a
+# device too tight for the controller does.
+#
+# **The totals are measured, the split is not.** The campaign capture
+# `device-probe_campaign_radio-20260924T155729Z-run1.log` (run2 the same values) reads
+# `heap_caps_get_free_size(MALLOC_CAP_INTERNAL)` and the largest free block on silicon around
+# each call (L56, L63, L67, L72, L74): the init takes 33196 bytes, the enable 36 more, the disable
+# gives those 36 back, and 308 stay held after deinit. The rows marked `count_class = "measured"`
+# (class B) are what those totals leave once the rows below and the emulator's own real
+# allocations (the worker task and semaphore, the interrupt allocation) are taken out, each cited
+# with its arithmetic; the free heap and the largest block then equal the capture at every stage.
+# How the blob splits a total into blocks is not in the capture, so a measured row is the fewest
+# blocks the allocator can take its total in. The seven named rows keep their bound:
+#
+# - `count` is a capacity the device itself reported (`count_class = "capture"`, class A, the same
+#   `device-probe_vhci-20260917T140513Z` capture `[controller]` above comes from, and every such
+#   row repeats a field of `[controller]`, which a unit test of `profile.rs` re-checks) or a value
+#   of one build's sdkconfig (`count_class = "sdkconfig"`, class C);
+# - `element` is the number of octets the Bluetooth Core 5.4 specification says one such element
+#   carries, named in `element_source`. The controller must store at least those octets or it
+#   could not answer for the capacity it advertises, which is what makes the total a bound rather
+#   than a guess.
+#
+# The named rows alone are a lower bound (per-element bookkeeping, alignment, the controller's task
+# and queue structures and the PHY calibration data are absent from them); the measured rows carry
+# the rest. The receipt keeps `heap_fidelity: blob_allocations_estimated`, because the per-block
+# split stays an estimate, and `inspect heap` labels each block with its row and class. **What
+# would settle the split:** a capture of the blob's own `heap_caps_malloc` calls (size and caller
+# per call) during init and enable.
+#
+# `config = "pk"` marks a row whose `count` is the `pk` build's sdkconfig value
+# (`builds/passport-keys/sdkconfig`). Like the `config = "pk"` lines of `log-lines.toml`, such a
+# row is allocated only for an image whose bound `esp_bt_controller_init` matched a variant marked
+# `log_lines = "verified"`, the one shape whose sdkconfig was read. Another image gets the
+# capture-derived rows only, and its ledger is a smaller bound.
+#
+# `caps` is not a per-row field: every block is `MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT`, because a
+# controller buffer is touched from an interrupt and the ESP32-C3 has no external RAM.
+
+[[heap]]
+label = "acl_rx"
+count = 12
+count_class = "capture"
+count_source = "Total_Num_LE_ACL_Data_Packets of HCI_LE_Read_Buffer_Size [v1] ([controller] acl_count)"
+element = 255
+element_source = "LE_ACL_Data_Packet_Length 251 plus the 4-octet HCI ACL Data packet header, Core Vol 4 Part E 5.4.2"
+
+[[heap]]
+label = "adv_data"
+count = 6
+count_class = "capture"
+count_source = "Num_Supported_Advertising_Sets of HCI_LE_Read_Number_of_Supported_Advertising_Sets ([controller] adv_sets)"
+element = 62
+element_source = "one legacy advertising set: 31 octets of Advertising_Data plus 31 of Scan_Response_Data, Core Vol 4 Part E 7.8.7 and 7.8.8"
+
+[[heap]]
+label = "accept_list"
+count = 12
+count_class = "capture"
+count_source = "Filter_Accept_List_Size of HCI_LE_Read_Filter_Accept_List_Size ([controller] accept_list_size)"
+element = 7
+element_source = "one entry: Address_Type 1 plus Address 6, Core Vol 4 Part E 7.8.16"
+
+[[heap]]
+label = "resolving_list"
+count = 10
+count_class = "capture"
+count_source = "Resolving_List_Size of HCI_LE_Read_Resolving_List_Size ([controller] resolving_list_size)"
+element = 40
+element_source = "one entry: Peer_Identity_Address_Type 1, Peer_Identity_Address 6, Peer_IRK 16, Local_IRK 16 and Privacy_Mode 1, Core Vol 4 Part E 7.8.38 and 7.8.77"
+
+[[heap]]
+label = "link_env"
+count = 6
+count_class = "sdkconfig"
+config = "pk"
+count_source = "CONFIG_BT_CTRL_BLE_MAX_ACT_EFF of builds/passport-keys/sdkconfig, the number of controller activities, taken to size the link environment"
+element = 34
+element_source = "the CONNECT_IND payload that defines one link: InitA 6, AdvA 6, AA 4, CRCInit 3, WinSize 1, WinOffset 2, Interval 2, Latency 2, Timeout 2, ChM 5, Hop and SCA 1, Core Vol 6 Part B 2.3.3.1"
+
+[[heap]]
+label = "scan_dupl"
+count = 100
+count_class = "sdkconfig"
+config = "pk"
+count_source = "CONFIG_BT_CTRL_SCAN_DUPL_CACHE_SIZE of builds/passport-keys/sdkconfig, with CONFIG_BT_CTRL_BLE_SCAN_DUPL=y"
+element = 7
+element_source = "one cache entry keyed on the advertiser: AdvA 6 plus TxAdd 1, Core Vol 6 Part B 2.3.1.1"
+
+[[heap]]
+label = "adv_dup_filt"
+count = 30
+count_class = "sdkconfig"
+config = "pk"
+count_source = "CONFIG_BT_CTRL_ADV_DUP_FILT_MAX of builds/passport-keys/sdkconfig"
+element = 7
+element_source = "one filter entry keyed on the advertiser: AdvA 6 plus TxAdd 1, Core Vol 6 Part B 2.3.1.1"
+
+[[heap]]
+label = "blob_init"
+count = 1
+count_class = "measured"
+config = "pk"
+count_source = "the part of the init total the rows above do not name; the capture does not split it, so it is the fewest blocks the allocator can take it in (element_source)"
+element = 22528
+element_source = "device-probe_campaign_radio-20260924T155729Z-run1.log L56 and L63 (run2 the same lines and values): free 292284 before init, 259088 after, 33196 taken; the emulator takes 9684 for real (worker task and semaphore, the interrupt allocation, the seven rows above) and the two blob_retained rows 192, leaving 23320. A block costs its request plus a 4-byte header, the request rounded up to 4 and, from 64 bytes, to a sixteenth of its power of two (IDF v5.5.3 TLSF mapping_search, 16 second-level lists for a heap of up to 256 KB), and no two costs sum to 23320, so three: this block (22532), blob_init_2 (676) and blob_init_3 (112)"
+
+[[heap]]
+label = "blob_init_2"
+count = 1
+count_class = "measured"
+config = "pk"
+count_source = "the second of the three blob_init blocks"
+element = 672
+element_source = "as blob_init: a 672-byte request, 676 with its header"
+
+[[heap]]
+label = "blob_init_3"
+count = 1
+count_class = "measured"
+config = "pk"
+count_source = "the third of the three blob_init blocks"
+element = 108
+element_source = "as blob_init: a 108-byte request, 112 with its header; 22532 + 676 + 112 = 23320"
+
+[[heap]]
+label = "blob_retained"
+count = 1
+count_class = "measured"
+config = "pk"
+lifetime = "boot"
+count_source = "the part of what stays held after deinit the interrupt allocator does not explain; at least two blocks (element_source)"
+element = 88
+element_source = "device-probe_campaign_radio-20260924T155729Z-run1.log L56 and L74 (run2 the same): free 292284 before init, 291976 after deinit, 308 held; the probe's own VHCI semaphore takes 96 and the interrupt allocator's vector descriptor, which esp_intr_free never frees (IDF v5.5.3 intr_alloc.c), 20, leaving 192. The one request that would cost 192 is 188, which the allocator rounds to 192 (blob_init's rule), so it is at least two blocks: this one (92) and blob_retained_tail (100)"
+
+[[heap]]
+label = "blob_retained_tail"
+count = 1
+count_class = "measured"
+config = "pk"
+lifetime = "boot"
+count_source = "the second block of blob_retained"
+element = 96
+element_source = "as blob_retained: 192 - 92 = 100, a 96-byte request and its header"
+
+[[heap]]
+label = "blob_enable"
+count = 1
+count_class = "measured"
+config = "pk"
+lifetime = "enable"
+count_source = "what the blob holds from enable to disable, as one block; the capture does not split it"
+element = 32
+element_source = "device-probe_campaign_radio-20260924T155729Z-run1.log L63 and L67 (run2 the same): free 259088 after init, 259052 after enable, 36 taken; L72: 258992 after disable, which is 259052 less the probe's 96-byte VHCI semaphore plus the same 36 given back. A 32-byte request and its header"
+
+# ## The virtual LE controller
+#
+# `[controller]` is the controller's identity and capacity as NimBLE reads them at startup.
+# Class A: read from the ESP32-C3 controller of the device by the controller-only VHCI probe
+# capture `device-probe_vhci-20260917T140513Z` (IDF v5.5.3, controller compile version 1bb2f50,
+# the version `pk` prints), each command sent after HCI_Reset with no parameters.
+# No address or unique identifier was read. What the capture gave:
+#
+# - `HCI_Read_Local_Version_Information` 0x1001: `hci_version` 9 (Core 5.0), `hci_subversion`
+#   0x0016 (22), `lmp_version` 9, `company` 0x02E5 (741), `lmp_subversion` 0x0016;
+# - `supported_commands`: the 64-octet `Supported_Commands` bitmap of 0x1002, exactly;
+# - `HCI_Read_Local_Supported_Features` 0x1003: octet 4 = 0x60, the controller's `LMP_Features`;
+# - `le_features` 0x0801F9FF of 0x2003, the octets `ff f9 01 08 00 00 00 00` (bits 0 to 8, 11
+#   to 16, 27; bit 12 is LE Extended
+#   Advertising, reported although the host does not use it);
+# - `acl_len` 251 and `acl_count` 12 of `HCI_LE_Read_Buffer_Size` [v1] 0x2002;
+# - `supported_states` of 0x201C, `accept_list_size` 12 of 0x200F, `resolving_list_size` 10 of
+#   0x202A;
+# - `max_tx_octets` 251 and `max_tx_time` 17040 us of 0x202F (the RX pair is equal);
+# - `max_adv_data_len` 1650 of 0x203A and `adv_sets` 6 of 0x203B;
+# - `tx_power_min` -24 and `tx_power_max` +21 dBm of 0x204B;
+# - `adv_tx_power` 9 dBm: the power byte 0x2007 returned beside Command Disallowed (it was sent
+#   after 0x203A and 0x203B, so the legacy and extended mixing rule refused it, Core Vol 4 Part E
+#   §3.1.1); the value of an allowed call is taken from that byte, class B;
+# - `num_command_packets` 5: `Num_HCI_Command_Packets` of every Command Complete in the capture.
+#
+# `reply_us` is the virtual time between a host packet and the controller's events, and
+# `reset_reply_us` the same for an `HCI_Reset`, which the controller answers later. Class A for
+# the two commands the campaign capture timed: `device-probe_campaign_radio-20260924T155729Z`
+# run1 L69 and L70 measure `esp_vhci_host_send_packet` to the Command Complete reaching the VHCI
+# callback as 523 and 76 us, run2 the same lines 516 and 82. The values here are the controller's
+# part of those means (519.5 and 79): under U4, the default wake mode, where
+# the answer reaches the host at interrupt exit, the probe measures 520 and 79 on the emulator,
+# the rest being the guest's own send and callback path. Under U5, a profile option, the answer
+# waits for the worker's 20 ms poll, so the probe measures the poll instead; that is the wake
+# mode's cost, not the controller's. Every other command takes `reply_us`, class C: the capture
+# timed no other.
+[controller]
+hci_version = 9
+hci_subversion = 22
+lmp_version = 9
+company = 741
+lmp_subversion = 22
+supported_commands = "2000800000c000000000e40000002822000000000000040000f7ffff7f00000030f0ffffffffff07000000000000000000000000000000000000000000000000"
+lmp_features = "0000000060000000"
+le_features = "0x0801F9FF"
+supported_states = "ffffffffff030000"
+acl_len = 251
+acl_count = 12
+accept_list_size = 12
+resolving_list_size = 10
+adv_tx_power = "9"
+tx_power_min = "-24"
+tx_power_max = "21"
+max_tx_octets = 251
+max_tx_time = 17040
+max_adv_data_len = 1650
+adv_sets = 6
+num_command_packets = 5
+reply_us = 74
+reset_reply_us = 508
+
+# ## The command set
+#
+# Every command the device reports in `Supported_Commands` has a row, with its bit (Core Vol 4
+# Part E §6.27); the bitmap of `[controller]` is exactly the rows whose `answer` is not `unknown`.
+# `HCI_Read_Local_Supported_Commands` itself has no bit. `answer` says how the controller answers:
+#
+# - `modeled`: the command's own behavior (`crates/pemu-radio/src/ble/controller.rs`);
+# - `unmodeled`: reported by the device but not modeled yet (P-256 and DHKey, the extended and
+#   periodic advertising, extended scanning and initiating, periodic sync families): after the
+#   legacy and extended mixing rule of Core Vol 4 Part E §3.1.1, a spec-valid refusal with
+#   Unsupported Feature or Parameter Value (0x11) in the command's own acknowledgement. Open item;
+#   no corpus image sends them;
+# - `unknown`: answered with Unknown HCI Command (0x01) in a Command Complete, as the device did
+#   in the capture, although the command is defined by the specification.
+#
+# Any opcode without a row is answered too: a vendor-specific one (OGF 0x3F) with success
+# (UNVERIFIED: no public source), an asynchronous one with Command Status and a synchronous one
+# with Command Complete, both Unknown HCI Command (the device answered 0x20FF and 0x0CFF with a
+# Command Complete 0x01; `crates/pemu-radio/src/ble/hci.rs` `ASYNC_OPCODES`).
+
+[[command]]
+opcode = "0x0406"
+name = "HCI_Disconnect"
+supported = "0.5"
+answer = "modeled"
+
+[[command]]
+opcode = "0x041D"
+name = "HCI_Read_Remote_Version_Information"
+supported = "2.7"
+answer = "modeled"
+
+[[command]]
+opcode = "0x0C01"
+name = "HCI_Set_Event_Mask"
+supported = "5.6"
+answer = "modeled"
+
+[[command]]
+opcode = "0x0C03"
+name = "HCI_Reset"
+supported = "5.7"
+answer = "modeled"
+
+[[command]]
+opcode = "0x0C2D"
+name = "HCI_Read_Transmit_Power_Level"
+supported = "10.2"
+answer = "modeled"
+
+[[command]]
+opcode = "0x0C31"
+name = "HCI_Set_Controller_To_Host_Flow_Control"
+supported = "10.5"
+answer = "modeled"
+
+[[command]]
+opcode = "0x0C33"
+name = "HCI_Host_Buffer_Size"
+supported = "10.6"
+answer = "modeled"
+
+[[command]]
+opcode = "0x0C35"
+name = "HCI_Host_Number_Of_Completed_Packets"
+supported = "10.7"
+answer = "modeled"
+
+[[command]]
+opcode = "0x0C63"
+name = "HCI_Set_Event_Mask_Page_2"
+supported = "22.2"
+answer = "modeled"
+
+[[command]]
+opcode = "0x0C7B"
+name = "HCI_Read_Authenticated_Payload_Timeout"
+supported = "32.4"
+answer = "modeled"
+
+[[command]]
+opcode = "0x0C7C"
+name = "HCI_Write_Authenticated_Payload_Timeout"
+supported = "32.5"
+answer = "modeled"
+
+[[command]]
+opcode = "0x1001"
+name = "HCI_Read_Local_Version_Information"
+supported = "14.3"
+answer = "modeled"
+
+[[command]]
+opcode = "0x1002"
+name = "HCI_Read_Local_Supported_Commands"
+supported = "none"
+answer = "modeled"
+
+[[command]]
+opcode = "0x1003"
+name = "HCI_Read_Local_Supported_Features"
+supported = "14.5"
+answer = "modeled"
+
+[[command]]
+opcode = "0x1009"
+name = "HCI_Read_BD_ADDR"
+supported = "15.1"
+answer = "modeled"
+
+[[command]]
+opcode = "0x1405"
+name = "HCI_Read_RSSI"
+supported = "15.5"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2001"
+name = "HCI_LE_Set_Event_Mask"
+supported = "25.0"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2002"
+name = "HCI_LE_Read_Buffer_Size [v1]"
+supported = "25.1"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2003"
+name = "HCI_LE_Read_Local_Supported_Features"
+supported = "25.2"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2005"
+name = "HCI_LE_Set_Random_Address"
+supported = "25.4"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2006"
+name = "HCI_LE_Set_Advertising_Parameters"
+supported = "25.5"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2007"
+name = "HCI_LE_Read_Advertising_Physical_Channel_Tx_Power"
+supported = "25.6"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2008"
+name = "HCI_LE_Set_Advertising_Data"
+supported = "25.7"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2009"
+name = "HCI_LE_Set_Scan_Response_Data"
+supported = "26.0"
+answer = "modeled"
+
+[[command]]
+opcode = "0x200A"
+name = "HCI_LE_Set_Advertising_Enable"
+supported = "26.1"
+answer = "modeled"
+
+[[command]]
+opcode = "0x200B"
+name = "HCI_LE_Set_Scan_Parameters"
+supported = "26.2"
+answer = "modeled"
+
+[[command]]
+opcode = "0x200C"
+name = "HCI_LE_Set_Scan_Enable"
+supported = "26.3"
+answer = "modeled"
+
+[[command]]
+opcode = "0x200D"
+name = "HCI_LE_Create_Connection"
+supported = "26.4"
+answer = "modeled"
+
+[[command]]
+opcode = "0x200E"
+name = "HCI_LE_Create_Connection_Cancel"
+supported = "26.5"
+answer = "modeled"
+
+[[command]]
+opcode = "0x200F"
+name = "HCI_LE_Read_Filter_Accept_List_Size"
+supported = "26.6"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2010"
+name = "HCI_LE_Clear_Filter_Accept_List"
+supported = "26.7"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2011"
+name = "HCI_LE_Add_Device_To_Filter_Accept_List"
+supported = "27.0"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2012"
+name = "HCI_LE_Remove_Device_From_Filter_Accept_List"
+supported = "27.1"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2013"
+name = "HCI_LE_Connection_Update"
+supported = "27.2"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2014"
+name = "HCI_LE_Set_Host_Channel_Classification"
+supported = "27.3"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2015"
+name = "HCI_LE_Read_Channel_Map"
+supported = "27.4"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2016"
+name = "HCI_LE_Read_Remote_Features"
+supported = "27.5"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2017"
+name = "HCI_LE_Encrypt"
+supported = "27.6"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2018"
+name = "HCI_LE_Rand"
+supported = "27.7"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2019"
+name = "HCI_LE_Enable_Encryption"
+supported = "28.0"
+answer = "modeled"
+
+[[command]]
+opcode = "0x201A"
+name = "HCI_LE_Long_Term_Key_Request_Reply"
+supported = "28.1"
+answer = "modeled"
+
+[[command]]
+opcode = "0x201B"
+name = "HCI_LE_Long_Term_Key_Request_Negative_Reply"
+supported = "28.2"
+answer = "modeled"
+
+[[command]]
+opcode = "0x201C"
+name = "HCI_LE_Read_Supported_States"
+supported = "28.3"
+answer = "modeled"
+
+[[command]]
+opcode = "0x201D"
+name = "HCI_LE_Receiver_Test [v1]"
+supported = "28.4"
+answer = "modeled"
+
+[[command]]
+opcode = "0x201E"
+name = "HCI_LE_Transmitter_Test [v1]"
+supported = "28.5"
+answer = "modeled"
+
+[[command]]
+opcode = "0x201F"
+name = "HCI_LE_Test_End"
+supported = "28.6"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2020"
+name = "HCI_LE_Remote_Connection_Parameter_Request_Reply"
+supported = "33.4"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2021"
+name = "HCI_LE_Remote_Connection_Parameter_Request_Negative_Reply"
+supported = "33.5"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2022"
+name = "HCI_LE_Set_Data_Length"
+supported = "33.6"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2023"
+name = "HCI_LE_Read_Suggested_Default_Data_Length"
+supported = "33.7"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2024"
+name = "HCI_LE_Write_Suggested_Default_Data_Length"
+supported = "34.0"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2025"
+name = "HCI_LE_Read_Local_P-256_Public_Key"
+supported = "34.1"
+answer = "unmodeled"
+
+[[command]]
+opcode = "0x2026"
+name = "HCI_LE_Generate_DHKey [v1]"
+supported = "34.2"
+answer = "unmodeled"
+
+[[command]]
+opcode = "0x2027"
+name = "HCI_LE_Add_Device_To_Resolving_List"
+supported = "34.3"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2028"
+name = "HCI_LE_Remove_Device_From_Resolving_List"
+supported = "34.4"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2029"
+name = "HCI_LE_Clear_Resolving_List"
+supported = "34.5"
+answer = "modeled"
+
+[[command]]
+opcode = "0x202A"
+name = "HCI_LE_Read_Resolving_List_Size"
+supported = "34.6"
+answer = "modeled"
+
+[[command]]
+opcode = "0x202B"
+name = "HCI_LE_Read_Peer_Resolvable_Address"
+supported = "34.7"
+answer = "modeled"
+
+[[command]]
+opcode = "0x202C"
+name = "HCI_LE_Read_Local_Resolvable_Address"
+supported = "35.0"
+answer = "modeled"
+
+[[command]]
+opcode = "0x202D"
+name = "HCI_LE_Set_Address_Resolution_Enable"
+supported = "35.1"
+answer = "modeled"
+
+[[command]]
+opcode = "0x202E"
+name = "HCI_LE_Set_Resolvable_Private_Address_Timeout"
+supported = "35.2"
+answer = "modeled"
+
+[[command]]
+opcode = "0x202F"
+name = "HCI_LE_Read_Maximum_Data_Length"
+supported = "35.3"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2030"
+name = "HCI_LE_Read_PHY"
+supported = "35.4"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2031"
+name = "HCI_LE_Set_Default_PHY"
+supported = "35.5"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2032"
+name = "HCI_LE_Set_PHY"
+supported = "35.6"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2033"
+name = "HCI_LE_Receiver_Test [v2]"
+supported = "35.7"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2034"
+name = "HCI_LE_Transmitter_Test [v2]"
+supported = "36.0"
+answer = "modeled"
+
+[[command]]
+opcode = "0x2035"
+name = "HCI_LE_Set_Advertising_Set_Random_Address"
+supported = "36.1"
+answer = "unmodeled"
+
+[[command]]
+opcode = "0x2036"
+name = "HCI_LE_Set_Extended_Advertising_Parameters [v1]"
+supported = "36.2"
+answer = "unmodeled"
+
+[[command]]
+opcode = "0x2037"
+name = "HCI_LE_Set_Extended_Advertising_Data"
+supported = "36.3"
+answer = "unmodeled"
+
+[[command]]
+opcode = "0x2038"
+name = "HCI_LE_Set_Extended_Scan_Response_Data"
+supported = "36.4"
+answer = "unmodeled"
+
+[[command]]
+opcode = "0x2039"
+name = "HCI_LE_Set_Extended_Advertising_Enable"
+supported = "36.5"
+answer = "unmodeled"
+
+[[command]]
+opcode = "0x203A"
+name = "HCI_LE_Read_Maximum_Advertising_Data_Length"
+supported = "36.6"
+answer = "modeled"
+
+[[command]]
+opcode = "0x203B"
+name = "HCI_LE_Read_Number_of_Supported_Advertising_Sets"
+supported = "36.7"
+answer = "modeled"
+
+[[command]]
+opcode = "0x203C"
+name = "HCI_LE_Remove_Advertising_Set"
+supported = "37.0"
+answer = "unmodeled"
+
+[[command]]
+opcode = "0x203D"
+name = "HCI_LE_Clear_Advertising_Sets"
+supported = "37.1"
+answer = "unmodeled"
+
+[[command]]
+opcode = "0x203E"
+name = "HCI_LE_Set_Periodic_Advertising_Parameters"
+supported = "37.2"
+answer = "unmodeled"
+
+[[command]]
+opcode = "0x203F"
+name = "HCI_LE_Set_Periodic_Advertising_Data"
+supported = "37.3"
+answer = "unmodeled"
+
+[[command]]
+opcode = "0x2040"
+name = "HCI_LE_Set_Periodic_Advertising_Enable"
+supported = "37.4"
+answer = "unmodeled"
+
+[[command]]
+opcode = "0x2041"
+name = "HCI_LE_Set_Extended_Scan_Parameters"
+supported = "37.5"
+answer = "unmodeled"
+
+[[command]]
+opcode = "0x2042"
+name = "HCI_LE_Set_Extended_Scan_Enable"
+supported = "37.6"
+answer = "unmodeled"
+
+[[command]]
+opcode = "0x2043"
+name = "HCI_LE_Extended_Create_Connection"
+supported = "37.7"
+answer = "unmodeled"
+
+[[command]]
+opcode = "0x2044"
+name = "HCI_LE_Periodic_Advertising_Create_Sync"
+supported = "38.0"
+answer = "unmodeled"
+
+[[command]]
+opcode = "0x2045"
+name = "HCI_LE_Periodic_Advertising_Create_Sync_Cancel"
+supported = "38.1"
+answer = "unmodeled"
+
+[[command]]
+opcode = "0x2046"
+name = "HCI_LE_Periodic_Advertising_Terminate_Sync"
+supported = "38.2"
+answer = "unmodeled"
+
+[[command]]
+opcode = "0x2047"
+name = "HCI_LE_Add_Device_To_Periodic_Advertiser_List"
+supported = "38.3"
+answer = "unmodeled"
+
+[[command]]
+opcode = "0x2048"
+name = "HCI_LE_Remove_Device_From_Periodic_Advertiser_List"
+supported = "38.4"
+answer = "unmodeled"
+
+[[command]]
+opcode = "0x2049"
+name = "HCI_LE_Clear_Periodic_Advertiser_List"
+supported = "38.5"
+answer = "unmodeled"
+
+[[command]]
+opcode = "0x204A"
+name = "HCI_LE_Read_Periodic_Advertiser_List_Size"
+supported = "38.6"
+answer = "unmodeled"
+
+[[command]]
+opcode = "0x204B"
+name = "HCI_LE_Read_Transmit_Power"
+supported = "38.7"
+answer = "modeled"
+
+[[command]]
+opcode = "0x204C"
+name = "HCI_LE_Read_RF_Path_Compensation"
+supported = "39.0"
+answer = "modeled"
+
+[[command]]
+opcode = "0x204D"
+name = "HCI_LE_Write_RF_Path_Compensation"
+supported = "39.1"
+answer = "modeled"
+
+[[command]]
+opcode = "0x204E"
+name = "HCI_LE_Set_Privacy_Mode"
+supported = "39.2"
+answer = "modeled"
+
+[[command]]
+opcode = "0x1005"
+name = "HCI_Read_Buffer_Size"
+supported = "14.7"
+answer = "unknown"
+
+[[command]]
+opcode = "0x2060"
+name = "HCI_LE_Read_Buffer_Size [v2]"
+supported = "41.5"
+answer = "unknown"

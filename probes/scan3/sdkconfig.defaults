@@ -1,0 +1,21 @@
+# scan3 overrides on top of probes/common/sdkconfig.defaults.
+#
+# The non-default settings of the earlier prototype's build, reduced
+# with `idf.py save-defconfig`. The target, flash size, partition table and USJ console lines of
+# that reduction are already in the common file and are not repeated.
+
+# NimBLE as a broadcaster and peripheral only, one connection: what the advertising stage uses.
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+CONFIG_BT_NIMBLE_ROLE_CENTRAL=n
+CONFIG_BT_NIMBLE_ROLE_OBSERVER=n
+CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1
+
+# A 1 kHz tick, as in the prototype and in Passport Keys, so `t_ms` and the wait timeouts have the
+# same resolution as the recorded prototype console the exits compare with.
+CONFIG_FREERTOS_HZ=1000
+
+# `uxTaskGetSystemState` for the TASK lines.
+CONFIG_FREERTOS_USE_TRACE_FACILITY=y
+
+CONFIG_LWIP_DNS_SUPPORT_MDNS_QUERIES=n

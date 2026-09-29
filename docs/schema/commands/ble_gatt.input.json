@@ -1,0 +1,93 @@
+{
+  "additionalProperties": false,
+  "description": "`ble_gatt` arguments.",
+  "properties": {
+    "artifact": {
+      "default": true,
+      "description": "`capture`: write the btsnoop file; `--no-artifact` reports the counters only.",
+      "type": "boolean"
+    },
+    "contains": {
+      "description": "Hex bytes a `notifications` call waits for.",
+      "type": "string"
+    },
+    "enabled": {
+      "description": "`capture`: record packets from now on, or stop and drop what is held.",
+      "type": "boolean"
+    },
+    "handle": {
+      "description": "Characteristic Value Handle, as a discover reported it.",
+      "maximum": 65535,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "indicate": {
+      "description": "Subscribe to indications rather than notifications.",
+      "type": "boolean"
+    },
+    "instance": {
+      "description": "Instance id.",
+      "pattern": "^[pb][0-9]+$",
+      "type": "string"
+    },
+    "label": {
+      "description": "`capture`: the artifact's file stem under ble/.",
+      "type": "string"
+    },
+    "op": {
+      "description": "The GATT operation; the default is discover.",
+      "enum": [
+        "discover",
+        "read",
+        "write",
+        "subscribe",
+        "notifications",
+        "capture"
+      ],
+      "type": "string"
+    },
+    "secrets": {
+      "description": "`capture`: record with the key material kept, for a pairing trace. Taints the instance, so `snapshot export` then needs the confirmation, and drops what the capture already holds.",
+      "type": "boolean"
+    },
+    "settle_ms": {
+      "description": "`notifications`: let this much virtual time pass, then report what arrived.",
+      "minimum": 1,
+      "type": "integer"
+    },
+    "text": {
+      "description": "The bytes as UTF-8 text instead of hex.",
+      "type": "string"
+    },
+    "timeout_ms": {
+      "description": "Virtual time this call may spend before E_TIMEOUT.",
+      "maximum": 60000,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "uuid": {
+      "description": "Characteristic UUID.",
+      "type": "string"
+    },
+    "value": {
+      "description": "Hex bytes to write.",
+      "type": "string"
+    },
+    "wall_budget_ms": {
+      "description": "Host time this call may spend before E_WALL_BUDGET.",
+      "minimum": 1,
+      "type": "integer"
+    },
+    "with_response": {
+      "default": true,
+      "description": "ATT_WRITE_REQ rather than ATT_WRITE_CMD; `--no-with-response` sends ATT_WRITE_CMD.",
+      "type": "boolean"
+    },
+    "within_ms": {
+      "description": "How long a `notifications` wait runs.",
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}

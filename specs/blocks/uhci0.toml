@@ -1,0 +1,18 @@
+# Block spec of the `uhci0` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# The row aliases StoreOnly and has no periph file.
+schema = 1
+block = "uhci0"
+base = 0x6001_4000
+size = 0x1000
+class = "U"
+milestone = "LATER"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h; window size 0x1000 UNVERIFIED"
+
+# Store plus ledger only: no corpus image touches this block, so every register is class U and
+# reads back what was written. The codegen coverage gate reopens the block if an image starts
+# touching it.
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: only the RTC domain survives a core reset, and this block is not in it"

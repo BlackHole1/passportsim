@@ -1,0 +1,4 @@
+# usj_echo overrides on top of probes/common/sdkconfig.defaults.
+# The probe installs the USB Serial/JTAG driver while the console also uses the port, which is
+# the driver-mode case of design-facts agent-8.1.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y

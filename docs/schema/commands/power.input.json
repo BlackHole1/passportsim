@@ -1,0 +1,71 @@
+{
+  "additionalProperties": false,
+  "description": "`power` arguments.",
+  "properties": {
+    "duration": {
+      "description": "Press length; 600 ms when off, 2200 ms when on.",
+      "oneOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "pattern": "^[0-9]+(\\.[0-9]+)?(us|ms|s|m)$",
+          "type": "string"
+        }
+      ]
+    },
+    "instance": {
+      "description": "Instance id.",
+      "pattern": "^[pb][0-9]+$",
+      "type": "string"
+    },
+    "mv": {
+      "description": "Cell voltage.",
+      "maximum": 4400,
+      "minimum": 2500,
+      "type": "integer"
+    },
+    "op": {
+      "description": "What to do (press).",
+      "enum": [
+        "press",
+        "hold",
+        "release",
+        "battery"
+      ],
+      "type": "string"
+    },
+    "present": {
+      "description": "Battery connected; omitted leaves it alone, `--no-present` disconnects it.",
+      "type": "boolean",
+      "x-tri-state": true
+    },
+    "soc": {
+      "description": "Charge percent.",
+      "maximum": 100,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "temp_c": {
+      "description": "Cell temperature.",
+      "maximum": 80,
+      "minimum": -20,
+      "type": "integer"
+    },
+    "then_run": {
+      "description": "Run after the edge.",
+      "oneOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "pattern": "^[0-9]+(\\.[0-9]+)?(us|ms|s|m)$",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "type": "object"
+}

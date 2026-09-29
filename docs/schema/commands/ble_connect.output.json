@@ -1,0 +1,86 @@
+{
+  "properties": {
+    "connected": {
+      "type": "boolean"
+    },
+    "elapsed_vt_us": {
+      "type": "integer"
+    },
+    "handle": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "instance": {
+      "type": "string"
+    },
+    "mtu": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "peer": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "radio": {
+      "properties": {
+        "advertising": {
+          "properties": {
+            "addr": {
+              "type": "string"
+            },
+            "connectable": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "pdu": {
+              "type": "string"
+            },
+            "random": {
+              "type": "boolean"
+            }
+          },
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "state": {
+          "enum": [
+            "connected",
+            "advertising",
+            "idle"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "status": {
+      "type": "string"
+    },
+    "steps": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "target": {
+      "type": "string"
+    },
+    "vt_us": {
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}

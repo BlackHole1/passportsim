@@ -1,0 +1,32 @@
+//! One module per command. Commands register through `#[command]`, never through a list here.
+
+pub mod audio_capture;
+pub mod ble_connect;
+pub mod ble_gatt;
+pub mod ble_scan;
+pub mod clock;
+pub mod device_boot_check;
+pub mod doctor;
+pub mod endpoint;
+pub mod env;
+pub mod flash_device;
+pub mod input;
+pub mod inspect;
+pub mod mic_set;
+pub mod net_capture;
+pub mod net_http;
+pub mod nfc_tag;
+pub mod nfc_tap;
+pub mod plan_flash;
+pub mod power;
+pub mod run;
+pub mod scenario;
+pub mod screenshot;
+pub mod serial;
+pub mod snapshot;
+pub mod start;
+pub mod status;
+pub mod stop;
+pub mod ui;
+pub mod usb;
+pub mod wifi_ap;

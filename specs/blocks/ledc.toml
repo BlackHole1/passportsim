@@ -1,0 +1,43 @@
+# Block spec of the `ledc` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/ledc.rs.
+schema = 1
+block = "ledc"
+base = 0x6001_9000
+size = 0x1000
+class = "B"
+milestone = "M4"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h; size 0x1000 UNVERIFIED"
+
+# Both para_up bits are write-only, so they read back 0 with no model state; latching them copies
+# HPOINT, DUTY and CONF1 into the channel shadow and the duty resolution and divider into the timer
+# shadow, and the board port sees the integer duty DUTY_R >> 4.
+
+# The display backlight: GPIO21, channel 0, low-speed timer 0. Without the block ledc_get_freq
+# aborts and the backlight console lines never appear. The frequency the driver computes back out
+# of the divider is what the console prints, so the divider arithmetic has to be exact, not just
+# stored.
+# No busy-wait row: the two para_up bits latch the configuration and are never polled
+# (IDF ledc_ll_ls_timer_update, ledc_ll_ls_channel_update), so they are self-clear rows.
+
+[[overrides]]
+register = "LEDC_LSTIMER0_CONF"
+field = "LEDC_LSTIMER0_PARA_UP"
+value = "self clear: the bit latches the timer configuration and reads back 0"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/ledc_ll.h:140 (ledc_ll_ls_timer_update writes bit 25; self clear, latch config, not polled); specs/c3-registers.csv gives the field as WO. The same rule applies to LSTIMER1 to LSTIMER3"
+
+[[overrides]]
+register = "LEDC_LSCH0_CONF0"
+field = "LEDC_PARA_UP_LSCH0"
+value = "self clear: the bit latches the channel configuration and reads back 0"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/ledc_ll.h:287 (ledc_ll_ls_channel_update writes bit 4; self clear, latch config, not polled); specs/c3-registers.csv gives the field as WO. The same rule applies to LSCH1 to LSCH5"
+
+[[stable_read]]
+register = "LEDC_LSTIMER0_CONF"
+provenance = "IDF esp_driver_ledc/src/ledc.c ledc_get_freq reads the duty resolution and the clock divider back to recompute the frequency it prints, so the stored value is observable in the golden console text"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: LEDC is in the digital domain, which every reset scope restores"

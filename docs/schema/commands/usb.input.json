@@ -1,0 +1,51 @@
+{
+  "additionalProperties": false,
+  "description": "`usb` arguments; exactly one of state, cable, client.",
+  "properties": {
+    "cable": {
+      "description": "Plug or unplug the cable.",
+      "enum": [
+        "in",
+        "out"
+      ],
+      "type": "string"
+    },
+    "client": {
+      "description": "Open or close the host console.",
+      "enum": [
+        "open",
+        "closed"
+      ],
+      "type": "string"
+    },
+    "instance": {
+      "description": "Instance id.",
+      "pattern": "^[pb][0-9]+$",
+      "type": "string"
+    },
+    "state": {
+      "description": "Whole USB host state.",
+      "enum": [
+        "unplugged",
+        "charger",
+        "host",
+        "open"
+      ],
+      "type": "string"
+    },
+    "then_run": {
+      "description": "Run after a cable or client edge.",
+      "oneOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "pattern": "^[0-9]+(\\.[0-9]+)?(us|ms|s|m)$",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "type": "object"
+}

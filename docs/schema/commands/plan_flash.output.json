@@ -1,0 +1,75 @@
+{
+  "description": "The write list, the refusals and the plan digest. No device value, no port path.",
+  "properties": {
+    "accepted": {
+      "description": "No rule fired.",
+      "type": "boolean"
+    },
+    "device_checks": {
+      "description": "`pending` when the plan was made without a device.",
+      "enum": [
+        "pending",
+        "done"
+      ],
+      "type": "string"
+    },
+    "plan_sha256": {
+      "description": "SHA-256 over the whole plan.",
+      "type": "string"
+    },
+    "refusals": {
+      "items": {
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "rule": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule",
+          "detail"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "writes": {
+      "items": {
+        "properties": {
+          "bytes": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "offset": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "offset",
+          "bytes",
+          "sha256"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "plan_sha256",
+    "writes",
+    "refusals",
+    "accepted",
+    "device_checks"
+  ],
+  "type": "object"
+}

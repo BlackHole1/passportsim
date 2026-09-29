@@ -1,0 +1,7 @@
+# Root clippy configuration, read by crates without their own clippy.toml: the
+# host crates (pemu-host, pemu-cli, pemu-testkit, pemu-verify), tests/milestones and xtask.
+#
+# The disallowed std APIs of the core crates live in each core crate's own clippy.toml, because
+# clippy uses the nearest file and does not merge it with this one. Do not list them here (that
+# would restrict host crates). Any other setting added here must be repeated in every core crate's
+# clippy.toml; `cargo xtask layering` checks both.

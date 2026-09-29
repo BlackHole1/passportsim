@@ -1,0 +1,6 @@
+# flash_stress overrides on top of probes/common/sdkconfig.defaults.
+#
+# A custom table that adds the `scratch` data partition (partitions.csv beside this file). The
+# path is relative to the project directory, so the build finds it wherever the checkout is.
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"

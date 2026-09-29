@@ -1,0 +1,54 @@
+[package]
+name = "pemu-host"
+description = "Native daemon, MCP and HTTP host of PassportSim."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = ["bundled-rom"]
+# Only asks pemu-loader to embed the ROM ELFs. Cargo unifies features, so turning this off still
+# leaves the bytes in the binary whenever another crate wants them; `assets.rs` asks
+# `pemu_loader::rom::bundled_opt` for the real state and never reads this flag.
+bundled-rom = ["pemu-loader/bundled-rom"]
+# Gates `platform::serial`, which reads the OS device registry and opens nothing, and turns on
+# `pemu-planner/device`, the only module allowed to name a host serial device, so one
+# `--features device` gives the whole group. On Windows it enables the SetupAPI feature of
+# `windows-sys`, allowed only behind this feature (`cargo xtask layering` checks it).
+device = ["pemu-planner/device", "windows-sys/Win32_Devices_DeviceAndDriverInstallation"]
+
+[dependencies]
+pemu-api.workspace = true
+pemu-planner.workspace = true
+# Named directly: the pool holds `dyn MachineApi` and stamps lifecycle changes with `VTime`.
+pemu-core.workspace = true
+pemu-machine.workspace = true
+# `assets.rs` hands override bytes to the loader's pure pin check.
+pemu-loader.workspace = true
+# A firmware with NVS credential keys is refused over MCP and HTTP, and the one classifier of a
+# credential key is `pemu_introspect::nvs`.
+pemu-introspect.workspace = true
+tokio.workspace = true
+# `ws` is not an axum default feature; it carries the upgrade handshake and frame codec.
+axum = { workspace = true, features = ["ws"] }
+png.workspace = true
+# `serde_json`: the discovery file, HTTP and WebSocket bodies and MCP JSON-RPC are JSON.
+# `getrandom`: the 256-bit daemon token needs OS entropy, with no `cfg` outside `platform`.
+serde_json.workspace = true
+getrandom.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+# `SHGetKnownFolderPath` for the directory roles and the Win32 calls of `platform::windows`.
+windows-sys.workspace = true
+
+[build-dependencies]
+# `build.rs` hashes the core sources into the boot-cache build id with the run time's SHA-256.
+pemu-loader.workspace = true
+
+[dev-dependencies]
+# `MockMachine`, for unit tests that would otherwise need a firmware image.
+pemu-testkit.workspace = true
+# The WebSocket client of the protocol test.
+tungstenite.workspace = true

@@ -1,0 +1,251 @@
+# Block spec of the `i2c0` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/i2c0.rs.
+schema = 1
+block = "i2c0"
+base = 0x6001_3000
+size = 0x1000
+class = "B"
+milestone = "M5"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h; size 0x1000 UNVERIFIED"
+
+# 3,267 writes over 19 registers in the reference trace, which is a bus scan with no devices
+# answering. Without the block there is no hang, but 112 probes at 50 ms each cost 5.6 s and the
+# board chips never answer. SDA is GPIO10 and SCL is GPIO7, with es8311 at 0x18 and cw2017 at
+# 0x63 on the bus.
+
+[[wait]]
+id = "i2c0.trans_complete_or_nack"
+kind = "wait"
+seed = true
+register = "I2C_INT_RAW"
+field = "I2C_TRANS_COMPLETE_INT_RAW, I2C_NACK_INT_RAW"
+trigger = "write I2C_TRANS_START = 1 after a command list is loaded"
+expect = "read one of I2C_TRANS_COMPLETE_INT_RAW (an addressed device answered) or I2C_NACK_INT_RAW (no device at the address) == 1; a scan of an empty address must NACK fast rather than time out"
+within = { fast = "same_access", device = "9 SCL periods per byte plus one per RESTART and STOP, at the period SCL_LOW_PERIOD, SCL_HIGH_PERIOD and CLK_CONF program, when i2c_clocked (specs/timing-profiles.toml)" }
+polled_at = ["s_i2c_transaction_start", "s_i2c_send_commands"]
+images = ["official", "pk"]
+milestone = "M5"
+provenance = "IDF esp_driver_i2c/src/i2c_master.c:532-613 and 678-738 (I2C CTR.trans_start self-clears; the driver reads I2C_SR bus_busy after a NACK); board-path seed row"
+
+# Not seed rows, recorded because the same path needs them.
+[[overrides]]
+register = "I2C_CTR"
+field = "I2C_TRANS_START, I2C_FSM_RST, I2C_CONF_UPGATE"
+value = "self clear: the bit takes effect and reads back 0"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/i2c_ll.h (bits 5, 10 and 11: i2c_ll_* write them and the driver expects them to self clear)"
+
+[[overrides]]
+register = "I2C_SCL_SP_CONF"
+field = "I2C_SCL_RST_SLV_EN"
+value = "clears after the bus-clear pulses; clearing it immediately is acceptable"
+class = "B"
+provenance = "hardware clear bus, polled until 0 within 50 ms by IDF esp_driver_i2c/src/i2c_master.c:62-108; IDF soc/esp32c3/register/soc/i2c_reg.h:996-998 gives the access as R/W/SC"
+
+[[overrides]]
+register = "I2C_SR"
+field = "I2C_BUS_BUSY"
+value = "1 from START until STOP, 0 otherwise"
+class = "B"
+provenance = "read after a NACK and before a transaction (IDF esp_driver_i2c/i2c_master.c); IDF soc/esp32c3/register/soc/i2c_reg.h:152-154 gives it as RO bit 4"
+
+[[stable_read]]
+register = "I2C_INT_RAW"
+provenance = "the completion and NACK bits are a function of the modeled bus and the chips on it, which the emulator drives synchronously"
+
+[[stable_read]]
+register = "I2C_SR"
+provenance = "BUS_BUSY is a function of the modeled transaction state, not of timing"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h; TRM Reset and Clock chapter: I2C0 is in the digital domain, which every reset scope restores. The chips on the bus are not: see the reset_domains row of specs/blocks/cw2017.toml"
+
+# Class of the registers the command-list executor interprets. Each row states the behavior
+# periph/i2c0.rs implements; none of them changes a reset value.
+
+[[overrides]]
+register = "I2C_DATA"
+field = "I2C_FIFO_RDATA"
+value = "a write pushes the TX FIFO and a read pops the RX FIFO; past the end the read underruns and raises RXFIFO_UDF"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/i2c_ll.h:675-678 (i2c_ll_write_txfifo) and :692-695 (i2c_ll_read_rxfifo); modeled by periph/i2c0.rs"
+
+[[overrides]]
+register = "I2C_FIFO_CONF"
+field = "I2C_RX_FIFO_RST"
+value = "a rising edge empties the RX FIFO; TX_FIFO_RST does the same for the TX FIFO"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/i2c_ll.h i2c_ll_txfifo_rst and i2c_ll_rxfifo_rst (pulsed 1 then 0 to empty the FIFOs); IDF esp_driver_i2c/i2c_master.c s_i2c_transaction_start resets both on every transaction; modeled by periph/i2c0.rs"
+
+[[overrides]]
+register = "I2C_INT_CLR"
+field = "I2C_NACK_INT_CLR"
+value = "a written 1 clears the INT_RAW bit behind it; the register itself reads 0"
+class = "B"
+provenance = "IDF esp_driver_i2c/i2c_master.c i2c_master_isr_handler_default (reads INT_ST and clears it through INT_CLR); modeled by periph/i2c0.rs"
+
+[[overrides]]
+register = "I2C_INT_ENA"
+field = "I2C_NACK_INT_ENA"
+value = "masks INT_RAW into INT_STATUS; the driver enables NACK, TIME_OUT, TRANS_COMPLETE, ARBITRATION_LOST and END_DETECT"
+class = "B"
+provenance = "IDF esp_driver_i2c/i2c_master.c s_i2c_transaction_start (enables the five sources, I2C_LL_MASTER_EVENT_INTR); modeled by periph/i2c0.rs"
+
+[[overrides]]
+register = "I2C_INT_STATUS"
+field = "I2C_TRANS_COMPLETE_INT_ST"
+value = "reads INT_RAW masked by INT_ENA"
+class = "B"
+provenance = "IDF esp_driver_i2c/i2c_master.c i2c_master_isr_handler_default (reads INT_ST); modeled by periph/i2c0.rs"
+
+[[overrides]]
+register = "I2C_COMD0"
+field = "I2C_COMMAND0"
+value = "one step of the command list: byte_num, ack_en, ack_val and op_code, with command_done set after the step ran"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/i2c_ll.h:45-49 (op codes WRITE 1, STOP 2, READ 3, END 4, RESTART 6) and i2c_ll_master_write_cmd_reg; modeled by periph/i2c0.rs"
+
+[[overrides]]
+register = "I2C_COMD1"
+field = "I2C_COMMAND1"
+value = "one step of the command list: byte_num, ack_en, ack_val and op_code, with command_done set after the step ran"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/i2c_ll.h:45-49 (op codes WRITE 1, STOP 2, READ 3, END 4, RESTART 6) and i2c_ll_master_write_cmd_reg; modeled by periph/i2c0.rs"
+
+[[overrides]]
+register = "I2C_COMD2"
+field = "I2C_COMMAND2"
+value = "one step of the command list: byte_num, ack_en, ack_val and op_code, with command_done set after the step ran"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/i2c_ll.h:45-49 (op codes WRITE 1, STOP 2, READ 3, END 4, RESTART 6) and i2c_ll_master_write_cmd_reg; modeled by periph/i2c0.rs"
+
+[[overrides]]
+register = "I2C_COMD3"
+field = "I2C_COMMAND3"
+value = "one step of the command list: byte_num, ack_en, ack_val and op_code, with command_done set after the step ran"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/i2c_ll.h:45-49 (op codes WRITE 1, STOP 2, READ 3, END 4, RESTART 6) and i2c_ll_master_write_cmd_reg; modeled by periph/i2c0.rs"
+
+[[overrides]]
+register = "I2C_COMD4"
+field = "I2C_COMMAND4"
+value = "one step of the command list: byte_num, ack_en, ack_val and op_code, with command_done set after the step ran"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/i2c_ll.h:45-49 (op codes WRITE 1, STOP 2, READ 3, END 4, RESTART 6) and i2c_ll_master_write_cmd_reg; modeled by periph/i2c0.rs"
+
+[[overrides]]
+register = "I2C_COMD5"
+field = "I2C_COMMAND5"
+value = "one step of the command list: byte_num, ack_en, ack_val and op_code, with command_done set after the step ran"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/i2c_ll.h:45-49 (op codes WRITE 1, STOP 2, READ 3, END 4, RESTART 6) and i2c_ll_master_write_cmd_reg; modeled by periph/i2c0.rs"
+
+[[overrides]]
+register = "I2C_COMD6"
+field = "I2C_COMMAND6"
+value = "one step of the command list: byte_num, ack_en, ack_val and op_code, with command_done set after the step ran"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/i2c_ll.h:45-49 (op codes WRITE 1, STOP 2, READ 3, END 4, RESTART 6) and i2c_ll_master_write_cmd_reg; modeled by periph/i2c0.rs"
+
+[[overrides]]
+register = "I2C_COMD7"
+field = "I2C_COMMAND7"
+value = "one step of the command list: byte_num, ack_en, ack_val and op_code, with command_done set after the step ran"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/i2c_ll.h:45-49 (op codes WRITE 1, STOP 2, READ 3, END 4, RESTART 6) and i2c_ll_master_write_cmd_reg; modeled by periph/i2c0.rs"
+
+# The timing and filter registers, which the model stores and deliberately does not honor
+# (class C: a declared approximation).
+
+[[overrides]]
+register = "I2C_SCL_LOW_PERIOD"
+field = "I2C_SCL_LOW_PERIOD"
+value = "stored and read back; honored only under a profile with i2c_clocked (specs/timing-profiles.toml), where it sets the SCL period of the list's bus time; under fast a command list runs in zero virtual time"
+class = "C"
+provenance = "IDF soc/esp32c3/register/soc/i2c_reg.h (SCL_LOW_PERIOD at 0x00, bits 8:0); IDF hal/esp32c3/include/hal/i2c_ll.h i2c_ll_master_cal_bus_clk (the driver writes SCL_LOW 199 for 100 kHz); the driver completes on the interrupt, so no timing value needs honoring; periph/i2c0.rs stores it through the generated table"
+
+[[overrides]]
+register = "I2C_SCL_HIGH_PERIOD"
+field = "I2C_SCL_HIGH_PERIOD"
+value = "stored and read back; honored only under a profile with i2c_clocked (specs/timing-profiles.toml), where it sets the SCL period of the list's bus time; under fast a command list runs in zero virtual time"
+class = "C"
+provenance = "IDF esp_driver_i2c/i2c_master.c waits for the transaction interrupt, which may be delivered immediately or after the real bus time, so no timing value needs honoring; periph/i2c0.rs stores these"
+
+[[overrides]]
+register = "I2C_SDA_HOLD"
+field = "I2C_SDA_HOLD_TIME"
+value = "stored and read back; the value is not honored, because a command list runs in zero virtual time"
+class = "C"
+provenance = "IDF esp_driver_i2c/i2c_master.c waits for the transaction interrupt, which may be delivered immediately or after the real bus time, so no timing value needs honoring; periph/i2c0.rs stores these"
+
+[[overrides]]
+register = "I2C_SDA_SAMPLE"
+field = "I2C_SDA_SAMPLE_TIME"
+value = "stored and read back; the value is not honored, because a command list runs in zero virtual time"
+class = "C"
+provenance = "IDF esp_driver_i2c/i2c_master.c waits for the transaction interrupt, which may be delivered immediately or after the real bus time, so no timing value needs honoring; periph/i2c0.rs stores these"
+
+[[overrides]]
+register = "I2C_SCL_START_HOLD"
+field = "I2C_SCL_START_HOLD_TIME"
+value = "stored and read back; the value is not honored, because a command list runs in zero virtual time"
+class = "C"
+provenance = "IDF esp_driver_i2c/i2c_master.c waits for the transaction interrupt, which may be delivered immediately or after the real bus time, so no timing value needs honoring; periph/i2c0.rs stores these"
+
+[[overrides]]
+register = "I2C_SCL_RSTART_SETUP"
+field = "I2C_SCL_RSTART_SETUP_TIME"
+value = "stored and read back; the value is not honored, because a command list runs in zero virtual time"
+class = "C"
+provenance = "IDF esp_driver_i2c/i2c_master.c waits for the transaction interrupt, which may be delivered immediately or after the real bus time, so no timing value needs honoring; periph/i2c0.rs stores these"
+
+[[overrides]]
+register = "I2C_SCL_STOP_HOLD"
+field = "I2C_SCL_STOP_HOLD_TIME"
+value = "stored and read back; the value is not honored, because a command list runs in zero virtual time"
+class = "C"
+provenance = "IDF esp_driver_i2c/i2c_master.c waits for the transaction interrupt, which may be delivered immediately or after the real bus time, so no timing value needs honoring; periph/i2c0.rs stores these"
+
+[[overrides]]
+register = "I2C_SCL_STOP_SETUP"
+field = "I2C_SCL_STOP_SETUP_TIME"
+value = "stored and read back; the value is not honored, because a command list runs in zero virtual time"
+class = "C"
+provenance = "IDF esp_driver_i2c/i2c_master.c waits for the transaction interrupt, which may be delivered immediately or after the real bus time, so no timing value needs honoring; periph/i2c0.rs stores these"
+
+[[overrides]]
+register = "I2C_TO"
+field = "I2C_TIME_OUT_REG"
+value = "stored and read back; the value is not honored, because a command list runs in zero virtual time"
+class = "C"
+provenance = "IDF esp_driver_i2c/i2c_master.c waits for the transaction interrupt, which may be delivered immediately or after the real bus time, so no timing value needs honoring; periph/i2c0.rs stores these"
+
+[[overrides]]
+register = "I2C_FILTER_CFG"
+field = "I2C_SCL_FILTER_THRES"
+value = "stored and read back; the value is not honored, because a command list runs in zero virtual time"
+class = "C"
+provenance = "IDF esp_driver_i2c/i2c_master.c waits for the transaction interrupt, which may be delivered immediately or after the real bus time, so no timing value needs honoring; periph/i2c0.rs stores these"
+
+[[overrides]]
+register = "I2C_CLK_CONF"
+field = "I2C_SCLK_DIV_NUM"
+value = "stored and read back; honored only under a profile with i2c_clocked (specs/timing-profiles.toml), where it sets the SCL period of the list's bus time; under fast a command list runs in zero virtual time"
+class = "C"
+provenance = "IDF esp_driver_i2c/i2c_master.c waits for the transaction interrupt, which may be delivered immediately or after the real bus time, so no timing value needs honoring; periph/i2c0.rs stores these"
+
+[[overrides]]
+register = "I2C_SCL_ST_TIME_OUT"
+field = "I2C_SCL_ST_TO_REG"
+value = "stored and read back; the value is not honored, because a command list runs in zero virtual time"
+class = "C"
+provenance = "IDF esp_driver_i2c/i2c_master.c waits for the transaction interrupt, which may be delivered immediately or after the real bus time, so no timing value needs honoring; periph/i2c0.rs stores these"
+
+[[overrides]]
+register = "I2C_SCL_MAIN_ST_TIME_OUT"
+field = "I2C_SCL_MAIN_ST_TO_REG"
+value = "stored and read back; the value is not honored, because a command list runs in zero virtual time"
+class = "C"
+provenance = "IDF esp_driver_i2c/i2c_master.c waits for the transaction interrupt, which may be delivered immediately or after the real bus time, so no timing value needs honoring; periph/i2c0.rs stores these"

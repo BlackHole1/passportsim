@@ -1,0 +1,17 @@
+[package]
+name = "pemu-testkit"
+description = "Test support for PassportSim."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+pemu-machine.workspace = true
+pemu-verify.workspace = true
+# `pemu_loader::sha256` and `hex` verify the corpus manifest without a third-party dependency.
+pemu-loader.workspace = true
+# Named directly for `MockBoard: BoardPorts`.
+pemu-board.workspace = true
+pemu-core.workspace = true

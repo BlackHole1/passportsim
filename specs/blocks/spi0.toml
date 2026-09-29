@@ -1,0 +1,117 @@
+# Block spec of the `spi0` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/spi_mem.rs.
+schema = 1
+block = "spi0"
+base = 0x6000_3000
+size = 0x1000
+class = "B"
+milestone = "M1"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h (SPI_MEM 0, the cache host); size 0x1000 UNVERIFIED"
+
+# SPI0 is the cache host. The ROM waits for its FSM to go idle before it drives SPI1, and never
+# drives a user transaction on it (the bundled ROM's Wait_SPI_Idle).
+#
+# The rev101 ROM reads the bootloader image through the cache (MMU and extmem), not through SPI1
+# user commands: in the first-touch ledger of the `pk` run of tests/milestones/m1.rs, test
+# t1_m1_loader_reads_flash_through_the_cache, all 128 MMU entries are written and applied and
+# SPI1 data words W1 to W15 are never touched. The SPI1 user-command path is covered in spi1.toml.
+
+[[wait]]
+id = "spi0.fsm"
+kind = "wait"
+seed = true
+register = "SPI_MEM_FSM"
+field = "SPI_MEM_EM_ST"
+trigger = "any read; the ROM polls it before each SPI1 transaction"
+expect = "read SPI_MEM_FSM & 0x70 == 0 (SPI_MEM_EM_ST idle)"
+within = "same_access"
+polled_at = ["Wait_SPI_Idle"]
+images = ["official", "pk"]
+milestone = "M1"
+provenance = "The bundled ROM's Wait_SPI_Idle (0x4004ecda) checks SPI0 FSM & 0x70 == 0 first; boot-path seed row"
+
+[[stable_read]]
+register = "SPI_MEM_FSM"
+provenance = "The cache host is never busy while the guest can observe it, so the FSM reads idle"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: SPI_MEM is in the digital domain, which every reset scope restores"
+
+# The cache host has no transaction engine: every register below is stored, a command
+# bit written to SPI_MEM_CMD self-clears, and a cache fill resolves through the MMU and the flash
+# image instead. The registers the ROM and the bootloader touch on the way past are therefore
+# declared class C approximations, not claims that the register matches the spec; the block class
+# B of the header belongs to the FSM-idle path above.
+[[overrides]]
+register = "SPI_MEM_CTRL"
+value = "stored; SPI0 drives no transaction, so the read mode and dummy-cycle bits select nothing"
+class = "C"
+provenance = "SPI0 needs no transaction engine: the ROM only waits for the SPI0 FSM to go idle before it drives SPI1 (the bundled ROM's Wait_SPI_Idle), and the model resolves a cache fill through the MMU entry and the flash image. Declared class C rationale"
+
+[[overrides]]
+register = "SPI_MEM_CTRL2"
+value = "stored; the timing trim has no effect and SYNC_RESET reads back 0 as the device does"
+class = "C"
+provenance = "The write-trigger read-back of 0 comes from the field access column of specs/c3-registers.csv. Declared class C rationale"
+
+[[overrides]]
+register = "SPI_MEM_CLOCK"
+value = "stored; the emulated flash answers inside the access, so the clock divider paces nothing"
+class = "C"
+provenance = "The transaction completes inside the access; every emulated delay derives from the one virtual clock. Declared class C rationale"
+
+[[overrides]]
+register = "SPI_MEM_USER"
+value = "stored but for bits 31, 30 and 28 (USR_COMMAND, USR_ADDR, USR_MISO), which read 0 (periph/spi_mem.rs unstored); SPI0 decodes no user transaction"
+class = "C"
+provenance = "The ROM never drives a user transaction on SPI0 (it drives flash commands through SPI1). The unstored bits: device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 320 reads 0x200000c0 after ROM spi_cache_mode_switch writes 0xd00000c0 and 0xf00000c0 (an MMIO trace of the emulator's run of the same image); the CSV reset 0x80000000 is one of them, so the register resets to 0 here, UNVERIFIED. Tests: periph::spi_mem::tests::the_unstored_bits_read_the_device_values_after_the_boot_writes, tests/milestones/campaign.rs t1_campaign_regs_rows_match_the_device_capture. Declared class C rationale"
+
+[[overrides]]
+register = "SPI_MEM_USER1"
+value = "stored; SPI0 decodes no user transaction"
+class = "C"
+provenance = "The same rule as SPI_MEM_USER"
+
+[[overrides]]
+register = "SPI_MEM_USER2"
+value = "stored; SPI0 decodes no user transaction, so the opcode field selects nothing"
+class = "C"
+provenance = "The same rule as SPI_MEM_USER"
+
+[[overrides]]
+register = "SPI_MEM_MOSI_DLEN"
+value = "reads 0, writes ignored (periph/spi_mem.rs unstored); SPI0 moves no data"
+class = "C"
+provenance = "The same rule as SPI_MEM_USER; device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 323 reads 0 after the ROM writes 0xff. Tests: periph::spi_mem::tests::the_unstored_bits_read_the_device_values_after_the_boot_writes, tests/milestones/campaign.rs t1_campaign_regs_rows_match_the_device_capture"
+
+[[overrides]]
+register = "SPI_MEM_MISO_DLEN"
+value = "reads 0, writes ignored (periph/spi_mem.rs unstored); SPI0 moves no data"
+class = "C"
+provenance = "The same rule as SPI_MEM_USER; device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 324 reads 0 after the ROM writes 0xff. Tests: periph::spi_mem::tests::the_unstored_bits_read_the_device_values_after_the_boot_writes, tests/milestones/campaign.rs t1_campaign_regs_rows_match_the_device_capture"
+
+[[overrides]]
+register = "SPI_MEM_MISC"
+value = "stored but for bit 1 (CS1_DIS), which reads 0, and bits 3 and 5 (CSPI_ST_TRANS_END, SLV_ST_TRANS_END), which read 1 from reset (periph/spi_mem.rs unstored); the chip-select and hold controls reach no emulated pin"
+class = "C"
+provenance = "The flash part is attached as a chip model (specs/blocks/flash_xmc.toml) rather than over modeled pins. Device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 325 reads 0x28 after ROM SPI_init sets CS1_DIS by read-modify-write (ROM 0x4004f51a to 0x4004f526). Bits 3 and 5 are set by the hardware at the end of a cache transfer; the model has no cache transfer and holds them set, UNVERIFIED before the first transfer and after a guest clear, which neither the ROM nor IDF performs. Tests: periph::spi_mem::tests::the_unstored_bits_read_the_device_values_after_the_boot_writes, tests/milestones/campaign.rs t1_campaign_regs_rows_match_the_device_capture. Declared class C rationale"
+
+[[overrides]]
+register = "SPI_MEM_CACHE_FCTRL"
+value = "stored; a cache fill never goes through SPI0, so enabling cache access to it changes nothing"
+class = "C"
+provenance = "The cache is the address-space fold of the MMU entry onto the flash image, and periph/spi_mem.rs records that nothing in the cache path reads SPI0. Declared class C rationale"
+
+[[overrides]]
+register = "SPI_MEM_CLOCK_GATE"
+value = "stored; the block is never clock-gated, so the gate reaches nothing"
+class = "C"
+provenance = "The model covers the flash command path and the JEDEC identity, not the clock tree. Declared class C rationale"
+
+[[overrides]]
+register = "SPI_MEM_CORE_CLK_SEL"
+value = "stored; the emulated flash answers inside the access, so the core clock source selects nothing"
+class = "C"
+provenance = "The same rule as SPI_MEM_CLOCK. Declared class C rationale"

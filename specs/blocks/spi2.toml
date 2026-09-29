@@ -1,0 +1,75 @@
+# Block spec of the `spi2` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/spi2.rs.
+schema = 1
+block = "spi2"
+base = 0x6002_4000
+size = 0x1000
+class = "B"
+milestone = "M4"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h (DR_REG_SPI2_BASE); size 0x1000 UNVERIFIED"
+
+# SPI_UPDATE is a write-trigger, so it reads back 0 with no model state; SPI_USR is self-clearing
+# and the model clears it when the transfer completes, which under the default timing profile is
+# inside the same access; TRANS_DONE rises there too, which is what makes the poll of
+# spi_device_polling_end terminate. The cross-block half of a transaction (GDMA bytes, the D/C
+# level, the panel call) is wiring/spi2.rs.
+
+# The LCD path. The hottest page of the reference trace by far, 4,416,291 reads, because
+# spi_ll_apply_config polls CMD.update in a tight loop. Both images hang in bsp_display_init
+# without it.
+
+[[wait]]
+id = "spi2.cmd_update"
+kind = "wait"
+seed = true
+register = "SPI_CMD"
+field = "SPI_UPDATE"
+trigger = "write SPI_UPDATE = 1"
+expect = "read SPI_UPDATE == 0"
+within = "same_access"
+polled_at = ["spi_ll_apply_config"]
+images = ["official", "pk"]
+milestone = "M4"
+provenance = "IDF hal/esp32c3/include/hal/spi_ll.h:264-268 (while (hw->cmd.update); clear on the same write); board-path seed row"
+
+[[wait]]
+id = "spi2.trans_done"
+kind = "wait"
+seed = true
+register = "SPI_DMA_INT_RAW"
+field = "SPI_TRANS_DONE_INT_RAW"
+trigger = "write SPI_USR = 1 (spi_ll_user_start) and the transfer completes"
+expect = "read SPI_TRANS_DONE_INT_RAW == 1; software writes of 0 and of 1 to the bit are both accepted"
+within = { fast = "same_access", device = "the transfer's bits at the SPI_CLOCK rate plus spi2_overhead_ps (specs/timing-profiles.toml)" }
+polled_at = ["spi_device_polling_end"]
+images = ["official", "pk"]
+milestone = "M4"
+provenance = "Polled by IDF esp_driver_spi/src/gpspi/spi_master.c:1471-1476 with no yield (written 0 by spi_ll_clear_int_stat, hal/esp32c3/include/hal/spi_ll.h:1155-1158, and 1 by spi_ll_set_int_stat, :1165-1168, used in spi_hal_init); board-path seed row"
+
+# Not a seed row, but the third self-clearing bit of the same path.
+[[wait]]
+id = "spi2.cmd_usr"
+kind = "wait"
+seed = false
+register = "SPI_CMD"
+field = "SPI_USR"
+trigger = "write SPI_USR = 1"
+expect = "read SPI_USR == 0 when the transfer completes; spi_hal_setup_trans asserts that no command is running before it starts one"
+within = { fast = "same_access", device = "the transfer's bits at the SPI_CLOCK rate plus spi2_overhead_ps (specs/timing-profiles.toml)" }
+polled_at = ["spi_hal_setup_trans"]
+images = ["official", "pk"]
+milestone = "M4"
+provenance = "IDF hal/esp32c3/include/hal/spi_ll.h:287-290 spi_ll_user_start; HAL_ASSERT(spi_ll_get_running_cmd(hw) == 0) in hal/spi_hal_iram.c:134"
+
+[[stable_read]]
+register = "SPI_CMD"
+provenance = "Both UPDATE and USR clear inside the access, so CMD reads 0 whenever the guest can observe it. This is the register the coverage gate sees 4.4 million reads of, so its read value has to be exact"
+
+[[stable_read]]
+register = "SPI_DMA_INT_RAW"
+provenance = "TRANS_DONE is a function of the completed transfer, which the model performs synchronously"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: GP-SPI2 is in the digital domain, which every reset scope restores"

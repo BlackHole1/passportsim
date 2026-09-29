@@ -1,0 +1,23 @@
+{
+  "properties": {
+    "instance": {
+      "type": "string"
+    },
+    "lan": {
+      "type": "object"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "op": {
+      "type": "string"
+    },
+    "vt_us": {
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}

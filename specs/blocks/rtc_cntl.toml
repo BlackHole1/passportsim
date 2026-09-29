@@ -1,0 +1,223 @@
+# Block spec of the `rtc_cntl` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/rtc_cntl.rs.
+schema = 1
+block = "rtc_cntl"
+base = 0x6000_8000
+size = 0x800
+class = "B"
+milestone = "M1"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h; size 0x800: rtc_cntl takes the lower half of page 0x6000_8000 and efuse the upper half"
+
+# The only block in the RTC power domain, which is what makes its reset domain different from
+# every other block: a core reset spares it, so the reset cause and the STORE words survive into
+# the next boot. The banner rst: value and the deep-sleep wake hint both depend on that.
+# No busy-wait row: the sleep and slow-clock-edge polls of IDF esp_hw_support/port/esp32c3 are not
+# on the boot path.
+
+[[stable_read]]
+register = "RTC_CNTL_RESET_STATE"
+provenance = "ROM rtc_get_reset_reason (bundled ROM ELF; IDF esp_rom/esp32c3/include/esp32c3/rom/rtc.h:165): RTC_CNTL_RESET_CAUSE_PROCPU[5:0] is what the ROM banner prints as rst:, so the value is a function of the modeled reset cause alone. Known causes: 0x01 power-on, 0x05 deep-sleep wake, 0x0C esp_restart, 0x15 USB-UART reset (the ResetCause type; IDF soc/reset_reasons.h)"
+
+[[stable_read]]
+register = "RTC_CNTL_STORE6"
+provenance = "IDF esp_rom/esp32c3/include/esp32c3/rom/rtc.h:64 (RTC_ENTRY_ADDR_REG): the deep-sleep wake hint the guest leaves in STORE6 must survive the reset, so its read value is a function of modeled state"
+
+[[stable_read]]
+register = "RTC_CNTL_STORE5"
+provenance = "bundled ROM ELF: boot_prepare requires STORE5 to be writable and reads it back"
+
+[[stable_read]]
+register = "RTC_CNTL_INT_RAW"
+provenance = "IDF soc/esp32c3/register/soc/rtc_cntl_reg.h: SLP_WAKEUP and SLP_REJECT are a function of the modeled sleep decision, and the brownout and watchdog bits of the modeled power and watchdog state"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system"]
+provenance = "IDF soc/reset_reasons.h (a core reset spares the RTC sub-system, a system reset does not): RTC_CNTL keeps its registers across a core reset. This is the one block whose domain mask differs from the default of every other block, and the generated table already reflects it. The row covers the free-running RTC time counter too, which periph/rtc_cntl.rs holds outside the register table: it restarts at 0 wherever these scopes reset, so at a power-on and at a SYS_ reset. UNVERIFIED: the other reading, a counter that starts at 0 on power-on and continues across all other resets and sleep, differs only for the RTC-domain class (0x0F, 0x10, 0x12). The model follows the reset-level reading of IDF soc/reset_reasons.h, with which the RWDT running state also resets. The device settles it for the super-watchdog reset (0x12) on that reading: device capture device-probe_campaign_reset-20260924T164812Z-run1 boot2 reads rtc_time_ms=51 after the reset, where the boot before it read 2852258 (a counter kept across the reset would read more). The other two causes of the class (0x0F, 0x10) take the same reading, UNVERIFIED"
+
+[[reset_domains]]
+registers = "RTC_CNTL_RESET_STATE"
+scopes = []
+provenance = "ROM rtc_get_reset_reason (bundled ROM ELF): the reset cause is written by the reset itself, so no reset scope clears it to the header default. A power-on reset sets it to 0x01 rather than restoring 0"
+
+# All eight STORE words live in the same RTC retention domain, so they take the same row. They are
+# not spare scratch: IDF esp_rom/esp32c3/include/esp32c3/rom/rtc.h:48-66 gives STORE1 the
+# RTC_SLOW_CLK calibration value, STORE2 and STORE3 the boot time, STORE4 the XTAL frequency (which
+# decides whether the clock code re-estimates it), STORE5 the APB frequency, STORE6 the fast-RTC
+# entry address and the software reset cause, and STORE7 the fast-RTC memory CRC; only STORE0 is
+# reserved. A core reset and the deep-sleep wake keep them; a SYS_ reset clears them with the rest
+# of the RTC_CNTL configuration and the RTC time counter, as IDF soc/reset_reasons.h reads (a system
+# reset includes the RTC sub-system). The other reading has only a power-on clear them; the device
+# settles STORE1 at the super-watchdog reset (0x12) on the reset-level side (the STORE1 row). The other seven words and the other SYS_ causes (0x0F,
+# 0x10, 0x13) follow the row, UNVERIFIED.
+[[reset_domains]]
+registers = "RTC_CNTL_STORE0"
+scopes = ["chip", "system"]
+provenance = "IDF soc/reset_reasons.h (STORE0-7 reset by a power-on and a SYS_ reset, kept across a core reset and the deep-sleep wake), as STORE1 settles it; UNVERIFIED for this word. IDF esp_rom/esp32c3/include/esp32c3/rom/rtc.h:48 (reserved word, same domain as its seven neighbours)"
+
+[[reset_domains]]
+registers = "RTC_CNTL_STORE1"
+scopes = ["chip", "system"]
+provenance = "IDF soc/reset_reasons.h, settled for the super-watchdog reset (0x12): device-probe_campaign_reset-20260924T201202Z run1 to run3 boot2 read rtc_time_ms=51 right after a boot that read 12122679 (and 164812Z: 51 after 2852258). IDF esp_hw_support/esp_clk.c esp_rtc_get_time_us adds (ticks - rtc_last_ticks) x STORE1 to the time kept in RTC memory, which the probe shows kept (rtc_magic=1); with STORE1 kept across a counter that restarted, ticks - rtc_last_ticks wraps and the app prints a wrapped value (the emulator under that model printed 1855425889 ms, t1_campaign_rtc_time_restarts_after_a_super_watchdog_reset), so the device took the branch that restarts the time, STORE1 = 0 at esp_clk_init. IDF esp_rom/esp32c3/include/esp32c3/rom/rtc.h:49 and :59 RTC_SLOW_CLK_CAL_REG; rtc.h:92 SUPER_WDT_RESET resets the digital core and the rtc module"
+
+[[reset_domains]]
+registers = "RTC_CNTL_STORE2"
+scopes = ["chip", "system"]
+provenance = "IDF soc/reset_reasons.h, as STORE1 settles it; UNVERIFIED for this word. IDF esp_rom/esp32c3/include/esp32c3/rom/rtc.h:50 and :60 RTC_BOOT_TIME_LOW_REG"
+
+[[reset_domains]]
+registers = "RTC_CNTL_STORE3"
+scopes = ["chip", "system"]
+provenance = "IDF soc/reset_reasons.h, as STORE1 settles it; UNVERIFIED for this word. IDF esp_rom/esp32c3/include/esp32c3/rom/rtc.h:51 and :61 RTC_BOOT_TIME_HIGH_REG"
+
+[[reset_domains]]
+registers = "RTC_CNTL_STORE4"
+scopes = ["chip", "system"]
+provenance = "IDF soc/reset_reasons.h, as STORE1 settles it; UNVERIFIED for this word. IDF esp_rom/esp32c3/include/esp32c3/rom/rtc.h:52 and :62 RTC_XTAL_FREQ_REG: the XTAL frequency hint, also the ROM log-disable flag of rtc.h:188-192, both of which the guest expects across a core reset"
+
+[[reset_domains]]
+registers = "RTC_CNTL_STORE5"
+scopes = ["chip", "system"]
+provenance = "IDF soc/reset_reasons.h, as STORE1 settles it; UNVERIFIED for this word. IDF esp_rom/esp32c3/include/esp32c3/rom/rtc.h:53 and :63 RTC_APB_FREQ_REG; bundled ROM ELF: boot_prepare writes STORE5 and reads it back"
+
+[[reset_domains]]
+registers = "RTC_CNTL_STORE6"
+scopes = ["chip", "system"]
+provenance = "IDF soc/reset_reasons.h, as STORE1 settles it; UNVERIFIED for this word. The deep-sleep hint needs only the wake (a core-scope reset) to keep it. IDF esp_rom/esp32c3/include/esp32c3/rom/rtc.h:54, :64 RTC_ENTRY_ADDR_REG and :65 RTC_RESET_CAUSE_REG"
+
+[[reset_domains]]
+registers = "RTC_CNTL_STORE7"
+scopes = ["chip", "system"]
+provenance = "IDF soc/reset_reasons.h, as STORE1 settles it; UNVERIFIED for this word. IDF esp_rom/esp32c3/include/esp32c3/rom/rtc.h:55 and :66 RTC_MEMORY_CRC_REG: the fast-RTC memory CRC the deep-sleep wake path checks"
+
+# What the model implements beyond the reset cause and the retained STORE words.
+
+[[overrides]]
+register = "RTC_CNTL_OPTIONS0"
+value = "SW_SYS_RST resets the chip inside the write and SW_PROCPU_RST one microsecond later, each with its own reset cause; all three software-reset bits read back 0"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/rtc_cntl_reg.h (SW_SYS_RST bit 31 and SW_PROCPU_RST bit 5, both WO) and IDF soc/reset_reasons.h (SW_SYS_RST cause 0x03, SW_PROCPU_RST cause 0x0C). Test: periph::rtc_cntl::tests::the_software_reset_bits_produce_a_reset_and_read_zero. The analog bias and crystal bits of the register are stored and have no emulated analog to reach, which no firmware path reads back"
+
+[[overrides]]
+register = "RTC_CNTL_TIME_UPDATE"
+value = "writing the update request latches the RTC counter into TIME_LOW0 and TIME_HIGH0, and the request bit reads back 0"
+class = "B"
+provenance = "IDF soc/esp32c3/include/soc/rtc_cntl_reg.h (RTC_CNTL_TIME_UPDATE bit 31); every time-derived register is computed from virtual time (docs/ARCHITECTURE.md, Execution and time). Test: periph::rtc_cntl::tests::time_update_latches_the_counter_at_the_slow_clock_rate"
+
+[[overrides]]
+register = "RTC_CNTL_TIME_LOW0"
+value = "the low 32 bits of the RTC slow-clock counter as the last TIME_UPDATE latched it"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/rtc_cntl_reg.h (RTC timer registers). Tests: periph::rtc_cntl::tests::time_update_latches_the_counter_at_the_slow_clock_rate, ::the_counter_is_48_bits_wide and ::the_counter_restarts_only_on_a_chip_or_system_reset"
+
+[[overrides]]
+register = "RTC_CNTL_TIME_HIGH0"
+value = "bits 47:32 of the RTC slow-clock counter as the last TIME_UPDATE latched it"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/rtc_cntl_reg.h (RTC timer registers). The same three tests as RTC_CNTL_TIME_LOW0"
+
+[[overrides]]
+register = "RTC_CNTL_INT_ENA"
+value = "read/write enable mask; INT_ST becomes INT_RAW and INT_ENA and drives interrupt source 27"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/rtc_cntl_reg.h (interrupt registers RAW, ST, ENA, CLR); source 27 in specs/irq-sources.toml. Tests: periph::rtc_cntl::tests::the_interrupt_registers_follow_raw_and_ena and ::int_st_drives_source_27_through_the_entry_points"
+
+[[overrides]]
+register = "RTC_CNTL_INT_CLR"
+value = "write-trigger clear of INT_RAW, after which a brownout that is still present raises its raw bit again"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/rtc_cntl_reg.h (interrupt registers); the battery model drives the brownout, so the raw bit is re-evaluated after the clear (periph::rtc_sleep::reassert_brownout). The same two tests as RTC_CNTL_INT_ENA"
+
+[[overrides]]
+register = "RTC_CNTL_DIG_PWC"
+value = "DG_WRAP_PD_EN selects deep sleep over light sleep on the next SLEEP_EN write; the other power-down enables are stored"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/rtc_cntl_reg.h (sleep control registers); periph::rtc_sleep::entry_kind reads the bit and the sleep tests of that module cover both paths. The remaining power-down enables reach no emulated power domain: the emulator keeps power domains only as the reset_domains masks, so this is not a gap in this register"
+
+[[overrides]]
+register = "RTC_CNTL_GPIO_WAKEUP"
+value = "the deep-sleep GPIO wake: GPIO_PIN<n>_WAKEUP_ENABLE and GPIO_PIN<n>_INT_TYPE arm RTC pad n on a level, GPIO_WAKEUP_STATUS reads back the pad that woke the chip, and a write with GPIO_WAKEUP_STATUS_CLR set clears it"
+class = "B"
+provenance = "IDF v5.5.3 soc/esp32c3/register/soc/rtc_cntl_reg.h:2428 for the field layout and hal/include/hal/gpio_types.h for the INT_TYPE values (only the two level triggers can end a sleep). The arming is decoded exactly (periph::rtc_sleep::tests::the_gpio_wake_decode_reads_each_pads_enable_and_level, ::an_armed_pad_makes_the_gpio_trigger_a_modeled_source, ::the_gpio_wake_status_latches_and_clears), but whether a pad is at its wake level is the board's answer and only GPIO0, the button ladder, has one. Device capture device-probe_campaign_reset-20260924T164812Z-run1 boot3: on this board GPIO0 reads low in deep sleep whatever the keys, so a deep sleep armed on GPIO0 low beside a 3 s timer wakes at once by GPIO (cause 7, GPIO_WAKEUP_STATUS pad 0, GPIO_WAKEUP 0x02000081 after the wake, all three equal here since the board fact boards/ai-passport.toml [buttons] pullup_held_in_deep_sleep = false; crates/pemu-machine/src/sleep.rs on_this_board_a_gpio0_low_deep_sleep_wakes_at_once). A pad other than GPIO0 armed here therefore wakes nothing, and whether the hardware clears the status on the CLR edge or holds it at 0 while the bit stands is UNVERIFIED; the two agree for IDF's set-then-clear. The device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 254 reads 0x02000081, which is not a boot value: the capture's boot is a core reset (rst:0x15, line 3), which keeps the RTC domain, and the device ran probe_campaign_reset's timer deep sleep (GPIO0 armed) earlier that day; IDF v5.5.3 hal/esp32c3/include/hal/gpio_ll.h:684 gpio_ll_deepsleep_wakeup_enable sets PIN_CLK_GATE (bit 7) and GPIO0's INT_TYPE 4, low level (bits 25:23), both set here; GPIO0's wake enable (bit 31) reads clear and WAKEUP_STATUS reads pad 0 (bit 0), UNVERIFIED which write left them so; the emulator, which starts every run from power-on, reads 0. Not a power-on fact, UNVERIFIED which run left it. The decode, the latched status and the raw word after a GPIO wake match the device (the boot3 capture above), so the row is B; the CLR edge stays UNVERIFIED"
+
+[[overrides]]
+registers = "RTC_CNTL_WDT*"
+value = "the RWDT: WDTCONFIG0 enables it and carries the four stage actions, WDTCONFIG1 to WDTCONFIG4 are the stage holds in slow-clock ticks, WDTFEED restarts stage 0, and WDTWPROTECT is the key that gates every write to the group"
+class = "B"
+provenance = "TRM Watchdog Timers chapter and IDF hal/esp32c3/include/hal/rwdt_ll.h (the whole RWDT: WDT_EN bit 31, the four three-bit stage fields, the write key 0x50D83AA1, the flash-boot protection that resets an image which never feeds it, and the stage-0 scaling by 1 + EFUSE_WDT_DELAY_SEL; rwdt_ll.h:119). Tests: periph::rtc_cntl::tests::the_stages_run_in_order_with_their_own_actions, ::a_feed_restarts_the_first_stage, ::a_hold_write_keeps_the_elapsed_time, ::clearing_the_flash_boot_bit_stops_the_watchdog, ::the_watchdog_registers_need_their_key, ::the_efuse_delay_selector_scales_only_the_first_stage, ::a_sleep_pauses_the_count_only_with_pause_in_slp and ::the_flash_boot_watchdog_resets_an_image_that_never_feeds_it"
+
+# What the model stores and deliberately does not act on. Each row is a declared class C
+# approximation, not a claim that the register matches the spec: these are the analog,
+# power-domain and clock-source controls of a block whose digital half is modeled.
+
+[[overrides]]
+registers = "RTC_CNTL_TIMER*"
+value = "stored; the power-up, power-down and calibration wait counts do not pace anything, because the emulator has no analog domain to wait for"
+class = "C"
+provenance = "IDF soc/esp32c3/register/soc/rtc_cntl_reg.h (RTC_CNTL_TIMER1 to TIMER6 hold the wait cycles of the analog power-up sequence); the emulator derives every delay from virtual time rather than from these counts (docs/ARCHITECTURE.md, Execution and time). The device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 255 reads RTC_CNTL_TIMER1 0x14190143 against the emulator's 0x14140143, which is not a boot value: the capture's boot is a core reset (rst:0x15, line 3), which keeps the RTC domain, and the device ran probe_campaign_reset's timer deep sleep (GPIO0 armed) earlier that day; XTL_BUF_WAIT reads 100, RTC_CNTL_XTL_BUF_WAIT_DEFAULT, which IDF v5.5.3 esp_hw_support/port/esp32c3/rtc_sleep.c:251 writes for a deep sleep, where the boot value is 80. Not a power-on fact, so the row keeps its class, UNVERIFIED which run left it. Declared class C rationale"
+
+[[overrides]]
+register = "RTC_CNTL_ANA_CONF"
+value = "stored; the analog power and PLL force bits reach no emulated analog block"
+class = "C"
+provenance = "IDF soc/esp32c3/include/soc/regi2c_*.h (the analog side lives behind regi2c, which the emulator models as a byte store). Declared class C rationale"
+
+[[overrides]]
+register = "RTC_CNTL_CLK_CONF"
+value = "stored; the fast and slow clock source selectors are not honored, because the emulated RTC slow clock runs at one fixed rate"
+class = "C"
+provenance = "TRM Reset and Clock chapter (the clock tree); the emulator fixes the RTC slow-clock rate for the whole machine as a constant in periph/rtc_cntl.rs. A guest that selects the 32 kHz crystal instead of the RC oscillator gets the same rate, which is what makes this an approximation and not a match. The device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 262 reads 0x20c80298 against the emulator's 0x30c80298, which is not a boot value: the capture's boot is a core reset (rst:0x15, line 3), which keeps the RTC domain, and the device ran probe_campaign_reset's timer deep sleep (GPIO0 armed) earlier that day; XTAL_GLOBAL_FORCE_NOGATING (bit 28) reads 0, which IDF v5.5.3 esp_hw_support/port/esp32c3/rtc_sleep.c:244 writes for a deep sleep (xtal_fpu 0), where the boot value is 1. Not a power-on fact, so the row keeps its class, UNVERIFIED which run left it. Declared class C rationale"
+
+[[overrides]]
+register = "RTC_CNTL_SLOW_CLK_CONF"
+value = "the next-edge request stays set until the next edge of the slow clock, then clears itself; the divider and the source selector are stored and not honored"
+class = "C"
+provenance = "TRM Reset and Clock chapter; IDF esp_hw_support/port/esp32c3/rtc_time.c:183-184 (rtc_clk_wait_for_slow_cycle polls SLOW_CLK_NEXT_EDGE); periph/rtc_cntl.rs fixes the slow-clock rate. The next-edge request matches the device: device-probe_campaign_timing-20260924T155139Z run1 and run2 line 69 (TIME slow_clk_next_edge) read it set for 508, 727, 917, 979 and 1208, 915, 915, 915 CPU cycles, cleared every time, within one slow period (about 1095 cycles); the model clears it at the RTC counter's next tick (458, 672, 994, 982 in tests/fw/campaign/probe_campaign_timing.emu.txt), periph::rtc_cntl::tests::the_slow_clock_edge_request_clears_at_the_next_slow_edge. No corpus app or bootloader ELF stores the request (pk, official, demo, pkgatt, scan3; the only SLOW_CLK_CONF store, rtc_clk_divider_set in the bootloader, clears ANA_CLK_DIV_VLD). The rate fields are the approximation, so the register as a whole stays class C"
+
+[[overrides]]
+register = "RTC_CNTL"
+value = "stored; the analog regulator and sleep-current trim bits reach no emulated analog block"
+class = "C"
+provenance = "IDF soc/esp32c3/include/soc/regi2c_*.h, the same rule as RTC_CNTL_ANA_CONF. Declared class C rationale"
+
+[[overrides]]
+register = "RTC_CNTL_PWC"
+value = "stored; the RTC power-domain controls reach no emulated power domain"
+class = "C"
+provenance = "IDF soc/reset_reasons.h reset levels, which the emulator implements as the reset_domains masks of these files rather than as live power gating. Declared class C rationale"
+
+[[overrides]]
+register = "RTC_CNTL_DIG_ISO"
+value = "stored; there is nothing to isolate, because the emulated digital domain is never powered down"
+class = "C"
+provenance = "IDF soc/reset_reasons.h reset levels, the same rule as RTC_CNTL_PWC. Declared class C rationale"
+
+[[overrides]]
+registers = "RTC_CNTL_SWD*"
+value = "the write key gates the group and the feed and flag-clear bits read back 0; armed (FIB_SEL.FIB_SUPER_WDT_RST, SWD_BYPASS_RST, SWD_DISABLE and SWD_AUTO_FEED_EN all clear) the super watchdog resets the chip with cause 0x12 3355 ms after it was armed (periph::rtc_cntl::SWD_TIMEOUT_PS, class B, device-probe_campaign_reset-20260924T201202Z run1 to run3), a SYS_ class reset that restarts the RTC counter and keeps RTC memory; the reset sets SWD_RESET_FLAG, which SWD_RST_FLAG_CLR clears; SWD_FEED and the feed interrupt are not modeled"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/rtc_cntl_reg.h (SWD_DISABLE bit 30, SWD_AUTO_FEED_EN bit 31, SWD_BYPASS_RST bit 17, the key in SWD_WPROTECT, reset cause 0x12); TRM 12.3 (the timeout 'slightly less than one second', no number, hence the class C constant; 'After reset ... set RTC_CNTL_SWD_RST_FLAG_CLR to clear the SWD reset flag'). Device capture device-probe_campaign_reset-20260924T164812Z-run1: with auto-feed switched off and no feed the device resets (boot2 raw=0x12, reason 7), RTC slow memory survives (rtc_magic=1), the RTC counter restarts (rtc_time_ms=51) and SWD_CONF reads 0x84b00000 after the ROM and the bootloader, the reset value 0x04b00000 plus the bootloader's SWD_AUTO_FEED_EN (bit 31, not a reset flag); SWD_RESET_FLAG (bit 0) reads 0 there because the ROM's clear_super_wdt_reset_flag (ROM ELF rev101 0x4004a69a) clears it, so whether it is set is UNVERIFIED. The reset is enabled only once IDF's bootloader_ana_super_wdt_reset_config clears FIB_SUPER_WDT_RST and SWD_BYPASS_RST: the ROM never touches the watchdog, so the FIB_SEL default is read as bypassing the reset (UNVERIFIED mechanism). SWD_FEED is written by no ROM or IDF path and is not modeled, nor is the feed interrupt about 100 ms before the timeout that auto-feed answers, so auto-feed holds the count at 0 and arming starts a full timeout. periph::rtc_cntl::tests::an_unfed_super_watchdog_resets_with_cause_0x12, ::the_super_watchdog_is_armed_only_with_its_reset_enabled_and_no_feed, ::a_core_reset_keeps_the_super_watchdog_counting. The timeout is measured by probe_campaign_reset SWD|timeout, not yet captured"
+
+[[overrides]]
+register = "RTC_CNTL_DIG_PAD_HOLD"
+value = "stored; pad levels are not held across a sleep, because the board model keeps its pin state anyway"
+class = "C"
+provenance = "IDF soc/esp32c3/register/soc/rtc_cntl_reg.h; board state lives in the board model across a sleep, so the hold has nothing to latch. Declared class C rationale"
+
+[[overrides]]
+register = "RTC_CNTL_BROWN_OUT"
+value = "the detector bit and the brownout interrupt follow the battery model while the enable is set; the reset enable, the reset wait and the analog reset enable are stored and never taken"
+class = "C"
+provenance = "IDF soc/esp32c3/register/soc/rtc_cntl_reg.h (brownout registers) and IDF soc/esp32c3/include/soc/regi2c_brownout.h; the battery model drives the brownout, which periph::rtc_sleep::detect_brownout implements together with the interrupt; the reset side is stored and not acted on, recorded in that module. A brownout that resets on the device only raises an interrupt here, so the register is a declared class C approximation"
+
+[[overrides]]
+register = "RTC_CNTL_FIB_SEL"
+value = "stored; FIB_SUPER_WDT_RST (bit 2, reset 1) set keeps the super watchdog's reset bypassed (RTC_CNTL_SWD*); the other two bits reach no emulated analog block"
+class = "C"
+provenance = "IDF soc/esp32c3/include/soc/regi2c_*.h, the same rule as RTC_CNTL_ANA_CONF. IDF v5.5.3 bootloader_support/src/esp32c3/bootloader_soc.c bootloader_ana_super_wdt_reset_config clears FIB_SUPER_WDT_RST so that SWD_BYPASS_RST decides the super watchdog's reset; the ROM never touches the watchdog and a chip does not reset out of a long ROM download wait, so the bit's reset value is read as bypassing the reset, UNVERIFIED. Declared class C rationale"
+
+[[overrides]]
+register = "RTC_CNTL_SENSOR_CTRL"
+value = "stored; it is on the entropy-enable path, which is store-only across every block it touches"
+class = "C"
+provenance = "IDF bootloader_support/src/bootloader_random_esp32c3.c (the entropy-enable path writes RTC_CNTL_SENSOR_CTRL, the regi2c SAR bits and the APB_SARADC registers, all stored only), which is why SYSCON_RND_DATA is itself class C in specs/blocks/apb_ctrl.toml. Declared class C rationale"

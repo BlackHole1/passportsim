@@ -1,0 +1,45 @@
+# Non-identity facts of the AI Passport, the input of the port-free refusal matrix, the same on
+# every host. Nothing here identifies a unit: no MAC, unique id, calibration value, serial number
+# or cardid byte.
+#
+# - chip and revision: ESP32-C3 revision v1.1 (device reference boot log, not committed);
+# - flash: XMC, JEDEC manufacturer 0x20, device 0x4017, 8 MB (the same log's flash id;
+#   `specs/blocks/flash_xmc.toml`);
+# - partitions: the `official.pt` layout (the official firmware's partition table), with
+#   `cardid` at 0x356000 size 0x4000.
+
+[chip]
+name = "ESP32-C3"
+revision = "v1.1"
+
+[flash]
+manufacturer = "0x20"
+device = "0x4017"
+
+[[partition]]
+name = "nvs"
+type = "data"
+subtype = "nvs"
+offset = "0x9000"
+size = "0x6000"
+
+[[partition]]
+name = "phy_init"
+type = "data"
+subtype = "phy"
+offset = "0xF000"
+size = "0x1000"
+
+[[partition]]
+name = "factory"
+type = "app"
+subtype = "factory"
+offset = "0x10000"
+size = "0x300000"
+
+[[partition]]
+name = "cardid"
+type = "data"
+subtype = "nvs"
+offset = "0x356000"
+size = "0x4000"

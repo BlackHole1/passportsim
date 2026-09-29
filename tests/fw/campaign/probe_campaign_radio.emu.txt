@@ -1,0 +1,21 @@
+PROBE|name=probe_campaign_radio|schema=passport-emu/probe-line/1
+HEAP|before_init|row=hle.ble.heap_ledger|free=292284|largest=155648
+ISR|before_init|row=hle.ble.isr_source|bt_mac=0|bt_bb=0|bt_bb_nmi=0|rwbt=0|rwble=0|rwbt_nmi=0|rwble_nmi=0
+LOG|ble_init_1|row=hle.ble.log_lines|level=I|text=BT controller compile version [1bb2f50]
+LOG|ble_init_2|row=hle.ble.log_lines|level=I|text=Using main XTAL as clock source
+LOG|ble_init_3|row=hle.ble.log_lines|level=I|text=Feature Config, ADV:1, BLE_50:1, DTM:1, SCAN:1, CCA:0, SMP:1, CONNECT:1
+LOG|ble_init_4|row=hle.ble.log_lines|level=I|text=Bluetooth MAC: (withheld)
+TIME|ble_init|row=timing-profiles.ble_init_ps|us=3758|rc=0
+HEAP|after_init|row=hle.ble.heap_ledger|free=259088|largest=122880
+ISR|after_init|row=hle.ble.isr_source|bt_mac=0|bt_bb=0|bt_bb_nmi=0|rwbt=0|rwble=8|rwbt_nmi=0|rwble_nmi=0
+LOG|phy_init_1|row=hle.ble.log_lines|level=I|text=phy_version 1232,d493f299,Aug 25 2025,19:01:20
+TIME|ble_enable|row=timing-profiles.ble_enable_ps|us=39354|rc=0
+HEAP|after_enable|row=hle.ble.heap_ledger|free=259052|largest=122880
+ISR|after_enable|row=hle.ble.isr_source|bt_mac=0|bt_bb=0|bt_bb_nmi=0|rwbt=0|rwble=8|rwbt_nmi=0|rwble_nmi=0
+HCI|reset|row=hle.ble.reply_us|us=518|event=0x0e|status=0
+HCI|read_local_version|row=hle.ble.reply_us|us=79|status=0|hci_version=9|lmp_version=9|company=0x02e5
+TIME|ble_disable|row=timing-profiles.ble_enable_ps|us=666|rc=0
+HEAP|after_disable|row=hle.ble.heap_ledger|free=258992|largest=122880
+TIME|ble_deinit|row=timing-profiles.ble_init_ps|us=1034|rc=0
+HEAP|after_deinit|row=hle.ble.heap_ledger|free=291976|largest=122880
+DONE|name=probe_campaign_radio|status=ok

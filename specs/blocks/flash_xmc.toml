@@ -1,0 +1,83 @@
+# Chip spec of the on-package flash (`flash_xmc`). Not a `c3_devices!` row: the chip hangs off
+# SPI1 (specs/blocks/spi1.toml) and has no MMIO window of its own.
+# Model: crates/pemu-soc-c3/src/periph/flash_xmc.rs.
+schema = 1
+chip = "flash_xmc"
+bus = "spi1"
+address = "cs0"
+class = "B"
+milestone = "M1"
+provenance = "device banner XMC flash id (the RDID row below); IDF spi_flash/spi_flash_chip_generic.c (the generic driver) and bootloader_support/bootloader_flash/src/bootloader_flash.c (the XMC startup path)"
+
+# 8 MiB on-package XMC NOR flash, erased 0xFF, generic driver, DIO mode. SR1 and SR2 start at
+# 0x00 (UNVERIFIED), so bootloader_flash_unlock_default issues no write.
+
+# The JEDEC id. Class A because it comes from a device capture; it must be identical on every
+# read, because esp_flash_api.c reads the id twice and fails on a mismatch.
+[[overrides]]
+command = "0x9F RDID"
+value = [0x20, 0x40, 0x17]
+class = "A"
+provenance = "device banner XMC flash id (device reference boot log, identity masked); IDF spi_flash/esp_flash_api.c:458-490 and bootloader_support/bootloader_flash/src/bootloader_flash.c:886-891, which swaps the bytes into 0x204017"
+
+# Consequences of the id, kept as rows so a change to the id cannot silently break them.
+[[overrides]]
+command = "detected size"
+value = 0x80_0000
+class = "B"
+provenance = "IDF spi_flash/spi_flash_chip_generic.c:92-114 spi_flash_chip_generic_detect_size computes 1 << (id & 0xFF) = 1 << 0x17 = 8 MiB, and IDF spi_flash/esp_flash_spi_init.c:580-583 fails if it is smaller than the image header size"
+
+[[overrides]]
+command = "0x5A RDSFDP"
+value = "not reached"
+class = "C"
+provenance = "IDF bootloader_support/bootloader_flash/src/bootloader_flash.c:915-940 is_xmc_chip_strict accepts vendor 0x20 with mfid 0x40 and cpid 0x17, so bootloader_flash_xmc_startup (942-979) skips the SFDP and UDPD recovery path. Serving 0xFF is a deliberate approximation, UNVERIFIED whether any path reads SFDP in this configuration"
+
+[[overrides]]
+command = "any command at 0x800000 or above"
+value = "the part decodes the low 23 bits of the address, so the command reaches the cell 8 MB below: 0x800000 reads what 0x000000 holds"
+class = "A"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 394 (FLASH|read_0x800000 rc_high=0 same_as_0x000000=1 ff_bytes=0 high4=e903023f, the bootloader image header of 0x000000); probes/probe_campaign_regs flash_beyond_the_part (esp_flash_read of 32 bytes at 0x800000 with the configured size raised to 16 MB for that one read). Tests: periph::flash_xmc::tests::an_address_beyond_the_part_reaches_the_cell_8_mb_below_it, periph::spi_mem::tests::a_transaction_beyond_the_part_reaches_the_mirror_below_it, tests/milestones/m10.rs t0_m10_limits_flash_app_size_refusal_and_beyond_the_part, tests/milestones/campaign.rs t1_campaign_regs_rows_match_the_device_capture. Class A for a read only: a program or erase goes through the same address decoder and lands on the same mirror, reporting that mirrored page as written, which is not observed because the device rules forbid a flash write (UNVERIFIED). Cache fills through the MMU above 8 MB are not SPI1 commands and are outside this row"
+
+# The page-program wrap: a 0x02 that runs past the end of its 256-byte page continues at the start
+# of the same page.
+[[overrides]]
+command = "0x02 PP across a page boundary"
+value = "wraps inside the 256-byte page"
+class = "C"
+provenance = "No public source for this part gives its program-page size; 256 bytes is the page of every part the generic driver drives (IDF spi_flash/spi_flash_chip_generic.c page_size). Reachable only from a raw SPI1 user command with addr % 256 > 192: the W buffer caps a transaction at 64 bytes and the ROM and IDF both chunk at the page boundary. UNVERIFIED for this XMC part"
+
+# What the part answers while WIP is set. The model needs a rule here because only the command
+# that sets WIP schedules its completion.
+[[overrides]]
+command = "any command while WIP is set"
+value = "only 0x05, 0x35, 0x66 and 0x99 are answered"
+class = "C"
+provenance = "No public source gives a rule for a command arriving during WIP; this is the usual NOR one. 0x05 and 0x35 must keep answering (the bundled ROM's read-status loop at 0x4004ec18 and IDF spi_flash/spi_flash_chip_generic.c:424-481 poll them) and IDF bootloader_flash_reset_chip needs the 0x66 + 0x99 pair on the brownout path. No ROM or IDF path reaches the case: all of them poll WIP before every command. UNVERIFIED"
+
+[[wait]]
+id = "flash_xmc.wip"
+kind = "wait"
+seed = true
+register = "SR1"
+field = "WIP"
+trigger = "a program, erase or WRSR command completes"
+expect = "read SR1 bit 0 (WIP) == 0, and bit 1 (WEL) == 0 after a program or erase"
+within = { fast = "0ms", device = "PP 0.7ms, SE 45ms, BE64K 150ms, CE 20s" }
+polled_at = ["esp_rom_spiflash_wait_idle", "spi_flash_chip_generic_wait_idle"]
+images = ["official", "pk"]
+milestone = "M1"
+provenance = "The bundled ROM's read-status loop at 0x4004ec18 loops while WIP, as does IDF spi_flash/spi_flash_chip_generic.c:424-481 with the per-op timeouts at 65-68; device WIP figures UNVERIFIED for this XMC part; boot-path seed row"
+
+[[stable_read]]
+register = "SR1"
+provenance = "SR1 is a function of the command history alone under the fast profile, where the change applies instantly and WIP is already 0"
+
+[[stable_read]]
+register = "JEDEC_ID"
+provenance = "Identical on every read, which IDF spi_flash/esp_flash_api.c:458-490 depends on"
+
+[[reset_domains]]
+registers = "*"
+scopes = []
+provenance = "The chip is outside the SoC and no MCU reset scope reaches it. A 0x66 + 0x99 software reset clears WEL, WIP, SUS and DP (IDF bootloader_flash_reset_chip); the array contents persist, which is what makes the flash image the emulator's durable store"

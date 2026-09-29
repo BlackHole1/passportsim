@@ -1,0 +1,59 @@
+name: Fetch the demo firmware
+description: >-
+  Downloads the demo firmware (official.pebundle with its licence and notice) from a deployed
+  PassportSim site, which serves all three, checks the bundle's SHA-256 and lays the files out for
+  `cargo xtask package --demo`. With no site URL it warns in the log and the job summary and outputs
+  an empty directory, so the package is built without the demo.
+inputs:
+  url:
+    description: Base URL of a deployed site that carries the demo, e.g. https://passportsim.bugs.cc
+    required: false
+    default: ""
+  sha256:
+    description: SHA-256 of that site's official.pebundle.
+    required: false
+    default: ""
+outputs:
+  dir:
+    description: The directory to pass to `--demo`, or empty when no demo was fetched.
+    value: ${{ steps.fetch.outputs.dir }}
+runs:
+  using: composite
+  steps:
+    - id: fetch
+      shell: bash
+      env:
+        DEMO_URL: ${{ inputs.url }}
+        DEMO_SHA256: ${{ inputs.sha256 }}
+      run: |
+        if [ -z "$DEMO_URL" ] && [ -z "$DEMO_SHA256" ]; then
+          message="DEMO_SITE_URL and DEMO_BUNDLE_SHA256 are not set, so this build carries no demo firmware: the page opens with no machine and asks for a firmware drop."
+          echo "::warning title=No demo firmware::$message"
+          {
+            echo "### No demo firmware"
+            echo
+            echo "$message See docs/deploy-cloudflare.md, \"Continuous integration and releases\"."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "dir=" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        if [ -z "$DEMO_URL" ] || [ -z "$DEMO_SHA256" ]; then
+          echo "::error title=Demo firmware::set both DEMO_SITE_URL and DEMO_BUNDLE_SHA256, or neither"
+          exit 1
+        fi
+        base="${DEMO_URL%/}"
+        dir="$RUNNER_TEMP/official-demo"
+        rm -rf "$dir"
+        mkdir -p "$dir"
+        fetch() { curl --fail --silent --show-error --location --retry 3 --output "$dir/$2" "$base/$1"; }
+        fetch official.pebundle official.pebundle
+        fetch licenses/official-demo.LICENSE official-demo.LICENSE
+        fetch licenses/official-demo.NOTICE official-demo.NOTICE
+        actual=$(openssl dgst -sha256 -r "$dir/official.pebundle" | cut -d' ' -f1)
+        expected=$(printf '%s' "$DEMO_SHA256" | tr '[:upper:]' '[:lower:]')
+        if [ "$actual" != "$expected" ]; then
+          echo "::error title=Demo firmware::official.pebundle's SHA-256 is $actual, not the pinned $expected"
+          exit 1
+        fi
+        echo "Demo firmware verified (SHA-256 $actual)."
+        echo "dir=$dir" >> "$GITHUB_OUTPUT"

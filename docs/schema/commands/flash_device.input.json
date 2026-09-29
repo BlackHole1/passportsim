@@ -1,0 +1,36 @@
+{
+  "description": "Arguments of `flash_device`: the image, the optional port, and `dry_run`, which stops before the device is opened.",
+  "properties": {
+    "backup": {
+      "description": "CLI only, refused over MCP and HTTP: read the whole 8 MB part first and store it owner-only outside the repository.",
+      "type": "boolean"
+    },
+    "dry_run": {
+      "description": "Plan only: nothing is enumerated, opened or rehearsed.",
+      "type": "boolean"
+    },
+    "erase_nvs": {
+      "description": "CLI only, refused over MCP and HTTP: erase the `nvs` partition as well.",
+      "type": "boolean"
+    },
+    "image": {
+      "description": "A merged `.bin` of the whole 8 MB part. A build directory is refused in v1.",
+      "type": "string"
+    },
+    "no_backup": {
+      "description": "CLI only: flash without the whole 8 MB backup. A real flash needs one of `--backup` or `--no-backup`, so the backup is never skipped by forgetting a flag.",
+      "type": "boolean"
+    },
+    "port": {
+      "description": "A discovered 303A:1001 port; required when several are attached.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "image"
+  ],
+  "type": "object"
+}

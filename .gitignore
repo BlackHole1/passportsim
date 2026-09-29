@@ -1,0 +1,53 @@
+# build outputs
+/target/
+/web/node_modules/
+/web/dist/
+
+# host litter
+/.claude/
+.DS_Store
+Thumbs.db
+desktop.ini
+/$RECYCLE.BIN/
+
+# firmware and device data: never committed (the bundled ROM is re-included below)
+*.bin
+*.elf
+efuse_blk*
+*flash*.bin
+cardid*
+boot_log*
+GROUND_TRUTH*
+
+# run artifacts
+*.snap
+*.pebundle
+*.pcap
+*.btsnoop
+*.wav
+/artifacts/
+.passportsim/
+
+# local configuration
+*.local.toml
+secrets-check.toml
+# a probe built by hand with idf.py and no SDKCONFIG= writes these into the project; they can
+# hold a real SSID and password (probes/README.md "Building one probe by hand")
+/probes/*/sdkconfig
+/probes/*/sdkconfig.old
+
+# aggregate generated files (3.1 rule 7)
+/crates/pemu-wasm/src/gen/
+/web/src/gen/index.d.ts
+/docs/errors.md
+/docs/fidelity.md
+/docs/commands/index.md
+
+# bundled ROM: licensed inputs, never ignored
+!/assets/rom/esp32c3_rev101_rom.elf
+!/assets/rom/esp32c3_rev3_rom.elf
+
+# small reviewed test ELFs under 1 MB with provenance notes
+!/crates/pemu-rv32/tests/data/riscv-tests/*
+# the stripped probe ELFs, written by `cargo xtask probes` and recorded in tests/fw/manifest.toml
+!/tests/fw/*.elf

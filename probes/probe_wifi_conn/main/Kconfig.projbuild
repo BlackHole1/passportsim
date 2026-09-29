@@ -1,0 +1,26 @@
+# probe_wifi_conn settings.
+#
+# The probe associates with **nothing**. Its SSID is a placeholder that names no access point, so
+# the association attempt ends in `WIFI_REASON_NO_AP_FOUND` (201) and **no credential is involved
+# at all**: there is no password option here, none in `sdkconfig.defaults`, and none in the source.
+# Nobody commits a real SSID to this file or to `sdkconfig.defaults` (docs/secrets.md). A run
+# against a real network is not what this probe is for; `probe_wifi_http` is.
+menu "probe_wifi_conn"
+
+    config PROBE_WIFI_CONN_SSID
+        string "Access point SSID (placeholder that must not exist)"
+        default "passport-emu-absent-ap"
+        help
+            The SSID the probe tries to associate with. It must name no access point in range:
+            the whole point of the probe is the `no AP found` disconnect reason, and an SSID that
+            did exist would need a credential, which this probe deliberately cannot carry.
+
+    config PROBE_WIFI_CONN_WAIT_MS
+        int "Milliseconds to wait for the disconnect event before giving up"
+        default 30000
+        range 1000 120000
+        help
+            The run is bounded: after this long with no `WIFI_EVENT_STA_DISCONNECTED`, the probe
+            prints a `NOTE|` line and goes on to its teardown, so a device run always ends.
+
+endmenu

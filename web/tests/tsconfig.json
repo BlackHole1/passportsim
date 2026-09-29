@@ -1,0 +1,8 @@
+{
+  "//": "Type-checks the Playwright suites, which `web/tsconfig.json` (src only) does not include.",
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["bun-types", "node"]
+  },
+  "include": ["."]
+}

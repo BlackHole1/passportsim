@@ -1,0 +1,934 @@
+# What `cargo xtask probes` built, and from what. Written by that command;
+# `cargo xtask probes --check` rebuilds every probe and compares.
+#
+# `source` and `elf_stripped` hashes are checkable with no toolchain. The
+# other artifacts stay outside the repository, and their hashes reproduce
+# only in `build_dir` (`~` is the builder's home): the app image carries the
+# ELF's SHA-256, and the ELF's debug information depends on the directory.
+
+schema = "passport-emu/probes-manifest/2"
+target = "esp32c3"
+flash_size_bytes = 8388608
+idf_version = "v5.5.3"
+idf_commit = "2c211b236707889e8400c4dc5644dd5c4ee071e0"
+toolchain = "riscv32-esp-elf-gcc (crosstool-NG esp-14.2.0_20251107) 14.2.0"
+strip_command = "riscv32-esp-elf-strip <strip> -R .flash_rodata_dummy -R .dram0.dummy <name>.elf"
+build_dir = "~/Library/Application Support/passportsim/corpus/probes/build"
+common_sdkconfig = "probes/common/sdkconfig.defaults"
+common_sdkconfig_sha256 = "b9c9d8b17a5098602892e008d53c656d2eed212d6d036c59aafa32cc1b349495"
+probe_line_h = "probes/common/probe_line.h"
+probe_line_h_sha256 = "46c5e00a349d852387d9e7d4f71a9d80f4236ec105e1e50f1aa944b667a216ec"
+elf_committed = true
+elf_committed_note = "the stripped ELF of each probe is committed at `elf_stripped`, under the 1048576 byte limit for committed binaries; the unstripped ELF and the merged image stay outside the repository"
+
+[[probe]]
+name = "flash_stress"
+project = "probes/flash_stress"
+sdkconfig_sha256 = "902c2da5ac7df51435ace5d7e32fe6beb3eb5a534203c446c41020f7061a176e"
+strip = "--strip-all"
+elf_stripped = "tests/fw/flash_stress.elf"
+elf_stripped_sha256 = "5c0ecdeead632d042b457d9471e144a8cbe754bc50d6cc6c549829ef6aaf83b1"
+elf_stripped_size = 181520
+elf_sha256 = "941393faf38350f133943d3fabe9aaf6901ce29410c7d009484370a1237d56d6"
+elf_size = 3335192
+app_sha256 = "c27deef27e394c17b591bb0f2e497f634460ded954d51fc8bc9e8337187011f4"
+app_size = 170128
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "eccd0555070d72dc97e090417a1ea69d1cb2e0b19a672f6098756edce46bbd3b"
+partition_table_size = 3072
+merged_sha256 = "eb38c0fcf68709fd7e7997fec3b0ef326e8c44e9b7a653bff078273f1f9c563d"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/flash_stress/CMakeLists.txt"
+sha256 = "90c7eb4307c6d2c85604a797da6add100c33e3f50b7ed2bbe6213c0562605b86"
+
+[[probe.source]]
+path = "probes/flash_stress/main/CMakeLists.txt"
+sha256 = "c86eee5a639fab21a91acfc985ce8f985bc7cce7cd556b163a5fc99a9f7f03f3"
+
+[[probe.source]]
+path = "probes/flash_stress/main/flash_stress.c"
+sha256 = "ed60410a026c65d0c31027ef86aa5dc34bb868f4681853852e289962544175b8"
+
+[[probe.source]]
+path = "probes/flash_stress/partitions.csv"
+sha256 = "6e691ac7e5995b68d467766146be4ba4b200c6b1f36130c7893232cf0907c6b7"
+
+[[probe.source]]
+path = "probes/flash_stress/sdkconfig.defaults"
+sha256 = "7c7764157502f981b8f5536fd32f1d68d393773867964709449b9d706832ea76"
+
+[[probe]]
+name = "hle_probe"
+project = "probes/hle_probe"
+sdkconfig_sha256 = "63ac4f3a6ff29c21137dbb85745ce4998fefdb57da0e570e2ba0bd87bd466e75"
+strip = "--strip-debug"
+elf_stripped = "tests/fw/hle_probe.elf"
+elf_stripped_sha256 = "2719c16378ee75a9648cdaaca63f41b485617dfe377537f6073023e91eb5ae4e"
+elf_stripped_size = 319684
+elf_sha256 = "be8d2ed753dac58bf8a3f197fce908c8052f3a0c825d5410488be11fa06045d4"
+elf_size = 3330152
+app_sha256 = "16eb6d605892838bffca1859e54a21ef1566b40fd9b0d5dd9fb7df9b2033c16a"
+app_size = 161584
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "5295e8c42d6fb5f95e4e8a185932c6191d27cfc5078322475347e40e71af815a"
+partition_table_size = 3072
+merged_sha256 = "9d6e577b0e328a6c4d003cc242af41e7975c48cf512adf8d2730be9291cd3976"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/hle_probe/CMakeLists.txt"
+sha256 = "02500450037663624e25bde623ce5841bf92e03c6a47cbdb5f18a607ba3925c6"
+
+[[probe.source]]
+path = "probes/hle_probe/main/CMakeLists.txt"
+sha256 = "1a5541f54562ad02cf081edcb124526f9426f25b87d26b5e92de925969f71051"
+
+[[probe.source]]
+path = "probes/hle_probe/main/hle_probe.c"
+sha256 = "df15d0de11165a65a54a107ed0c66d37ea39621116f097aa95a60fa9bb12a9fe"
+
+[[probe.source]]
+path = "probes/hle_probe/sdkconfig.defaults"
+sha256 = "5293a168b06c604bb5cb76af45ce26f104af34a07a647db675ae4d683817f293"
+
+[[probe]]
+name = "pkgatt"
+project = "probes/pkgatt"
+sdkconfig_sha256 = "c22484a2815b9d1824aeb5a2ec56672854a556b24173a8c22b68c49d0792b0e1"
+strip = "--strip-all"
+elf_stripped = "tests/fw/pkgatt.elf"
+elf_stripped_sha256 = "041d3fe65d89f8d5008188c903ac88ca030eaa396dc39220bc8d561bd7b50861"
+elf_stripped_size = 550236
+elf_sha256 = "f3b9d57018d708040701beddc04356d556a913b5c71fd3f0332bff5ccc79a6e4"
+elf_size = 6867864
+app_sha256 = "36182e1f69a7f0ce5cffb7ff6c11e4654af36cbe4cf465fcb9bbbe1155769428"
+app_size = 532688
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "5295e8c42d6fb5f95e4e8a185932c6191d27cfc5078322475347e40e71af815a"
+partition_table_size = 3072
+merged_sha256 = "5a607225872cfc7a40d47e9088c9d2911fa683de9166bbf147653a7f05f211e3"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/pkgatt/CMakeLists.txt"
+sha256 = "4cd46f289b1325513af18aea4bc2ea4f08735e816539cb48e8b4d740734e09de"
+
+[[probe.source]]
+path = "probes/pkgatt/main/CMakeLists.txt"
+sha256 = "9aae83c492f104372be5f49d9dd1ea698165df51081c32bf25ba098e53158d6f"
+
+[[probe.source]]
+path = "probes/pkgatt/main/LICENSE.passport-keys"
+sha256 = "0ca7f3a382d5d681ced06d6008081c1d51b05a2547c94c3350058efbe7ddb5ee"
+
+[[probe.source]]
+path = "probes/pkgatt/main/pk_ble.c"
+sha256 = "fd5d64fb03c2504590fc037dbb522d44e2cdeae4de92754d53c26a88dc67fc78"
+
+[[probe.source]]
+path = "probes/pkgatt/main/pk_ble.h"
+sha256 = "d230f9616609a239af4fd4748a96b56b2552a7a01218268064f337c7bc5ca590"
+
+[[probe.source]]
+path = "probes/pkgatt/main/pk_protocol.c"
+sha256 = "7c8d1c21ff0759241615242b092a02536afcbea4b99817ab69b9fe3bd42e9fee"
+
+[[probe.source]]
+path = "probes/pkgatt/main/pk_protocol.h"
+sha256 = "3a9ea5ec766e950715b3abec8c754ae7964f89cfc38fd8f4052919412d592490"
+
+[[probe.source]]
+path = "probes/pkgatt/main/pkgatt.c"
+sha256 = "c0863ec12ef2636e65ba5b683c514ea955a160c099dfce094f448713f67e697a"
+
+[[probe.source]]
+path = "probes/pkgatt/sdkconfig.defaults"
+sha256 = "0d9c76018a3c94437424c179cb7a6e4e7baca43a78f7849b0345b7ec654fd1e3"
+
+[[probe]]
+name = "probe_boot_facts"
+project = "probes/probe_boot_facts"
+sdkconfig_sha256 = "63ac4f3a6ff29c21137dbb85745ce4998fefdb57da0e570e2ba0bd87bd466e75"
+strip = "--strip-all"
+elf_stripped = "tests/fw/probe_boot_facts.elf"
+elf_stripped_sha256 = "28669c9a84f4d08a5f03020fe8e2a01d13b32e82e7300017d38123046c0ebdf5"
+elf_stripped_size = 173320
+elf_sha256 = "ea89d61c53f653c44f876020af8d7431ba8248e29de8ae7fa43efd7c40f82c0e"
+elf_size = 3339256
+app_sha256 = "ccd131811280ce34c7d7e1873d491bf795c3a5fdea63f32f79902a144803cbc0"
+app_size = 159344
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "5295e8c42d6fb5f95e4e8a185932c6191d27cfc5078322475347e40e71af815a"
+partition_table_size = 3072
+merged_sha256 = "8b0aeda5a339c9e257710b3aa6d8708b68a3538b5a0f46eb95de250e6d9efebb"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/probe_boot_facts/CMakeLists.txt"
+sha256 = "61d100537f5ee529a18533f14f104b83b62e547a42f8d0f8fce1274d19154a00"
+
+[[probe.source]]
+path = "probes/probe_boot_facts/main/CMakeLists.txt"
+sha256 = "661e79360161c5c40009b39df5b278786c50ed05ec3be29360dfc27ff07f44d9"
+
+[[probe.source]]
+path = "probes/probe_boot_facts/main/probe_boot_facts.c"
+sha256 = "152caad164b150db421fc8aca1a2633493d54415cbe92e5099bbac2020503868"
+
+[[probe.source]]
+path = "probes/probe_boot_facts/sdkconfig.defaults"
+sha256 = "c03f7450064bed9a40ebdb4f24932bc8722716c599f67e01fafd3b344edc8574"
+
+[[probe]]
+name = "probe_campaign_radio"
+project = "probes/probe_campaign_radio"
+sdkconfig_sha256 = "3ed8cde3e5c5a3277892c1beff9c6431c0b89130495c24f4c3d70b2ec160312a"
+strip = "--strip-all"
+elf_stripped = "tests/fw/probe_campaign_radio.elf"
+elf_stripped_sha256 = "313b8ce2a3b9f752b01009bfcbb8f1366b10c5cede12f0b48d4b232c4b2966ed"
+elf_stripped_size = 349532
+elf_sha256 = "79a6382944f03c3e899dec2f3fc08c517345878992e912a5646fe56a8d6d65b7"
+elf_size = 3975944
+app_sha256 = "36b52785301f6c995f0218eb44eb50afa57cc9e9d5ffd793b5bb99a80e693f2f"
+app_size = 337296
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "a98e0784a39f37da373daf6dcef7a400af3e98b5344e89f414eeebedb1b5e07c"
+partition_table_size = 3072
+merged_sha256 = "0c57c8fc57c152b507cc47f3b348740a8543c339dfdbd88f6a21c05c0e81a6df"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/probe_campaign_radio/CMakeLists.txt"
+sha256 = "c25c95e516eac0cca4a951e5ed5fdda49a126652ef0fa1dca537c3173a49d973"
+
+[[probe.source]]
+path = "probes/probe_campaign_radio/main/CMakeLists.txt"
+sha256 = "b27aea39bb7a1737d99d0d02d160381ba1ba7e0dd82f07b4f006c48fd6e6c530"
+
+[[probe.source]]
+path = "probes/probe_campaign_radio/main/probe_campaign_radio.c"
+sha256 = "8c6e80b22b39911b4a7820ace7731245e36c634e8d7699a84575c754bb279b71"
+
+[[probe.source]]
+path = "probes/probe_campaign_radio/partitions.csv"
+sha256 = "bbf235f590973d42ff92408cf9528826c1d53c24ffe60127a558b6d9d733e49c"
+
+[[probe.source]]
+path = "probes/probe_campaign_radio/sdkconfig.defaults"
+sha256 = "04aa61788edd2b93f0e2615ec2ddcdc25b79ca63224c8718b4ad665bf6db22db"
+
+[[probe]]
+name = "probe_campaign_regs"
+project = "probes/probe_campaign_regs"
+sdkconfig_sha256 = "902c2da5ac7df51435ace5d7e32fe6beb3eb5a534203c446c41020f7061a176e"
+strip = "--strip-all"
+elf_stripped = "tests/fw/probe_campaign_regs.elf"
+elf_stripped_sha256 = "80eaa51471e944d3f7025a5737536712f0760408cd0c187c27f6ed70bc68141d"
+elf_stripped_size = 210192
+elf_sha256 = "20db37d6a16ecb668273ab17988e63fc48e2840eb6119c21c5612321d4080233"
+elf_size = 3555152
+app_sha256 = "05cf8ce02ddde93a75e633dcf4ffa3ef6b12ad8302f8728317ce05e2a174602d"
+app_size = 197376
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "a98e0784a39f37da373daf6dcef7a400af3e98b5344e89f414eeebedb1b5e07c"
+partition_table_size = 3072
+merged_sha256 = "4aa40821841761344775906d8f519a6d208d299a079861a243efe1247b4f1248"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/probe_campaign_regs/CMakeLists.txt"
+sha256 = "635fd7ff711b10dba7b7d95ff74bc995da6bb68069c5f02d36bf831c6453fb57"
+
+[[probe.source]]
+path = "probes/probe_campaign_regs/main/CMakeLists.txt"
+sha256 = "462fcb3dc0535ebd716067225354b008a3ab3a1839a2fdddecb0b13258a33aac"
+
+[[probe.source]]
+path = "probes/probe_campaign_regs/main/probe_campaign_regs.c"
+sha256 = "6412128e9a4ec43f3711c1cc4564e9d02cd2b97756f71d2d6683e8d635de93a6"
+
+[[probe.source]]
+path = "probes/probe_campaign_regs/main/reg_facts.h"
+sha256 = "3a858c184875f5c4d07c90455f5e2ad39bab5bff5b5079f4a925b16faf1474f5"
+
+[[probe.source]]
+path = "probes/probe_campaign_regs/partitions.csv"
+sha256 = "e198ae6976381b1af895a347607618af3d9157912a31574f43497e3df6310509"
+
+[[probe.source]]
+path = "probes/probe_campaign_regs/sdkconfig.defaults"
+sha256 = "31b5b6791e9ff7a49ee552dee57927752c356cff1c0b361d355a24b8a50deb0f"
+
+[[probe]]
+name = "probe_campaign_reset"
+project = "probes/probe_campaign_reset"
+sdkconfig_sha256 = "902c2da5ac7df51435ace5d7e32fe6beb3eb5a534203c446c41020f7061a176e"
+strip = "--strip-all"
+elf_stripped = "tests/fw/probe_campaign_reset.elf"
+elf_stripped_sha256 = "464a02a0f0825425242be46aedacca1b5ca4fdef6074a52a2ad3e31b1df5c5fc"
+elf_stripped_size = 181716
+elf_sha256 = "9a561c0ea32f700dc230a17e230b9c56d739b2186ac4980bbe4b85e4033d7b7f"
+elf_size = 3344248
+app_sha256 = "613244ae27012ffd6c61930d2b7d29a3e93d3d22f11953bde5460820e5195a43"
+app_size = 166704
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "a98e0784a39f37da373daf6dcef7a400af3e98b5344e89f414eeebedb1b5e07c"
+partition_table_size = 3072
+merged_sha256 = "a93c79e99ad1228c245c3d0512becdc06fa6ca7deb37893686231b81d87d22c9"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/probe_campaign_reset/CMakeLists.txt"
+sha256 = "efc870209ad35f904e63460ff96bea1403ce71b08827bea8af46832077fcc8cd"
+
+[[probe.source]]
+path = "probes/probe_campaign_reset/main/CMakeLists.txt"
+sha256 = "9eddcfefe64ff1b069014c05227a3da0ec94faedb44749e781b49eacef139910"
+
+[[probe.source]]
+path = "probes/probe_campaign_reset/main/probe_campaign_reset.c"
+sha256 = "b26487cc8b14a38fd588146bdff59d581787cbf2e7a240e29f813790e6bf881f"
+
+[[probe.source]]
+path = "probes/probe_campaign_reset/partitions.csv"
+sha256 = "4659ee2b75d003867f409798ed7e4cb22e2fa764f000a753dafdc5eb12fb274c"
+
+[[probe.source]]
+path = "probes/probe_campaign_reset/sdkconfig.defaults"
+sha256 = "cecc66040c247b4b475aabe178e5cbda14dd2520cdd1c73d94664e8df31074d6"
+
+[[probe]]
+name = "probe_campaign_timing"
+project = "probes/probe_campaign_timing"
+sdkconfig_sha256 = "902c2da5ac7df51435ace5d7e32fe6beb3eb5a534203c446c41020f7061a176e"
+strip = "--strip-all"
+elf_stripped = "tests/fw/probe_campaign_timing.elf"
+elf_stripped_sha256 = "91e7fdf3b733259de5b96edf3ab6a39d543cb3e66cbf97832e32e1d8cca81037"
+elf_stripped_size = 488712
+elf_sha256 = "169f4d35ee3cf9b3fd39a86342c77cfc749ccafc68ff49a5dbee4edaaba2a455"
+elf_size = 4495312
+app_sha256 = "ce17fa7ef9e282bdf9707a89432fe46a65ed986dacd34a914ef58bd068faf266"
+app_size = 473696
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "a98e0784a39f37da373daf6dcef7a400af3e98b5344e89f414eeebedb1b5e07c"
+partition_table_size = 3072
+merged_sha256 = "e9a35c6c4b6e85ae3a5c35ebc69eb55302e96280c5e8c0a397ddd607f3ef648a"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/probe_campaign_timing/CMakeLists.txt"
+sha256 = "768aaaec3dc333f511fe653cfca319a8aa6c8e2f24a7b5cf8997b6447388231b"
+
+[[probe.source]]
+path = "probes/probe_campaign_timing/main/CMakeLists.txt"
+sha256 = "42ecfc1b66a479f16d6c4320f9f6129b6602f63fc35b424545478dce7c3a8745"
+
+[[probe.source]]
+path = "probes/probe_campaign_timing/main/probe_campaign_timing.c"
+sha256 = "0258541b5bafba17e13c0bb3623ee64adec09646413586020d3006925b0dffaa"
+
+[[probe.source]]
+path = "probes/probe_campaign_timing/partitions.csv"
+sha256 = "7167f85546be6d5b6e9ba4b0e33da0b7f00a79436572a7207f0fec37d9658855"
+
+[[probe.source]]
+path = "probes/probe_campaign_timing/sdkconfig.defaults"
+sha256 = "67f141aec567d9660928b9fcc12e5723aad36efe80bd7dc852d7050cecc09214"
+
+[[probe]]
+name = "probe_clocks"
+project = "probes/probe_clocks"
+sdkconfig_sha256 = "46e7baac507ab747e3b9b722a884afe6f34eafb58008825b0097bccce0c27db3"
+strip = "--strip-all"
+elf_stripped = "tests/fw/probe_clocks.elf"
+elf_stripped_sha256 = "c1f527c1258046a0812cd3de7dbd110a524b8a165e16ac6edc7711f072da95f2"
+elf_stripped_size = 177416
+elf_sha256 = "66e9d0e5f651604a60d3e210aca1ceea412b70ca5328a05ef2567825cd07db9b"
+elf_size = 3338536
+app_sha256 = "b6eb425f6efda483289c6e20d95d1595d688c3d64fa09f55af1173a466291798"
+app_size = 163648
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "5295e8c42d6fb5f95e4e8a185932c6191d27cfc5078322475347e40e71af815a"
+partition_table_size = 3072
+merged_sha256 = "41f1666637af5621bd5249a4781a6ae8edfa81ae3a8cc9bef8e151c8f2d817a0"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/probe_clocks/CMakeLists.txt"
+sha256 = "d822d847897bd1f41d4f62c54d24962a20bcb02b28b62871e1c43cf5c5381fb6"
+
+[[probe.source]]
+path = "probes/probe_clocks/main/CMakeLists.txt"
+sha256 = "67927186fe4905fb457e1cee76a4d514010128aba4cb0a8a7211e2d3e96a05b9"
+
+[[probe.source]]
+path = "probes/probe_clocks/main/probe_clocks.c"
+sha256 = "ada275e9b9292e2243c5e4eea666ccd1e804a64393689990b3f044def8862e7a"
+
+[[probe.source]]
+path = "probes/probe_clocks/sdkconfig.defaults"
+sha256 = "3fb07d553a56959ffff853df19c343e15ab41de0f1381006d5fd24cd5e18d315"
+
+[[probe]]
+name = "probe_crypto"
+project = "probes/probe_crypto"
+sdkconfig_sha256 = "902c2da5ac7df51435ace5d7e32fe6beb3eb5a534203c446c41020f7061a176e"
+strip = "--strip-all"
+elf_stripped = "tests/fw/probe_crypto.elf"
+elf_stripped_sha256 = "77249afda65c2fa1515cb30e955e3a2bcdfa6fb74df5c0ee9a5abddf7b3f5f70"
+elf_stripped_size = 222472
+elf_sha256 = "9b78890329391ab2d14f049dbf7b151777c7f38c3d7abe5e563c89e6288993f7"
+elf_size = 4020460
+app_sha256 = "caa6e62f8414602a7e87b582b9d14092d0cbb9f3678d8965d87c47c50449c2f3"
+app_size = 209280
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "a98e0784a39f37da373daf6dcef7a400af3e98b5344e89f414eeebedb1b5e07c"
+partition_table_size = 3072
+merged_sha256 = "487374273832cfd2e0b780f94e5859a54bf20418d5eaf1623100c978cf557580"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/probe_crypto/CMakeLists.txt"
+sha256 = "f0b417b239df8651b00d158c24d8a0cb2fc1f3d42740291966c78440e7f21be3"
+
+[[probe.source]]
+path = "probes/probe_crypto/main/CMakeLists.txt"
+sha256 = "aded689a08ca189192d296db481ba33454b43190b6844fff5b1d0dc73b3a31c2"
+
+[[probe.source]]
+path = "probes/probe_crypto/main/probe_crypto.c"
+sha256 = "e1ade5d5dc90d5ae28a01521cbfd08188fd3a8e5ab0a80807a189f5701d7c787"
+
+[[probe.source]]
+path = "probes/probe_crypto/partitions.csv"
+sha256 = "4b75c2dfdcbef98908fc4fca2ed25672e65a8dc52abbb21695458fac654f11ee"
+
+[[probe.source]]
+path = "probes/probe_crypto/sdkconfig.defaults"
+sha256 = "29c6b51ee64c849a797cfc9e6200a4540db73e2294055970189f4239d6ab77cd"
+
+[[probe]]
+name = "probe_deadlock"
+project = "probes/probe_deadlock"
+sdkconfig_sha256 = "caeadb55ee577ca23966a029c0dd70fa9cf7653939998eaeb4ac49b03d5ae50a"
+strip = "--strip-all"
+elf_stripped = "tests/fw/probe_deadlock.elf"
+elf_stripped_sha256 = "c4f12a3020c79e6cc70b42dd62070c5cf985062bd659c6d642948ae1654ea336"
+elf_stripped_size = 165128
+elf_sha256 = "5fe175ee948ae4de3206cdccdb48c1ee9ab816bdb829346e4b8650f11b2d008e"
+elf_size = 3263972
+app_sha256 = "f1fa5869ba793e3b6a8335702da94c41a15406863aa0d4f8323ef58c68d5d179"
+app_size = 154048
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "5295e8c42d6fb5f95e4e8a185932c6191d27cfc5078322475347e40e71af815a"
+partition_table_size = 3072
+merged_sha256 = "26b192ba948a7d2664d98cbf78020728926b72809f133053b30779666b7a9471"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/probe_deadlock/CMakeLists.txt"
+sha256 = "4b1df3cd8fd5f957d3e46e4ea3380d8ee2a5d0557dfc1caf820353b5835b2d0e"
+
+[[probe.source]]
+path = "probes/probe_deadlock/main/CMakeLists.txt"
+sha256 = "86c21719923b4bbea0c4416cf42c74f189999a0b30bfbf3988aeb66a959e7c67"
+
+[[probe.source]]
+path = "probes/probe_deadlock/main/probe_deadlock.c"
+sha256 = "ed51e05e0f97237ca430b63ac2b4200bb2523a9538d0c2bfc8182acdf27c6032"
+
+[[probe.source]]
+path = "probes/probe_deadlock/sdkconfig.defaults"
+sha256 = "d4030b2f20bf2374e152e292fa2b1fab591bb78bcccdb46fdc8b9b21671e7554"
+
+[[probe]]
+name = "probe_intc"
+project = "probes/probe_intc"
+sdkconfig_sha256 = "63ac4f3a6ff29c21137dbb85745ce4998fefdb57da0e570e2ba0bd87bd466e75"
+strip = "--strip-all"
+elf_stripped = "tests/fw/probe_intc.elf"
+elf_stripped_sha256 = "ffd29f29df6e77cb4d92b001e1b5a7a68682dcb73b912cf60f1029f0c9b3ddac"
+elf_stripped_size = 169224
+elf_sha256 = "ba8fb1bd89804b0678389b24f7bff759e90a497658c7bc1bf09f9dc2aaa9512b"
+elf_size = 3277136
+app_sha256 = "a293b9ceb779d5397d0f161d712b9329eca78f405d21d7f9a1f7bf88aa7da8c9"
+app_size = 156464
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "5295e8c42d6fb5f95e4e8a185932c6191d27cfc5078322475347e40e71af815a"
+partition_table_size = 3072
+merged_sha256 = "e3c062c63e6807f1bab0c9ac3838f89e72cad5cdcb63574504cff9fe57c09d65"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/probe_intc/CMakeLists.txt"
+sha256 = "f76bd2fbd59321dc9e97155687fc284324ed67b4783c6ed6ceb2d0b0eb3e25dd"
+
+[[probe.source]]
+path = "probes/probe_intc/main/CMakeLists.txt"
+sha256 = "ef2967b63ead5157189de5ef6ae003ddfe1da119c36f42e0fb5ab87dfa67f3d5"
+
+[[probe.source]]
+path = "probes/probe_intc/main/probe_intc.c"
+sha256 = "bdb89e8a91bd55018ccb8d0599734e3dd70f7a1435f7aa73db06b34ba1bf6668"
+
+[[probe.source]]
+path = "probes/probe_intc/sdkconfig.defaults"
+sha256 = "992e4a250c425c768407101c3490ea8a5a3b3c7fb0c12e95bece0851cae503c1"
+
+[[probe]]
+name = "probe_limits"
+project = "probes/probe_limits"
+sdkconfig_sha256 = "63ac4f3a6ff29c21137dbb85745ce4998fefdb57da0e570e2ba0bd87bd466e75"
+strip = "--strip-all"
+elf_stripped = "tests/fw/probe_limits.elf"
+elf_stripped_sha256 = "ab3c094cd2da5d5d664004ff32d24cfb0f87fd9a9cd2361963129db8058c6e3c"
+elf_stripped_size = 169224
+elf_sha256 = "e25c1ad17746a8e7b581fed799a9ea48edb879c6b10326965e1b92460b3b2cef"
+elf_size = 3283496
+app_sha256 = "9743f3c111ae385446f5a11b6f4fdf84ce712d42318125feb7d4646a15991fbb"
+app_size = 156272
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "5295e8c42d6fb5f95e4e8a185932c6191d27cfc5078322475347e40e71af815a"
+partition_table_size = 3072
+merged_sha256 = "0557ca161f49bed42a0487e9a7e58eb6a74dd8ab6be3d796203291300c578363"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/probe_limits/CMakeLists.txt"
+sha256 = "165274488eccd40501ff786a33531a6d01722ff3324bd2eb00d3392ec82d2de3"
+
+[[probe.source]]
+path = "probes/probe_limits/main/CMakeLists.txt"
+sha256 = "3be8c8e7067dab9ca6837169c2a5622043d633e471039eefb3d673e48937ba1f"
+
+[[probe.source]]
+path = "probes/probe_limits/main/probe_limits.c"
+sha256 = "8841d5586c0ec02d527af84787ccb4460797f64aa2c847e9a74b7825ee96178c"
+
+[[probe.source]]
+path = "probes/probe_limits/sdkconfig.defaults"
+sha256 = "0ff49a3db9367887a54a1a1af01c7a2b17a1c93a6a6c657b629c7402d69a31b7"
+
+[[probe]]
+name = "probe_panic"
+project = "probes/probe_panic"
+sdkconfig_sha256 = "63ac4f3a6ff29c21137dbb85745ce4998fefdb57da0e570e2ba0bd87bd466e75"
+strip = "--strip-debug"
+elf_stripped = "tests/fw/probe_panic.elf"
+elf_stripped_sha256 = "53c4081fd78b2baaec9d955c6e784066ec7a8dc3ed7ad8fd084f0a948db226f2"
+elf_stripped_size = 305308
+elf_sha256 = "9520d6340657435cdeca301a1396bd38db1e973c85c7941aa381ca71820d3c67"
+elf_size = 3263588
+app_sha256 = "5c393f9500df1c3258aa005bc392b59764c22a16bd7febcf116cb724a50d05bd"
+app_size = 153776
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "5295e8c42d6fb5f95e4e8a185932c6191d27cfc5078322475347e40e71af815a"
+partition_table_size = 3072
+merged_sha256 = "44de348b61924407b548379dad45a152df16e235c91d565cfd0338952e21da5d"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/probe_panic/CMakeLists.txt"
+sha256 = "d0da4413b4f592a77573a57cb030c8c50d4a260ff875de789ac32645f188abe3"
+
+[[probe.source]]
+path = "probes/probe_panic/main/CMakeLists.txt"
+sha256 = "8d035f30ce3b534a77d345dcbf825607a76f63afb86231d109efaa11b6fe2a3f"
+
+[[probe.source]]
+path = "probes/probe_panic/main/probe_panic.c"
+sha256 = "85e57230d02313f9ebe31a3a5152bfaf7084766c2d24b30c919f9efc40508bb0"
+
+[[probe.source]]
+path = "probes/probe_panic/sdkconfig.defaults"
+sha256 = "d1147f0992c077f3be7c8bc0657094de8165f7d5eddc0436ffe14cd26ada7999"
+
+[[probe]]
+name = "probe_reset"
+project = "probes/probe_reset"
+sdkconfig_sha256 = "31b482d2bd168c4296c3d8646bae6d23e43e91e063eaecd1575558ef7f5b6e36"
+strip = "--strip-all"
+elf_stripped = "tests/fw/probe_reset.elf"
+elf_stripped_sha256 = "487b4058c291a3c2a8bf1d49cb6739ad8a07d9cdd22c31297178087f2f4d1e72"
+elf_stripped_size = 177560
+elf_sha256 = "046ec16cbf37db238be1d8113061c99472cad977001704b30372fe6138c2a8f5"
+elf_size = 3342472
+app_sha256 = "40edb89783ed63cb201173a552dea2429b0a441b006c758f983158144964e3a5"
+app_size = 165472
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "5295e8c42d6fb5f95e4e8a185932c6191d27cfc5078322475347e40e71af815a"
+partition_table_size = 3072
+merged_sha256 = "8e700f03c9ba7c9632e6c46b47ab46dcd4ca71c445f0ea3b4d236b8d7dcaca1f"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/probe_reset/CMakeLists.txt"
+sha256 = "7760de9ef5216326e3516b2569c781d408229915bf27530b5bdc717460143795"
+
+[[probe.source]]
+path = "probes/probe_reset/main/CMakeLists.txt"
+sha256 = "f1477aa8e318b8553781bb31b85ddc8d8af456996724b711cfc8451a2f43ae71"
+
+[[probe.source]]
+path = "probes/probe_reset/main/probe_reset.c"
+sha256 = "4a0a0eda514d195e6993f328d439bdf2386df5417a1039cbefe77d1e5cd37597"
+
+[[probe.source]]
+path = "probes/probe_reset/sdkconfig.defaults"
+sha256 = "b2a52aff897aa9d233ce032a6791a4f881b7e66c9e389d891fb7a848d2f06166"
+
+[[probe]]
+name = "probe_stack"
+project = "probes/probe_stack"
+sdkconfig_sha256 = "edebe2006d09afaf410852b74f53f45c82f4db16b8773188ebef1f8574795a51"
+strip = "--strip-all"
+elf_stripped = "tests/fw/probe_stack.elf"
+elf_stripped_sha256 = "664a5459ae62e927f46c7005ca0afb10c38289fc1c7c30d7f28817bd8c49fd30"
+elf_stripped_size = 165140
+elf_sha256 = "2f8a85ef33b064ee25ff61f1346f526386ad78be80e046c49bdd44874b6d533a"
+elf_size = 3263568
+app_sha256 = "a43f8290f587afc742d8347fa3a8fcfd3a909d3cf813ee789c3e1b697eb75727"
+app_size = 153712
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "5295e8c42d6fb5f95e4e8a185932c6191d27cfc5078322475347e40e71af815a"
+partition_table_size = 3072
+merged_sha256 = "45a2dd0404132fac41b2b8223b7e227e84fb3b6a9d52f4b687ac196282576476"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/probe_stack/CMakeLists.txt"
+sha256 = "bcc21405ed4c77115d71a09694ee58e723bf50e32a07839778c0146a54fade3c"
+
+[[probe.source]]
+path = "probes/probe_stack/main/CMakeLists.txt"
+sha256 = "39a857e6c8379869ea735611da9a5d106980a408d6d77ac4beb2273762a09733"
+
+[[probe.source]]
+path = "probes/probe_stack/main/probe_stack.c"
+sha256 = "e2c2a022c2d8fec5781451b1d336d5fcf6d273309e647b906a9a86472f2b66a2"
+
+[[probe.source]]
+path = "probes/probe_stack/sdkconfig.defaults"
+sha256 = "2d69fadd432137cb17c232ece4fe614c524422d45bbf2bce2de36c3bc8f5382a"
+
+[[probe]]
+name = "probe_timing"
+project = "probes/probe_timing"
+sdkconfig_sha256 = "902c2da5ac7df51435ace5d7e32fe6beb3eb5a534203c446c41020f7061a176e"
+strip = "--strip-all"
+elf_stripped = "tests/fw/probe_timing.elf"
+elf_stripped_sha256 = "5419d45ff420ebb71bb8137db6832f9409204968cf54f0ebb00ddf9080e22c57"
+elf_stripped_size = 242952
+elf_sha256 = "e32f1f00ec16d59bb60b2e73d03bfa2da32ad700363928318da031a3037ca885"
+elf_size = 4021892
+app_sha256 = "5bb01664f8f17ee3a26c30bf007481ce7008a931c081884b4eac4b5df8c42fc9"
+app_size = 229472
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "eccd0555070d72dc97e090417a1ea69d1cb2e0b19a672f6098756edce46bbd3b"
+partition_table_size = 3072
+merged_sha256 = "983b4bebcf0e6eeea525549760933dc5fe5e0acd70fda943d0b26bafd5c69afb"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/probe_timing/CMakeLists.txt"
+sha256 = "ed4cb7b696eac10d8500c36f9d315235d91c7eb40ec58353b5ec28e703aaf3e8"
+
+[[probe.source]]
+path = "probes/probe_timing/main/CMakeLists.txt"
+sha256 = "79b6a805361bdd4d8db1bd8d8e5605e96b37825bc9a2df20a1b83f857919b956"
+
+[[probe.source]]
+path = "probes/probe_timing/main/probe_timing.c"
+sha256 = "dc71e803e976fdbed568c20daae5d0aa45898fd7e363549ea0621dea3057844f"
+
+[[probe.source]]
+path = "probes/probe_timing/partitions.csv"
+sha256 = "ebef767f81a403d06048d54845a42698efd1c53ecac7d9b08b525e3c9d1eb7fc"
+
+[[probe.source]]
+path = "probes/probe_timing/sdkconfig.defaults"
+sha256 = "f3a33ca3c4068580b9502c7e5dd5918609f44d85224265b72e0cffdd97645881"
+
+[[probe]]
+name = "probe_wdt"
+project = "probes/probe_wdt"
+sdkconfig_sha256 = "c90fcfc0c1a5a119fe8776aa07980a58c9eeb9fb69243e3cfdcde301308dadae"
+strip = "--strip-all"
+elf_stripped = "tests/fw/probe_wdt.elf"
+elf_stripped_sha256 = "d766e23bc09716eafe8b52910091fcea54c65f063a2770799bf2d17630da74f6"
+elf_stripped_size = 165144
+elf_sha256 = "44d711021d590f0b689a42bbed57de20cb0f5aaaa52308393158e347fdf4d22a"
+elf_size = 3265548
+app_sha256 = "2ced4c740c23647f41f2a0373ddfadfbe57b6f6d4e961cbc657221ccfc3cf2b4"
+app_size = 154544
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "5295e8c42d6fb5f95e4e8a185932c6191d27cfc5078322475347e40e71af815a"
+partition_table_size = 3072
+merged_sha256 = "6876e604eb91be2fe7fa1b514d0a83d1f6cacfe4c2e783f48382e53b6400da7c"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/probe_wdt/CMakeLists.txt"
+sha256 = "78a9e8f160e2d94a611ddc1b5a46018d4249dff22d1d552c7db20c66eb310c01"
+
+[[probe.source]]
+path = "probes/probe_wdt/main/CMakeLists.txt"
+sha256 = "19fdfb7be6fb58daab30ec45effa8ab6abad35b2b9217a71579f7ba3d672a8a9"
+
+[[probe.source]]
+path = "probes/probe_wdt/main/probe_wdt.c"
+sha256 = "06003f0360fbf27a4c3b298158a729819f2624577d2651b26b97ec05515c46fc"
+
+[[probe.source]]
+path = "probes/probe_wdt/sdkconfig.defaults"
+sha256 = "432bd373b7f63a7ce34fb2be3e8eb7ad16f88e7df263a05e021a8ddb36fd2166"
+
+[[probe]]
+name = "probe_wifi_assoc"
+project = "probes/probe_wifi_assoc"
+sdkconfig_sha256 = "cfc7c95eac2fb8aa1e445ebe2e9868e41a856bd613ab41a5f77c7af8b38e21e9"
+strip = "--strip-all"
+elf_stripped = "tests/fw/probe_wifi_assoc.elf"
+elf_stripped_sha256 = "f179b7658cd95888fcbf4fcc08bcb3e6c4ad2259146f1d06a72a02ab85763f8d"
+elf_stripped_size = 165128
+elf_sha256 = "4ab9d417b40a8529da12bca2dc6580698a5cfdd97d49fce9375c01632570d9f8"
+elf_size = 3269276
+app_sha256 = "521ecb6b1fcad1bd00c10cbd1d9208af09788d0dc57d83e66e0972255d0747cc"
+app_size = 152864
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "a98e0784a39f37da373daf6dcef7a400af3e98b5344e89f414eeebedb1b5e07c"
+partition_table_size = 3072
+merged_sha256 = "43afb24b4033ebf5d58a877da08e98494aaffc19389a55472adfd80359c6d9cd"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/probe_wifi_assoc/CMakeLists.txt"
+sha256 = "0eb16bbb671e7c1cf08952b7f94c5b10027b9af5001dd67384453dc0e20629ca"
+
+[[probe.source]]
+path = "probes/probe_wifi_assoc/main/CMakeLists.txt"
+sha256 = "5e8572f4e84def354e91964b980d38be994cd2c1596529a4e7cd264823d87955"
+
+[[probe.source]]
+path = "probes/probe_wifi_assoc/main/Kconfig.projbuild"
+sha256 = "eff8a5a3c5dd3d99b5d3b37f7b6428718a1c7e6c9e320e31ad62e50491a489dd"
+
+[[probe.source]]
+path = "probes/probe_wifi_assoc/main/probe_wifi_assoc.c"
+sha256 = "46db545d84e38299f849cf2aa307f55f4439e5ccbcffcd0a470758857e564a7b"
+
+[[probe.source]]
+path = "probes/probe_wifi_assoc/partitions.csv"
+sha256 = "9194bfbfd1edb0128d8f061a24437282ecb11929aab44fb83591044eb2df72a3"
+
+[[probe.source]]
+path = "probes/probe_wifi_assoc/sdkconfig.defaults"
+sha256 = "c7c3d164c33dd81107988fca06eeae755b1beb60acf6599c2335600722aead4f"
+
+[[probe]]
+name = "probe_wifi_conn"
+project = "probes/probe_wifi_conn"
+sdkconfig_sha256 = "7fb2fa1d4a0b4c106beaf342756fc18154e64b8c34badefacac0e4c38e27740b"
+strip = "--strip-all"
+elf_stripped = "tests/fw/probe_wifi_conn.elf"
+elf_stripped_sha256 = "f132c54b332c49a828fef8927371402994a4932590f5aaa7ef060554267ea631"
+elf_stripped_size = 783772
+elf_sha256 = "e9b85df453c0a66f2462ef036a3ae2edbe8ee2141a5a7f416d04359093b48d4f"
+elf_size = 8586060
+app_sha256 = "162b03129658fda0d0794c025624cc08480a7f51e505da6b71894763d1bc9792"
+app_size = 772128
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "a98e0784a39f37da373daf6dcef7a400af3e98b5344e89f414eeebedb1b5e07c"
+partition_table_size = 3072
+merged_sha256 = "86fec71cc0bda8a4e0294a1e9adff421f7ddb7f7ded13e45ed6c9ab08284c1c9"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/probe_wifi_conn/CMakeLists.txt"
+sha256 = "fd33b9ffd1780d5699995c6670915ce805695fc78f98d482ea4bc797d92368fc"
+
+[[probe.source]]
+path = "probes/probe_wifi_conn/main/CMakeLists.txt"
+sha256 = "a2ca94f51c557e74062d3ac11bcacfe7fd2197b45eab77d6c29b40991ce0f185"
+
+[[probe.source]]
+path = "probes/probe_wifi_conn/main/Kconfig.projbuild"
+sha256 = "87da0b03c1d15059d0818fe18d3ea425c6196597b02ce85f4e5493dea9293c73"
+
+[[probe.source]]
+path = "probes/probe_wifi_conn/main/probe_wifi_conn.c"
+sha256 = "bcd11d65a6410341437b9e39a624a55d30a5f1e60e4889c893ac6d4aeb1a2215"
+
+[[probe.source]]
+path = "probes/probe_wifi_conn/partitions.csv"
+sha256 = "9194bfbfd1edb0128d8f061a24437282ecb11929aab44fb83591044eb2df72a3"
+
+[[probe.source]]
+path = "probes/probe_wifi_conn/sdkconfig.defaults"
+sha256 = "ec39dc233b640aa7c2e28f58a355d13d72e73912c3cf5ceea8433d1da94a4520"
+
+[[probe]]
+name = "probe_wifi_http"
+project = "probes/probe_wifi_http"
+sdkconfig_sha256 = "3ceac99def3061bd4d07e707a286d93e6e12aab6ceef6696c5603a2d083463cd"
+strip = "--strip-all"
+elf_stripped = "tests/fw/probe_wifi_http.elf"
+elf_stripped_sha256 = "e47db9e4b12fe4702b8687660955e4be9de70a3cf9ce9821216c20579eaddca2"
+elf_stripped_size = 931228
+elf_sha256 = "8ce9a922b07be113b279c10181bd418d14bf7de4279e48b2fd0fbe3406f79fad"
+elf_size = 9842964
+app_sha256 = "b875a056ffa52fc671ca6785b8b65747c5328c6e22b54851c238412db3597fca"
+app_size = 921280
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "5295e8c42d6fb5f95e4e8a185932c6191d27cfc5078322475347e40e71af815a"
+partition_table_size = 3072
+merged_sha256 = "f71b8d5ce34ee5cfd7249c78540a3f7b256454cfd4bc3a9bb8b582c22efe5949"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/probe_wifi_http/CMakeLists.txt"
+sha256 = "f1151c65b156d8bf0dde0e86361e50a407acb4beb6b4a16443819325ffe98126"
+
+[[probe.source]]
+path = "probes/probe_wifi_http/main/CMakeLists.txt"
+sha256 = "5cc01c216a978637959af1ee8f8a21db2f175f9fd5a7930b2f1fa750afecdea2"
+
+[[probe.source]]
+path = "probes/probe_wifi_http/main/Kconfig.projbuild"
+sha256 = "5869dea6983f454ff472f9d6810ad5c130abefaf1d34a7e9d6d193edbe423d01"
+
+[[probe.source]]
+path = "probes/probe_wifi_http/main/probe_wifi_http.c"
+sha256 = "4b56cd4a09e8564c20a940a2f5ce9cf0c6e9a67a83a423a2e45492acce2fc1e2"
+
+[[probe.source]]
+path = "probes/probe_wifi_http/sdkconfig.defaults"
+sha256 = "a351761de4831eff5c18f93a6748c96a2370107adf52dee8cbd7d5865ce4c74e"
+
+[[probe]]
+name = "scan3"
+project = "probes/scan3"
+sdkconfig_sha256 = "c22484a2815b9d1824aeb5a2ec56672854a556b24173a8c22b68c49d0792b0e1"
+strip = "--strip-all"
+elf_stripped = "tests/fw/scan3.elf"
+elf_stripped_sha256 = "fc97395f7346e53177b31c24f2083fdfc5db27ee508b545d7b9e73372d00ffe3"
+elf_stripped_size = 1017244
+elf_sha256 = "c1215ed55f22072ba2a97fb52cb4c7490600729f795067672abd8f61f1050359"
+elf_size = 10267528
+app_sha256 = "7320baa3227c1f09c8a56a13ae66298ff0d97198a0bd79a48201ef4b4df9f30e"
+app_size = 1002288
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "5295e8c42d6fb5f95e4e8a185932c6191d27cfc5078322475347e40e71af815a"
+partition_table_size = 3072
+merged_sha256 = "720acd53c17ec588585a5d899d0e532c6ee2a70769dfa4c2be0f2f5e87321492"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/scan3/CMakeLists.txt"
+sha256 = "cc29658fef307726aaacfc4966f7b2b05074e4ca7cd0893f83b8384c20654e37"
+
+[[probe.source]]
+path = "probes/scan3/main/CMakeLists.txt"
+sha256 = "78201764638762ca440996fa08fb2a6ae24d317692a4889b74e3326bdc3d3ad5"
+
+[[probe.source]]
+path = "probes/scan3/main/scan3.c"
+sha256 = "92d43a832eec5eea8995eb4409b0074f3b869e8b309481a3e6f104531ce5da86"
+
+[[probe.source]]
+path = "probes/scan3/sdkconfig.defaults"
+sha256 = "54e2b1c8e3151976954018104b69603ac8d8c960546bd3a4e17364771c162727"
+
+[[probe]]
+name = "sleep_timer"
+project = "probes/sleep_timer"
+sdkconfig_sha256 = "63ac4f3a6ff29c21137dbb85745ce4998fefdb57da0e570e2ba0bd87bd466e75"
+strip = "--strip-all"
+elf_stripped = "tests/fw/sleep_timer.elf"
+elf_stripped_sha256 = "704b72671f613defffc9531a67131e3123da66019081831e057e8b96e43e050a"
+elf_stripped_size = 177520
+elf_sha256 = "898ae4e446e4c83c5013aa02cf834080a699fd285db04f1debf6bc3725a37040"
+elf_size = 3341636
+app_sha256 = "d2b264d1a334c1113f814ffaebc106774af644da7ef24c57b8833cdeae009cc3"
+app_size = 164624
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "5295e8c42d6fb5f95e4e8a185932c6191d27cfc5078322475347e40e71af815a"
+partition_table_size = 3072
+merged_sha256 = "9d720ce24bd7f1fedf3298ddf47cb039d4871f89189463f097711494ec72d9ec"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/sleep_timer/CMakeLists.txt"
+sha256 = "c666c1e92bb39292d5b2c69ea89c91ac5e9905509d7f1ba1ba1653de40070b74"
+
+[[probe.source]]
+path = "probes/sleep_timer/main/CMakeLists.txt"
+sha256 = "faa6c7172318c13057dc50ad2dc2140d0446206f48ffd8eaf4f0187f235c0a50"
+
+[[probe.source]]
+path = "probes/sleep_timer/main/sleep_timer.c"
+sha256 = "ecbd8ce12421c64ab6401fa1e8996a47d8364b508f04082e4534ff794262f860"
+
+[[probe.source]]
+path = "probes/sleep_timer/sdkconfig.defaults"
+sha256 = "2b5a4a968cc3fe9b677ec1de918d467a7bc71d7c5909a28071828d22505ad107"
+
+[[probe]]
+name = "usj_echo"
+project = "probes/usj_echo"
+sdkconfig_sha256 = "63ac4f3a6ff29c21137dbb85745ce4998fefdb57da0e570e2ba0bd87bd466e75"
+strip = "--strip-all"
+elf_stripped = "tests/fw/usj_echo.elf"
+elf_stripped_sha256 = "b8574bc68e9c03a38283ca8cb48c450c8f36e5b131ed9f95cf46f30ae5b0590c"
+elf_stripped_size = 181512
+elf_sha256 = "774a05362419495c10e9e8c92ff60434469a7f5f1cce8f0eaf4fa1538e9e36c3"
+elf_size = 3280864
+app_sha256 = "3ee061da087b5da99197e2c33e8d1b53ec1e333f76d2f4f256457e4761c4272e"
+app_size = 164064
+bootloader_sha256 = "4b774760d06a8fedd93a3d1207cc447b8147f8a9741616d5f8e8e0ba8d2893fe"
+bootloader_size = 20944
+partition_table_sha256 = "5295e8c42d6fb5f95e4e8a185932c6191d27cfc5078322475347e40e71af815a"
+partition_table_size = 3072
+merged_sha256 = "adb3a40a1f2f945729143642618bbd02a95ba3bd4bba42067abc635fb0ecdf7c"
+merged_size = 8388608
+
+[[probe.source]]
+path = "probes/usj_echo/CMakeLists.txt"
+sha256 = "b9f44f0aac38bdaec1c07c838516fd9ec814c637721f2fb01e09e4328cda1cca"
+
+[[probe.source]]
+path = "probes/usj_echo/main/CMakeLists.txt"
+sha256 = "54506f950e2a108c258e0b5611371bfec49690e9b00197a8da64b498e98352df"
+
+[[probe.source]]
+path = "probes/usj_echo/main/usj_echo.c"
+sha256 = "ee8f3965d4a285e7c6f5cddd3b6c82579d794b23e812e451fc96f5a0be6f1bbb"
+
+[[probe.source]]
+path = "probes/usj_echo/sdkconfig.defaults"
+sha256 = "12262d07e13693c358ec07cbca02c3f9160a2dd4cdb0d82de254f59d518fcdae"

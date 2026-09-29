@@ -1,0 +1,100 @@
+# Block spec of the `uart0` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/uart0.rs.
+schema = 1
+block = "uart0"
+base = 0x6000_0000
+size = 0x1000
+class = "B"
+milestone = "M1"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h; size 0x1000 UNVERIFIED"
+
+# ROM output and the TX-idle polls. The device console is USJ, not UART0, but the ROM and the
+# bootloader still flush UART0 before every restart, and both polls must answer empty or the boot
+# never continues.
+
+[[wait]]
+id = "uart0.txfifo_cnt"
+kind = "wait"
+seed = true
+register = "UART_STATUS"
+field = "UART_TXFIFO_CNT"
+trigger = "any write to UART_FIFO; the guest polls before it resets or reconfigures the console"
+expect = "read UART_TXFIFO_CNT == 0 once the bytes written have gone out at the UART_CLKDIV baud"
+within = { fast = "same_access", device = "the FIFO drain at the UART_CLKDIV baud, one byte per baud period, the count clamped at the 128-byte FIFO depth" }
+polled_at = ["uart_tx_flush", "uart_tx_wait_idle", "esp_rom_output_tx_wait_idle"]
+images = ["official", "pk"]
+milestone = "M1"
+provenance = "IDF soc/esp32c3/register/soc/uart_reg.h (UART_STATUS 0x6000_001C TXFIFO_CNT[25:16]) and the bundled ROM's uart_tx_flush 0x4004df9e and uart_tx_wait_idle 0x4004dfd0; boot-path seed row. The device column: the transmitter shifts one byte per UART_CLKDIV baud period, so the ROM banner costs its transmission time as it does on silicon. Two choices of that model are class C and live here rather than only in Rust prose. (1) The count is clamped at the 128-byte FIFO depth and not at the ten-bit field width, because IDF reads free space as UART_LL_FIFO_DEF_LEN - TXFIFO_CNT in unsigned arithmetic and a count past the depth wraps it; silicon instead refuses the write that would exceed the depth, which this model does not, so the clamp keeps the pair consistent for the guest. (2) The baud is UART_CLKDIV over a 40 MHz source with UART_SCLK_DIV_NUM ignored, whose reset value of 1 is a divide-by-2 the model does not apply; 0x0030_015B is 115200 from 40 MHz and 230400 from 80 MHz, and the captured console rate says 115200, so the pair is read as the crystal undivided"
+
+[[wait]]
+id = "uart0.st_utx_out"
+kind = "wait"
+seed = true
+register = "UART_FSM_STATUS"
+field = "UART_ST_UTX_OUT"
+trigger = "the same polls; the transmitter state machine must read idle"
+expect = "read UART_ST_UTX_OUT == 0 once the transmitter has finished the bytes written"
+within = { fast = "same_access", device = "the FIFO drain at the UART_CLKDIV baud" }
+polled_at = ["uart_tx_wait_idle", "esp_rom_output_tx_wait_idle"]
+images = ["official", "pk"]
+milestone = "M1"
+provenance = "IDF soc/esp32c3/register/soc/uart_reg.h (UART_FSM_STATUS 0x6000_006C ST_UTX_OUT[7:4]) and the bundled ROM's uart_tx_wait_idle; boot-path seed row"
+
+[[stable_read]]
+register = "UART_STATUS"
+provenance = "Under the `fast` profile the model transmits synchronously, so TXFIFO_CNT reads 0 whenever the guest can observe it; under `device` it holds only until the next per-byte shift-out event, which is what the model reports as Stability::UntilNextEvent"
+
+[[stable_read]]
+register = "UART_FSM_STATUS"
+provenance = "Under the `fast` profile the transmitter is never busy while the guest can observe it, so ST_UTX_OUT reads 0; under `device` it holds only until the next per-byte shift-out event"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: UART0 is in the digital domain, which every reset scope restores"
+
+# The console data path and the interrupt registers, which the model implements.
+[[overrides]]
+register = "UART_FIFO"
+value = "a write of the low byte transmits it into the host console stream and stores nothing; a read pops one byte of the receive queue, or 0 when it is empty"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/uart_reg.h (UART_FIFO is the TX and RX port, and the ROM banner goes through it); the model carries the bytes on the Uart0Tx host stream. Tests: periph::uart0::tests::the_tx_ring_hands_every_byte_over_once, ::only_the_low_byte_of_the_fifo_register_transmits, ::the_tx_ring_is_bounded_and_counts_what_it_drops, ::the_receive_queue_drives_the_status_counter, ::a_fifo_read_that_empties_rx_lowers_source_21 and ::wait_rows_txfifo_cnt_and_st_utx_out_read_idle_after_a_burst"
+
+[[overrides]]
+register = "UART_INT_ENA"
+value = "read/write enable mask; INT_ST becomes INT_RAW and INT_ENA and drives interrupt source 21"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/uart_reg.h interrupt registers (RAW, ST, ENA, CLR); source 21 is UART0 in specs/irq-sources.toml. Tests: periph::uart0::tests::the_interrupt_registers_follow_raw_and_ena and ::int_st_drives_source_21_through_the_entry_points"
+
+[[overrides]]
+register = "UART_INT_CLR"
+value = "write-trigger clear of INT_RAW that reads back 0; TXFIFO_EMPTY is re-evaluated afterwards and stays set, because the model has no pending bytes"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/uart_reg.h interrupt registers (the model transmits inside the write, so the transmitter is always empty); the same two tests as UART_INT_ENA, whose read-back-0 assertion pins the write-trigger access type"
+
+# The line configuration. The emulator carries console bytes as bytes on a host stream and, under
+# the fast profile, paces nothing, so these registers are declared class C approximations, not
+# claims that the register matches the spec.
+[[overrides]]
+register = "UART_CLKDIV"
+value = "the baud divider: under a profile with uart_paced the transmitter holds each byte 10 bit times at CLKDIV + CLKDIV_FRAG / 16 periods of the core clock UART_CLK_CONF selects, and reads idle and latches TX_DONE when the last byte leaves; under fast it is stored and every byte leaves at the write (the bytes reach the host ring at the write under both)"
+class = "C"
+provenance = "Under device the timing matches the device: device-probe_campaign_timing-20260924T155139Z run1 and run2 lines 116 and 121 (TIME uart0_tx_128_115200 and _921600, ESP-IDF's driver, 128 bytes to uart_wait_tx_done) read 11187/11186 and 1406/1406 us, rc 0; the emulator reads 11188 and 1406 (tests/fw/campaign/probe_campaign_timing.emu.txt). periph::uart0::tests::{the_core_clock_follows_the_source_selector_and_its_divider, tx_done_latches_when_the_last_byte_leaves, the_rom_baud_divider_decodes_to_115200_from_the_crystal}. The model carries the console as a byte ring, not a line. Class C as a whole because the fast profile does not honor it, as for the I2C0 SCL period rows"
+
+[[overrides]]
+register = "UART_CONF0"
+value = "stored; the enable, parity, stop-bit and reset controls reach nothing, because every byte written to UART_FIFO is transmitted"
+class = "C"
+provenance = "The same rule as UART_CLKDIV. The device console is USJ, so no golden text depends on UART0 framing. Declared class C rationale"
+
+[[overrides]]
+register = "UART_CONF1"
+value = "stored; the FIFO thresholds gate no interrupt, because the transmitter is always empty and the receive queue is drained by the read"
+class = "C"
+provenance = "The same rule as UART_CLKDIV. Declared class C rationale"
+
+[[overrides]]
+register = "UART_CLK_CONF"
+value = "the UART core clock under a profile with uart_paced: SCLK_SEL 1 APB_CLK (80 MHz), 2 RC_FAST (the TIMG calibration's measured 17.735 MHz), 3 XTAL (40 MHz), 0 no clock; divided by SCLK_DIV_NUM + 1 + SCLK_DIV_B / SCLK_DIV_A; the enable and reset bits are stored"
+class = "C"
+provenance = "device-probe_campaign_timing-20260924T155139Z lines 117 to 125: ESP-IDF's driver leaves UART_CLK_CONF 0x03500000 (APB_CLK, SCLK_DIV_NUM 0) and UART_CLKDIV 0x007002B6 and 0x00C00056, the 80 MHz dividers for 115200 and 921600, and the bytes take those rates (see UART_CLKDIV); the ROM selects the crystal with SCLK_DIV_NUM 0 (0x03700000) before its banner, which the model's reset value (SCLK_DIV_NUM 1) does not reach. TRM register 26.18; ESP-IDF uart_ll_set_baudrate writes sclk_div - 1. Class C: the fast profile does not pace, APB is taken at 80 MHz rather than asked (timg APB_PS), and the fractional divider is unexercised"

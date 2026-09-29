@@ -1,0 +1,99 @@
+{
+  "properties": {
+    "analysis": {
+      "properties": {
+        "channel": {
+          "type": "integer"
+        },
+        "fundamental_hz": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "peak": {
+          "type": "integer"
+        },
+        "rms": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "channel",
+        "fundamental_hz",
+        "peak",
+        "rms"
+      ],
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "channels": {
+      "type": "integer"
+    },
+    "cursor": {
+      "type": "integer"
+    },
+    "discontinuities": {
+      "type": "integer"
+    },
+    "dropped_samples": {
+      "type": "integer"
+    },
+    "duration_ms": {
+      "type": "integer"
+    },
+    "frames": {
+      "type": "integer"
+    },
+    "fs": {
+      "type": "integer"
+    },
+    "instance": {
+      "type": "string"
+    },
+    "mic_dropped_samples": {
+      "type": "integer"
+    },
+    "mode": {
+      "type": "string"
+    },
+    "next_cursor": {
+      "type": "integer"
+    },
+    "vt_start_us": {
+      "type": "integer"
+    },
+    "vt_us": {
+      "type": "integer"
+    },
+    "wav": {
+      "properties": {
+        "bytes": {
+          "type": "integer"
+        },
+        "media_type": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "media_type",
+        "bytes"
+      ],
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  },
+  "type": "object"
+}

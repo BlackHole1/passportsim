@@ -1,0 +1,83 @@
+{
+  "additionalProperties": false,
+  "description": "`nfc_tag` arguments; none dumps the card.",
+  "properties": {
+    "counter": {
+      "description": "Enable the NFC counter.",
+      "type": "boolean"
+    },
+    "dump": {
+      "description": "Add the 45 pages.",
+      "type": "boolean"
+    },
+    "instance": {
+      "description": "Instance id.",
+      "pattern": "^[pb][0-9]+$",
+      "type": "string"
+    },
+    "lock": {
+      "description": "Irreversible read-only lock.",
+      "type": "boolean"
+    },
+    "ndef": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "enum": [
+              "open",
+              "wpa-personal",
+              "wpa",
+              "wpa2-personal",
+              "wpa2"
+            ],
+            "type": "string"
+          },
+          "encr": {
+            "enum": [
+              "none",
+              "wep",
+              "tkip",
+              "aes"
+            ],
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "lang": {
+            "type": "string"
+          },
+          "ssid": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "uri",
+              "text",
+              "wifi"
+            ],
+            "type": "string"
+          },
+          "uri": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "uid": {
+      "description": "Refused: seed-derived.",
+      "type": "string"
+    }
+  },
+  "type": "object"
+}

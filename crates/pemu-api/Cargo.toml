@@ -1,0 +1,43 @@
+[package]
+name = "pemu-api"
+description = "Command registry and commands of PassportSim."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# `VTime` for matcher deadlines and clock-lease expiry.
+pemu-core.workspace = true
+pemu-machine.workspace = true
+pemu-introspect.workspace = true
+# `nfc_tag` and `nfc_tap` read the NTAG213 out of the `board.world` snapshot section and run the
+# reader side of a tap against a copy of it. The edge is inside the closure `pemu-api` already has
+# through `pemu-machine -> pemu-board`.
+pemu-board.workspace = true
+# `ble_scan`, `ble_connect` and `ble_gatt` build the journaled central script and decode the module
+# state the machine hands back (`MachineApi::radio_module_state`). The edge is inside the closure
+# `pemu-api` already has through `pemu-machine -> pemu-radio`.
+pemu-radio.workspace = true
+# `pemu_api::elf` holds a firmware's parsed app ELF (`pemu_loader::elf::ElfInfo`) and symbolizes ROM
+# frames from the bundled ROM (`pemu_loader::rom`). The edge is inside the closure `pemu-api` already
+# has through `pemu-machine` and `pemu-introspect`; `pemu-loader` has no run-time file or env access.
+pemu-loader.workspace = true
+# `#[command]`, re-exported as `pemu_api::registry::command`.
+pemu-macros.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+sha2.workspace = true
+
+# `#[command]` registers into a link-time list natively; wasm32 uses the list `pemu-wasm`'s build
+# script generates into its `OUT_DIR` instead.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+linkme.workspace = true
+
+# Every large fixed-size buffer is heap-built, because a Windows .exe gets a 1 MiB stack from its
+# PE header where macOS gives 8 MiB. The size the lints treat as large is `array-size-threshold` of
+# this crate's clippy.toml.
+[lints.clippy]
+large_stack_arrays = "deny"
+large_stack_frames = "deny"

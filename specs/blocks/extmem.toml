@@ -1,0 +1,222 @@
+# Block spec of the `extmem` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/extmem.rs.
+schema = 1
+block = "extmem"
+base = 0x600C_4000
+size = 0x1000
+class = "B"
+milestone = "M2"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h; size 0x1000 matches the DATE register at offset 0x3FC (IDF soc/esp32c3/register/soc/extmem_reg.h)"
+
+# The emulator models no real cache; the ROM and the HAL busy-wait on five status bits, and each
+# of them must read done (IDF esp_rom/esp32c3/include/esp32c3/rom/cache.h, IDF hal/esp32c3/include/hal/cache_ll.h).
+
+# The registers the model implements beyond the five busy-wait rows. Only registers a row of this
+# file names inherit the block class (the class rule of xtask/src/codegen/blocks.rs), so each
+# register periph/extmem.rs gives observable behavior carries its class here. Each row's `value`
+# is prose, so none of them changes a generated reset value.
+
+[[overrides]]
+register = "EXTMEM_ICACHE_CTRL"
+field = "EXTMEM_ICACHE_ENABLE"
+value = "cache gate: the two flash windows may be reached only while it is set, and a write that changes it rebuilds their page entries"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/extmem_reg.h (EXTMEM 0x600C_4000, ICACHE_ENABLE is the cache gate Cache_Enable_ICache sets and Cache_Disable_ICache clears); IDF hal/esp32c3/include/hal/cache_ll.h bus gating. Test: periph::extmem::tests::only_the_three_cache_control_writes_produce_wiring"
+
+[[overrides]]
+register = "EXTMEM_ICACHE_CTRL1"
+field = "EXTMEM_ICACHE_SHUT_IBUS, EXTMEM_ICACHE_SHUT_DBUS"
+value = "bus gating: Cache_Suspend_ICache sets both bits and Cache_Resume_ICache clears them; a change rebuilds the window page entries"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/extmem_reg.h (EXTMEM 0x600C_4004, reset 3 with both buses shut; Cache_Suspend_ICache at 0x4005_3008 sets both and Resume clears both); IDF hal/esp32c3/include/hal/cache_ll.h. Test: periph::extmem::tests::the_bit_constants_are_the_generated_fields"
+
+[[overrides]]
+register = "EXTMEM_ICACHE_SYNC_ADDR"
+value = "the invalidate address, written and read back once per chunk by Cache_Invalidate_ICache_Items"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/extmem_reg.h (EXTMEM 0x600C_402C, plain storage the ROM rewrites per chunk); IDF hal/esp32c3/include/hal/cache_ll.h. Test: periph::extmem::tests::the_five_polled_status_bits_read_complete"
+
+[[overrides]]
+register = "EXTMEM_ICACHE_SYNC_SIZE"
+value = "the invalidate size, 23 bits wide; the bits above the field ignore writes"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/extmem_reg.h (EXTMEM 0x600C_4030, ICACHE_SYNC_SIZE is 23 bits); IDF hal/esp32c3/include/hal/cache_ll.h. Tests: periph::extmem::tests::the_five_polled_status_bits_read_complete and ::narrow_accesses_reach_only_the_bytes_they_address"
+
+[[overrides]]
+register = "EXTMEM_IBUS_TO_FLASH_START_VADDR"
+value = "the IROM window base, storage at the reset value the bootloader reads back"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/extmem_reg.h (EXTMEM 0x600C_4054, the IROM window base the bootloader reads back); IDF soc/esp32c3/include/soc/soc.h SOC_IROM_LOW 0x4200_0000. Test: periph::extmem::tests::the_reset_values_of_the_table_stand_and_a_reset_restores_them"
+
+[[overrides]]
+register = "EXTMEM_IBUS_TO_FLASH_END_VADDR"
+value = "the last IROM window address, storage at the reset value the bootloader reads back"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/extmem_reg.h (EXTMEM 0x600C_4058, the last IROM window address); IDF soc/esp32c3/include/soc/soc.h SOC_IROM_HIGH, window end 0x427F_FFFF. Test: periph::extmem::tests::the_reset_values_of_the_table_stand_and_a_reset_restores_them"
+
+[[overrides]]
+register = "EXTMEM_DBUS_TO_FLASH_START_VADDR"
+value = "the DROM window base, storage at the reset value the bootloader reads back"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/extmem_reg.h (EXTMEM 0x600C_405C, the DROM window base); IDF soc/esp32c3/include/soc/soc.h SOC_DROM_LOW 0x3C00_0000. Test: periph::extmem::tests::the_reset_values_of_the_table_stand_and_a_reset_restores_them"
+
+[[overrides]]
+register = "EXTMEM_DBUS_TO_FLASH_END_VADDR"
+value = "the last DROM window address, storage at the reset value the bootloader reads back"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/extmem_reg.h (EXTMEM 0x600C_4060, the last DROM window address); IDF soc/esp32c3/include/soc/soc.h SOC_DROM_HIGH, window end 0x3C7F_FFFF. Test: periph::extmem::tests::the_reset_values_of_the_table_stand_and_a_reset_restores_them"
+
+[[overrides]]
+register = "EXTMEM_DATE"
+value = "the version word, storage at its reset value; the bootloader only reads it back"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/extmem_reg.h (EXTMEM 0x600C_43FC, DATE 0x0200_7160). Test: periph::extmem::tests::the_reset_values_of_the_table_stand_and_a_reset_restores_them"
+
+[[wait]]
+id = "extmem.sync_done"
+kind = "wait"
+seed = true
+register = "EXTMEM_ICACHE_SYNC_CTRL"
+field = "EXTMEM_ICACHE_SYNC_DONE"
+trigger = "write EXTMEM_ICACHE_INVALIDATE_ENA = 1 after SYNC_ADDR and SYNC_SIZE"
+expect = "read EXTMEM_ICACHE_SYNC_DONE == 1"
+within = "same_access"
+polled_at = ["Cache_Invalidate_ICache_Items"]
+images = ["official", "pk"]
+milestone = "M2"
+provenance = "IDF soc/esp32c3/register/soc/extmem_reg.h (EXTMEM 0x600C_4028, SYNC_DONE must read 1); IDF esp_rom/esp32c3/include/esp32c3/rom/cache.h; boot-path seed row"
+
+[[wait]]
+id = "extmem.preload_done"
+kind = "wait"
+seed = true
+register = "EXTMEM_ICACHE_PRELOAD_CTRL"
+field = "EXTMEM_ICACHE_PRELOAD_DONE"
+trigger = "write EXTMEM_ICACHE_PRELOAD_ENA = 1, or a read with no preload running"
+expect = "read EXTMEM_ICACHE_PRELOAD_DONE == 1"
+within = "same_access"
+polled_at = ["Cache_Disable_ICache", "Cache_Suspend_ICache"]
+images = ["official", "pk"]
+milestone = "M2"
+provenance = "IDF soc/esp32c3/register/soc/extmem_reg.h (EXTMEM 0x600C_4034, PRELOAD_DONE must read 1, reset 1); IDF esp_rom/esp32c3/include/esp32c3/rom/cache.h; boot-path seed row"
+
+[[wait]]
+id = "extmem.autoload_done"
+kind = "wait"
+seed = true
+register = "EXTMEM_ICACHE_AUTOLOAD_CTRL"
+field = "EXTMEM_ICACHE_AUTOLOAD_DONE"
+trigger = "write EXTMEM_ICACHE_AUTOLOAD_ENA = 1, or a read with no autoload running"
+expect = "read EXTMEM_ICACHE_AUTOLOAD_DONE == 1"
+within = "same_access"
+polled_at = ["Cache_Disable_ICache", "Cache_Suspend_ICache"]
+images = ["official", "pk"]
+milestone = "M2"
+provenance = "IDF soc/esp32c3/register/soc/extmem_reg.h (EXTMEM 0x600C_4040, AUTOLOAD_DONE reads 1, reset 1); IDF esp_rom/esp32c3/include/esp32c3/rom/cache.h; boot-path seed row"
+
+[[wait]]
+id = "extmem.cache_state"
+kind = "wait"
+seed = true
+register = "EXTMEM_CACHE_STATE"
+field = "EXTMEM_ICACHE_STATE"
+trigger = "any read; the guest polls it before disabling the cache"
+expect = "read EXTMEM_ICACHE_STATE & 0xFFF == 1 (idle)"
+within = "same_access"
+polled_at = ["Cache_Disable_ICache"]
+images = ["official", "pk"]
+milestone = "M2"
+provenance = "IDF soc/esp32c3/register/soc/extmem_reg.h (EXTMEM 0x600C_40B0, must read 1 idle, reset 1); IDF esp_rom/esp32c3/include/esp32c3/rom/cache.h; boot-path seed row"
+
+[[wait]]
+id = "extmem.freeze_done"
+kind = "wait"
+seed = true
+register = "EXTMEM_ICACHE_FREEZE"
+field = "EXTMEM_ICACHE_FREEZE_DONE"
+trigger = "write EXTMEM_ICACHE_FREEZE_ENA"
+expect = "read EXTMEM_ICACHE_FREEZE_DONE == the last written EXTMEM_ICACHE_FREEZE_ENA"
+within = "same_access"
+polled_at = ["Cache_Freeze_ICache_Enable", "Cache_Freeze_ICache_Disable"]
+images = ["official", "pk"]
+milestone = "M2"
+provenance = "IDF soc/esp32c3/register/soc/extmem_reg.h (EXTMEM 0x600C_40CC, FREEZE_DONE must equal FREEZE_ENA); IDF esp_rom/esp32c3/include/esp32c3/rom/cache.h; boot-path seed row"
+
+# The four registers the guest polls, plus the two constant windows the bootloader reads back.
+[[stable_read]]
+register = "EXTMEM_ICACHE_SYNC_CTRL"
+provenance = "IDF soc/esp32c3/register/soc/extmem_reg.h: SYNC_DONE is a function of the INVALIDATE_ENA write alone, not of timing"
+
+[[stable_read]]
+register = "EXTMEM_ICACHE_PRELOAD_CTRL"
+provenance = "IDF soc/esp32c3/register/soc/extmem_reg.h: PRELOAD_DONE is a function of the PRELOAD_ENA write alone"
+
+[[stable_read]]
+register = "EXTMEM_ICACHE_AUTOLOAD_CTRL"
+provenance = "IDF soc/esp32c3/register/soc/extmem_reg.h: AUTOLOAD_DONE is a function of the AUTOLOAD_ENA write alone"
+
+[[stable_read]]
+register = "EXTMEM_CACHE_STATE"
+provenance = "IDF soc/esp32c3/register/soc/extmem_reg.h: reads 1 (idle) whenever the guest can observe it"
+
+[[stable_read]]
+register = "EXTMEM_ICACHE_FREEZE"
+provenance = "IDF soc/esp32c3/register/soc/extmem_reg.h: FREEZE_DONE equals FREEZE_ENA, so the read value is a function of modeled state"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h; TRM Reset and Clock chapter: EXTMEM is in the digital domain, which every reset scope restores"
+
+# The rest of the window the boot path touches. The model implements the cache control and the
+# five polled done bits above; everything below is storage the model never reads back, so each row
+# is a declared class C approximation and not a claim that the register matches the
+# spec. periph/extmem.rs records the same split ("the interrupt status registers 0x078 to 0x09C
+# stay plain storage until then").
+[[overrides]]
+register = "EXTMEM_ICACHE_TAG_POWER_CTRL"
+value = "stored; the emulated tag memory is always powered, so the power and clock-gate bits reach nothing"
+class = "C"
+provenance = "IDF soc/esp32c3/register/soc/extmem_reg.h and IDF esp_rom/esp32c3/include/esp32c3/rom/cache.h (the cache control registers the boot path drives are ICACHE_CTRL, ICACHE_CTRL1, SYNC, PRELOAD, AUTOLOAD and FREEZE; the power controls are not among them). The emulator has no cache memory to power down: the emulated cache is the address-space fold. Declared class C rationale"
+
+[[overrides]]
+register = "EXTMEM_CACHE_ILG_INT_ENA"
+value = "stored; the illegal-access interrupt it enables is never raised, so enabling it changes nothing"
+class = "C"
+provenance = "specs/irq-sources.toml lists sources 36, 41, 42 and 61 for this block, but no cache fault is detected yet: crates/pemu-soc-c3/src/mmu.rs defers MMU_ENTRY_FAULT, CACHE_MMU_FAULT_VADDR and source 36 to crate::wiring::protection, and periph/extmem.rs keeps 0x078 to 0x09C as plain storage. Declared class C rationale"
+
+[[overrides]]
+register = "EXTMEM_CACHE_ILG_INT_CLR"
+value = "write-only, so it reads 0 as the device does; the clear reaches no raw bit, because none is ever set"
+class = "C"
+provenance = "the same rule as EXTMEM_CACHE_ILG_INT_ENA: no cache fault is detected, so the clear is consistent with a status that is always 0. The write-only read-back of 0 comes from the field access column of specs/c3-registers.csv and matches the device. Declared class C rationale"
+
+[[overrides]]
+register = "EXTMEM_CORE0_ACS_CACHE_INT_ENA"
+value = "stored; the core-access interrupt it enables is never raised"
+class = "C"
+provenance = "the same rule as EXTMEM_CACHE_ILG_INT_ENA (source 61; enforcement deferred with crate::wiring::protection). Declared class C rationale"
+
+[[overrides]]
+register = "EXTMEM_CORE0_ACS_CACHE_INT_CLR"
+value = "write-only, so it reads 0 as the device does; the clear reaches no raw bit"
+class = "C"
+provenance = "the same rule as EXTMEM_CACHE_ILG_INT_CLR. Declared class C rationale"
+
+[[overrides]]
+register = "EXTMEM_CACHE_WRAP_AROUND_CTRL"
+value = "stored; the wrap-around bit is not applied: the device profile's line cache (fifo16k) fills a 32-byte line in order from word 0, the mode the bit clear selects, whatever it holds, and the fast profile times no fill"
+class = "C"
+provenance = "the device profile's line cache (specs/timing-profiles.toml cache_first_word_ps and cache_fill_ps): a line arrives in order from its first word, word 0 at cache_first_word_ps and word 7 at cache_fill_ps; that IDF never sets EXTMEM_CACHE_FLASH_WRAP_AROUND on this chip is UNVERIFIED here; the value, 0, equals the device's (device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 68). Declared class C rationale: no corpus image sets the bit, so the wrapped burst order a set bit would select is never timed"
+
+[[overrides]]
+register = "EXTMEM_CACHE_MMU_POWER_CTRL"
+value = "stored; the MMU entry table is always powered, so the power and clock-gate bits reach nothing"
+class = "C"
+provenance = "IDF soc/esp32c3/include/soc/ext_mem_defs.h: the MMU table is crates/pemu-soc-c3/src/mmu.rs, a plain array with no power domain. Declared class C rationale"
+
+[[overrides]]
+register = "EXTMEM_CACHE_MMU_OWNER"
+value = "stored; one owner drives the single emulated MMU table, so the ownership mask selects nothing"
+class = "C"
+provenance = "IDF soc/esp32c3/include/soc/ext_mem_defs.h (one table shared by IBUS and DBUS): the emulator has a single table and a single bus master, so there is no second owner to arbitrate. Declared class C rationale"

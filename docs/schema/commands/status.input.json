@@ -1,0 +1,12 @@
+{
+  "additionalProperties": false,
+  "description": "`status` arguments.",
+  "properties": {
+    "instance": {
+      "description": "Instance id.",
+      "pattern": "^[pb][0-9]+$",
+      "type": "string"
+    }
+  },
+  "type": "object"
+}

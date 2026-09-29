@@ -1,0 +1,17 @@
+{
+  "additionalProperties": false,
+  "description": "`stop` arguments.",
+  "properties": {
+    "instance": {
+      "description": "Instance id.",
+      "pattern": "^[pb][0-9]+$",
+      "type": "string"
+    },
+    "keep_artifacts": {
+      "default": true,
+      "description": "Keep the artifacts (true).",
+      "type": "boolean"
+    }
+  },
+  "type": "object"
+}

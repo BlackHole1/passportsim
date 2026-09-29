@@ -1,0 +1,43 @@
+# `xtask` may depend on every crate (docs/ARCHITECTURE.md, Layering).
+[package]
+name = "xtask"
+description = "Developer and local CI task runner of PassportSim."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+getrandom.workspace = true
+pemu-api.workspace = true
+# `xtask bench-k` runs the block engine itself for workload K.
+pemu-rv32.workspace = true
+# `xtask agent-budget` runs the reference agent loop against a scripted `MachineApi`, so it
+# names the machine facade, the host I/O rings and the introspection snapshot types.
+pemu-core.workspace = true
+pemu-machine.workspace = true
+pemu-introspect.workspace = true
+# `xtask docs` and `xtask mcp-size` render JSON Schemas and the MCP tools/list payload.
+serde_json.workspace = true
+# `xtask oracle` drives the verification tooling.
+pemu-verify.workspace = true
+# `xtask package` writes the demo `.pebundle` with `pemu_loader::bundle::build`, the same code
+# that parses it, so the container cannot drift from the parser.
+pemu-loader.workspace = true
+sha2.workspace = true
+# `xtask bench` finds and verifies the corpus images through the one manifest reader,
+# `pemu_testkit::corpus`.
+pemu-testkit.workspace = true
+# A bench suite drives a `Machine` directly, so F7's BLE legs journal the same
+# `pemu_radio::ble::central::Step` lists the `ble_*` commands build.
+pemu-radio.workspace = true
+toml.workspace = true
+# `xtask comment-check` compares token streams to prove an edit touches comments only.
+proc-macro2.workspace = true
+# The `.tar.gz` and `.zip` archives are written in-process, because a Windows host has no `tar`
+# or `gzip` to ask for, and no tool is looked up on `PATH`.
+flate2.workspace = true
+# A bench's measuring thread asks for its QoS class through `pemu_host::platform::ThreadQos`, the
+# same call as the product's machine threads.
+pemu-host.workspace = true

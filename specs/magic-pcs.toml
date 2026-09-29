@@ -1,0 +1,44 @@
+# The magic PC range of the rev101 ROM. Source: the bundled rev101 ROM image, which has a zero run
+# of 0x17C bytes, 0x4005ECC0 up to but not including 0x4005EE3C, with nonzero bytes at 0x4005ECBF
+# and 0x4005EE3C; no probe instruction references it.
+#
+# Static proof. `pemu_loader::rom::check_pin` runs it at load on every pinned ROM it assembles, over
+# the `start` and `end` of this file, so the proof holds per ROM hash; a failure is
+# `PinError::MagicRange` and `E_INTERNAL`. The pemu-loader test `rom::tests::magic_range_static_proof`
+# pins the same proof against the bundled rev101 image assembled by `pemu_loader::rom`:
+#   1. no ROM ELF section or symbol covers the range;
+#   2. the image bytes in the range are zero;
+#   3. the range is exactly the gap between `_rodata_end` (0x3FF1ECC0, DROM alias of 0x4005ECC0)
+#      and the start of `.rodata.interface` (0x3FF1EE3C, alias of 0x4005EE3C).
+# The same range also lies inside the (larger) rodata gap of the rev3 ROM; the test checks that too.
+
+[range]
+rom_sha256 = "9495e1453f36f7eec4112714ea1dca22d77808776adffa93dda7dda4393e8336"
+start = 0x4005ECC0
+# Inclusive.
+end = 0x4005EE3B
+len = 380
+rodata_end = 0x3FF1ECC0
+rodata_interface = 0x3FF1EE3C
+cite = "the bundled rev101 ROM image; pemu-loader rom::tests::magic_range_static_proof"
+
+# Allocated magic PCs.
+[[magic]]
+name = "RETURN"
+pc = 0x4005ECC0
+
+[[magic]]
+name = "WIFI_WORKER"
+pc = 0x4005ECC4
+
+[[magic]]
+name = "BT_WORKER"
+pc = 0x4005ECC8
+
+[[magic]]
+name = "WIFI_ISR"
+pc = 0x4005ECCC
+
+[[magic]]
+name = "BT_ISR"
+pc = 0x4005ECD0

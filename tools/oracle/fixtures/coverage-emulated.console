@@ -1,0 +1,70 @@
+# Synthetic boot consoles. Neither file is a capture: both are written by hand in the ESP-IDF
+# console shape, with a placeholder MAC (02:00:00 prefix) and invented versions, times and
+# addresses, so the 56-of-67 line-coverage comparison has a fixture with the shape of the real
+# one. The CR-stripping step is covered by the unit tests of crates/pemu-verify/src/normalize.rs.
+ESP-ROM:esp32c3-api1-20210207
+Build:Feb  7 2021
+rst:0x15 (USB_UART_CHIP_RESET),boot:0xa (DOWNLOAD(USB/UART0))
+Saved PC:0x40000000
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5820,len:0x1704
+entry 0x403cc710
+I (12) boot: ESP-IDF v5.5.3 2nd stage bootloader
+I (12) boot: compile time Jan  1 1970 00:00:00
+I (12) boot.esp32c3: SPI Speed      : 80MHz
+I (12) boot.esp32c3: SPI Mode       : DIO
+I (12) boot.esp32c3: SPI Flash Size : 8MB
+I (12) boot: Enabling RNG early entropy source...
+I (13) boot: Partition Table:
+I (13) boot: ## Label            Usage          Type ST Offset   Length
+I (13) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+I (13) boot:  1 phy_init         RF data          01 01 0000f000 00001000
+I (13) boot:  2 factory          factory app      00 00 00010000 00300000
+I (13) boot:  3 cardid           unknown          40 00 00310000 00001000
+I (13) boot: End of partition table
+I (15) esp_image: segment 0: paddr=00010020 vaddr=3c0d0020 size=023890h (145552) map
+I (30) esp_image: segment 1: paddr=000338b8 vaddr=40380000 size=00296ch ( 10604) load
+I (45) esp_image: segment 2: paddr=0003622c vaddr=00000000 size=009dech ( 40428) load
+I (60) esp_image: segment 3: paddr=00040020 vaddr=42000020 size=0b25b8h (730488) map
+I (75) esp_image: segment 4: paddr=000f25e0 vaddr=40382970 size=00e71ch ( 59164) load
+I (90) esp_image: segment 5: paddr=00100d04 vaddr=50000000 size=000020h (    32) load
+I (98) boot: Loaded app from partition at offset 0x10000
+I (98) boot: Disabling RNG early entropy source...
+I (98) cpu_start: Unicore app
+I (102) cpu_start: Pro cpu start user code
+I (102) cpu_start: cpu freq: 160000000 Hz
+I (102) app_init: Application information:
+I (102) app_init: Project name:     FoloToy-AI-Passport
+I (102) app_init: App version:      1.0.0-synthetic
+I (102) app_init: Compile time:     Jan  1 1970 00:00:00
+I (102) app_init: ELF file SHA256:  0000000000000000
+I (102) app_init: ESP-IDF:          v5.5.3
+I (103) efuse_init: Min chip rev:     v0.3
+I (103) efuse_init: Chip rev:         v1.1
+I (103) heap_init: Initializing. RAM available for dynamic allocation:
+I (103) heap_init: At 3FC8B000 len 00034000 (208 KiB): RAM
+I (103) heap_init: At 50000020 len 00001FD8 (7 KiB): RTCRAM
+I (103) spi_flash: detected chip: generic
+I (104) main_task: Started on CPU0
+I (104) main_task: Calling app_main()
+I (105) main: Passport Keys 1.0.0-synthetic
+I (105) bsp_i2c: i2c bus ready
+I (106) bsp_pwr: rail on
+I (150) bsp_disp: panel reset
+I (160) bsp_disp: panel init
+I (171) bsp_disp: backlight ledc ready
+I (180) bsp_lvgl: lv_init
+I (200) bsp_lvgl: lvgl ready
+I (210) bsp_btn: adc calibration success
+I (230) pk_app: start
+I (240) pk_store: nvs open
+I (260) pk_ui: home screen
+W (270) pk_ui: no card selected
+I (280) pk_usb: usb_serial_jtag driver installed
+I (290) pk_ble: controller init
+I (330) pk_proto: ready
+I (340) pk_app: ready: boot=0000000a
+I (380) pk_app: tick 1
+W (430) bsp_nfc: no NFC model, skipping
+W (590) pk_ble: controller stub

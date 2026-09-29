@@ -1,0 +1,55 @@
+{
+  "additionalProperties": false,
+  "description": "`mic_set` arguments.",
+  "properties": {
+    "amplitude": {
+      "maximum": 32767,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "channels": {
+      "description": "RX slots per frame; match the guest (1 mono).",
+      "maximum": 2,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "duration_ms": {
+      "description": "Tone ms to inject.",
+      "maximum": 600000,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "fs": {
+      "description": "Capture rate (16000).",
+      "maximum": 48000,
+      "minimum": 8000,
+      "type": "integer"
+    },
+    "hz": {
+      "maximum": 8000,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "instance": {
+      "description": "Instance id.",
+      "pattern": "^[pb][0-9]+$",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "silence",
+        "tone",
+        "file",
+        "live"
+      ],
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,34 @@
+# Block spec of the `radio_ble` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/radio_store.rs.
+schema = 1
+block = "radio_ble"
+base = 0x6003_1000
+size = 0x1000
+class = "U"
+milestone = "M3"
+provenance = "base UNVERIFIED: no IDF header names it; the bundled ROM ELF's r_rwip_time_get reads 0x6003_101C inside it. Window size 0x1000 UNVERIFIED, and the BLE baseband window beyond 0x6003_1000 has no c3_devices! row of its own"
+
+# Store only, with one tripwire. Nothing on the boot path touches the BLE baseband; a poll of
+# 0x6003_101C means ROM controller code is running under the store model, which cannot make the
+# poll terminate. The radio path is HLE (docs/ARCHITECTURE.md, Radios), so this block is never
+# promoted above U.
+
+# The one negative seed row: a poll that must never be answered.
+[[wait]]
+id = "radio_ble.rwip_time"
+kind = "tripwire"
+seed = true
+register = "BLE_RWBTLECNTL_STATUS"
+field = "*"
+trigger = "read of offset 0x01C while no HLE controller owns the radio"
+expect = "no value terminates the poll; the run stops with E_STUCK naming this row"
+within = "never"
+polled_at = ["r_rwip_time_get"]
+images = []
+milestone = "M3"
+provenance = "specs/notes/g3-behavior.md (BLE baseband absent): ROM r_rwip_time_get spins on 0x6003_101C whenever controller code runs; E_STUCK as specs/README.md defines it for a tripwire. Register name UNVERIFIED (no IDF header and no specs/c3-registers.csv row for this block)"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: the BLE baseband is in the digital domain, not the RTC domain"

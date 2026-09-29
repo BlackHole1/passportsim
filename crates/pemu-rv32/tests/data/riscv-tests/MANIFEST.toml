@@ -1,0 +1,281 @@
+# Provenance of the committed riscv-tests ELFs.
+#
+# Written by `cargo xtask riscv-tests fetch-build`; never edited by hand.
+# `cargo xtask riscv-tests` verifies every hash and size below and then
+# runs `cargo test -p pemu-rv32 --test riscv_tests`.
+#
+# Upstream is BSD-3-Clause; the attribution lives in THIRD_PARTY.md.
+#
+# `env_shim` is the committed C3 shim over the upstream `p` prologue; that
+# header states what it adjusts (two prologue hooks: a CSR write the C3 cannot
+# take, and the vectored mtvec base the C3 forces) and why. Test bodies, the link
+# script, the trap vector and the pass/fail protocol are upstream's.
+
+schema = "passport-emu/riscv-tests-manifest/1"
+upstream = "https://github.com/riscv-software-src/riscv-tests"
+commit = "2ebecad997fa58cd9e5724340ba75aa4b59bd1d0"
+env_submodule = "https://github.com/riscv-software-src/riscv-test-env"
+env_commit = "6de71edb142be36319e380ce782c3d1830c65d68"
+license = "BSD-3-Clause"
+toolchain = "riscv32-esp-elf-gcc (crosstool-NG esp-14.2.0_20251107) 14.2.0"
+environment = "p"
+env_shim = "xtask/src/riscv_tests/c3_env_p.h"
+env_shim_sha256 = "de988161f46d740efa53d3dbde8b02e70d69b3e4e87ad4a302221f61e3f0003c"
+pass_value = 1
+suites = ["rv32ui", "rv32um", "rv32uc"]
+build = "riscv32-esp-elf-gcc -march=rv32imc_zicsr_zifencei -mabi=ilp32 -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -I<c3 env shim> -I<env/p> -I<isa/macros/scalar> -c <isa/SUITE/NAME.S> -o SUITE-p-NAME.o && riscv32-esp-elf-gcc -march=rv32imc_zicsr_zifencei -mabi=ilp32 -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -T<env/p/link.ld> SUITE-p-NAME.o -o SUITE-p-NAME"
+
+[[test]]
+name = "rv32uc-p-rvc"
+sha256 = "945b1effed218901d32d5ddb0ba3e5366b1c2858c75760e8e8ce9b5d748a5aa8"
+size = 18936
+
+[[test]]
+name = "rv32ui-p-add"
+sha256 = "a3a1cefea88d04f796f19bae55a55ffb40e878d786c271f584a588ed4a509ae6"
+size = 10096
+
+[[test]]
+name = "rv32ui-p-addi"
+sha256 = "213ae0c6c93b52837a6d6feb9fb7bb0749960a96842d25da2661a9093c990c26"
+size = 9784
+
+[[test]]
+name = "rv32ui-p-and"
+sha256 = "1735866ec17279958dbff76db1ccd0a8ee61975de95b781d3902ef856d5fdd6b"
+size = 9832
+
+[[test]]
+name = "rv32ui-p-andi"
+sha256 = "3b693d2d7d9f60e2cc15679f20332a34343d2b3e5459a78889ed9e13e975ce08"
+size = 9520
+
+[[test]]
+name = "rv32ui-p-auipc"
+sha256 = "5f6ebf610c34ecc5d7ddde4711b3a8422aa72eb7fdb41b8f8e9629593f682bee"
+size = 9264
+
+[[test]]
+name = "rv32ui-p-beq"
+sha256 = "ae0afcd0101c51cde88cde6011da9808ebf7006abae94246fb20820a19262a61"
+size = 9688
+
+[[test]]
+name = "rv32ui-p-bge"
+sha256 = "efa28e32ed5e9923d88569c001c4073ec16baf1e2651a98928d20143a536affc"
+size = 9760
+
+[[test]]
+name = "rv32ui-p-bgeu"
+sha256 = "bd5dd73e56d5e020b9379d9a92eb94efa4f6b683acd3b3d9c65341816f51d565"
+size = 9760
+
+[[test]]
+name = "rv32ui-p-blt"
+sha256 = "43d89da989eac59de818464b855f32ecdcb476d33904edaca1c8f05d4fa74e95"
+size = 9688
+
+[[test]]
+name = "rv32ui-p-bltu"
+sha256 = "5543e77c8678cfa7e8a76f6517910fe0a3a00960f30a7f82c847466ef8530e04"
+size = 9688
+
+[[test]]
+name = "rv32ui-p-bne"
+sha256 = "a36b9eced5d6c888a0fc14f66b2f2393230b130de5fcfbe45dc91372e35e9077"
+size = 9688
+
+[[test]]
+name = "rv32ui-p-fence_i"
+sha256 = "f66183d9c2edce64da665911da440799d18d1bf1f02ca921ae11b885ea1a7eb8"
+size = 13404
+
+[[test]]
+name = "rv32ui-p-jal"
+sha256 = "bac3633ad7cb78b8e33f02059ee8656bd0261c2a972577af6278efa92c94beca"
+size = 9312
+
+[[test]]
+name = "rv32ui-p-jalr"
+sha256 = "3f01b0b2d6c4e22ab188874e018e07ffbf80bcd02e16bcef6935fc3f8cccd915"
+size = 9536
+
+[[test]]
+name = "rv32ui-p-lb"
+sha256 = "537d1d00c9271696d4344133a43ed2639d7ade2873869008688aa30aaa702933"
+size = 13848
+
+[[test]]
+name = "rv32ui-p-lbu"
+sha256 = "e3d1061a5b0052e2f01bd5d4d8175efbd8ec339723970de016107326d15b332d"
+size = 13852
+
+[[test]]
+name = "rv32ui-p-ld_st"
+sha256 = "4ee55879a206a211cca69e4b04968eb9a19c3dc1423176778e2d70675ca26d09"
+size = 14548
+
+[[test]]
+name = "rv32ui-p-lh"
+sha256 = "c899b9b1ff3971da7c7c59ceb8762459a2edbf664086b28feb164bca2dfa3899"
+size = 13848
+
+[[test]]
+name = "rv32ui-p-lhu"
+sha256 = "11c1685b587f5c3afd046db2397bc995ac48482d4d7f9488ce111e4243552319"
+size = 13852
+
+[[test]]
+name = "rv32ui-p-lui"
+sha256 = "421173fd40c6dcf6ba6edaadab0ce23dc1b202d12bde3d05057d389464f97ae8"
+size = 9332
+
+[[test]]
+name = "rv32ui-p-lw"
+sha256 = "1c45d70e3c9ecc83b0b83492904fc7ff6026fe9a4bf1c0c60a5f85f093b245ee"
+size = 13848
+
+[[test]]
+name = "rv32ui-p-ma_data"
+sha256 = "100f32a4dc084754a2934aa75fb1ef44ef58c9937d17d9e1a6da9d9e3b24105c"
+size = 13712
+
+[[test]]
+name = "rv32ui-p-or"
+sha256 = "438ccd1f3b9b4502c349640b9b825120585aced29cf453aaf911bac3060bdd01"
+size = 9832
+
+[[test]]
+name = "rv32ui-p-ori"
+sha256 = "ee32754f8955cbede6d2f825c48282cd2bc032bc07da9685865131c20117a824"
+size = 9520
+
+[[test]]
+name = "rv32ui-p-sb"
+sha256 = "49701ded6695935f92b520344f06b43412f2e417aa449771d2c476f203197ddd"
+size = 14080
+
+[[test]]
+name = "rv32ui-p-sh"
+sha256 = "7a2b3114dda0f62bf2bf5a982593dcb03a3e0e67b194b42dcf64493524fe8ef7"
+size = 14096
+
+[[test]]
+name = "rv32ui-p-simple"
+sha256 = "0db9322b42d9b59b4863f029b2615a6e657c59e6f6d9dd593769078ec3229d69"
+size = 9176
+
+[[test]]
+name = "rv32ui-p-sll"
+sha256 = "7c4caad1aca131c8df21fa417604ad88d366f20541a18f66cb360f9f3cc81809"
+size = 10192
+
+[[test]]
+name = "rv32ui-p-slli"
+sha256 = "156ed43bf481e2f6ab1f78165f52e344d8fbea1acb78384ab42522c4e75858fa"
+size = 9784
+
+[[test]]
+name = "rv32ui-p-slt"
+sha256 = "010e2e2dec16018f576de93a1a68d4296c5f5f743fb63b7e16fafe7f68c7c1e8"
+size = 10096
+
+[[test]]
+name = "rv32ui-p-slti"
+sha256 = "ec1642f92fee600486bf7196a4f1fb3549a51879762e9e0aff80df4a9aae22a1"
+size = 9784
+
+[[test]]
+name = "rv32ui-p-sltiu"
+sha256 = "d5ab880df0428ff4318509bb4d01d926a6d340ad87f457fd2675db8e8da478eb"
+size = 9784
+
+[[test]]
+name = "rv32ui-p-sltu"
+sha256 = "8571512fcde04faa7313d0dfafc396c9cece9ab2ba81f430b040accac4f4748c"
+size = 10096
+
+[[test]]
+name = "rv32ui-p-sra"
+sha256 = "ad5e484563f1e4c038df6b7bd993678a11194ea3b33f8d00a5246bc7b4898474"
+size = 10216
+
+[[test]]
+name = "rv32ui-p-srai"
+sha256 = "5c37738d6cfe32a56e27c51600c333a84c7628c93590373e605e167ebe324cd0"
+size = 9784
+
+[[test]]
+name = "rv32ui-p-srl"
+sha256 = "9ad187de29a8d3cde373c2dd725d18804545688643b24ff9ffc9741ec525c4bf"
+size = 10216
+
+[[test]]
+name = "rv32ui-p-srli"
+sha256 = "f2fd53e9be70bf8e873e405fa524c72ea454311422052aee97947d360202407f"
+size = 9784
+
+[[test]]
+name = "rv32ui-p-st_ld"
+sha256 = "b75228e80210dc29cc78b9900b56dc55541bfd0cca2af09a1d204a39270d7977"
+size = 14548
+
+[[test]]
+name = "rv32ui-p-sub"
+sha256 = "ab9e96af5b440b02127048d8b0df711bff3e8f05c03a7ac8cc1333bef2700436"
+size = 10072
+
+[[test]]
+name = "rv32ui-p-sw"
+sha256 = "cf7ae0fc7b00559ed6d724f9f0e306b3c658a067c2d748d02c79e625aeb99f6f"
+size = 14112
+
+[[test]]
+name = "rv32ui-p-xor"
+sha256 = "56905bfabb1c5d0155dce2a176b4944a6c5da9b694e8b07fffe2b704eb7fa186"
+size = 9832
+
+[[test]]
+name = "rv32ui-p-xori"
+sha256 = "dbee1ea3128bad2ae8138b3d29bd1c8871b8b6c978edf08b8ca1eff65bf1554d"
+size = 9520
+
+[[test]]
+name = "rv32um-p-div"
+sha256 = "32f1ca92d4cce92de7eba16a737d56a2b43068314b4acf3462f6e9f96f59c092"
+size = 9424
+
+[[test]]
+name = "rv32um-p-divu"
+sha256 = "62adecfb965548901f9283d9d2600471349c6c5f79fd59206d81ebd646db1607"
+size = 9424
+
+[[test]]
+name = "rv32um-p-mul"
+sha256 = "fbc10f21782d03fb7fb05a1587dd47b74eb1c0fa05cc40e2a8fa724503e7dfce"
+size = 10072
+
+[[test]]
+name = "rv32um-p-mulh"
+sha256 = "d2291967c70e470a436acef2aefd6c636fff1e983dc2e33960e2ebe6666a2fc1"
+size = 10024
+
+[[test]]
+name = "rv32um-p-mulhsu"
+sha256 = "d6a03ec107fd22e33232b5711c5b4f33845c2d403fdffc9d67be0b9d40734a59"
+size = 10028
+
+[[test]]
+name = "rv32um-p-mulhu"
+sha256 = "44a9c6f8885667582408cf4a5801526aa46fc09f6ef6c9d0ee270e9562933629"
+size = 10024
+
+[[test]]
+name = "rv32um-p-rem"
+sha256 = "055f38e97879d5ee96ba5c31272fed0ac9019f54037e4fbf5501221662a73957"
+size = 9424
+
+[[test]]
+name = "rv32um-p-remu"
+sha256 = "ae5c42e58547dacad735a63d127b5df7fa028f4718f513fef4c95fd66a34a512"
+size = 9424

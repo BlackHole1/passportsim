@@ -1,0 +1,23 @@
+# probe_campaign_radio overrides on top of probes/common/sdkconfig.defaults, for the silicon
+# evidence campaign (specs/notes/silicon-campaign.md).
+#
+# 1. The partition table is the Passport's own layout (partitions.csv beside this file), so the
+#    identity guard accepts a flash of this image and no segment falls in cardid.
+# 2. Nothing is written to the device's NVS: PHY calibration data storage is off, as in
+#    probe_wifi_conn, and the probe never initialises NVS.
+# 3. The Bluetooth settings are pkgatt's (the prototype build, NimBLE as a peripheral with one
+#    connection, a 1 kHz tick), so the controller half is built exactly as in an image whose
+#    esp_bt_controller_* shapes the BLE HLE already binds (specs/hle/idf-5.5.3/ble.toml). The
+#    probe never starts the NimBLE host; it talks to the controller over VHCI.
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_ESP_PHY_CALIBRATION_AND_DATA_STORAGE=n
+
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+CONFIG_BT_NIMBLE_ROLE_CENTRAL=n
+CONFIG_BT_NIMBLE_ROLE_OBSERVER=n
+CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1
+
+CONFIG_FREERTOS_HZ=1000
+CONFIG_FREERTOS_USE_TRACE_FACILITY=y

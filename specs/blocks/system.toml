@@ -1,0 +1,120 @@
+# Block spec of the `system` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/system.rs.
+schema = 1
+block = "system"
+base = 0x600C_0000
+size = 0x1000
+class = "B"
+milestone = "M1"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h; size 0x1000 UNVERIFIED"
+
+# Clock and reset enables, CPU_PER_CONF and the four software interrupts. Without the FROM_CPU
+# path the first vPortYield spins and "main_task: Started on CPU0" never prints.
+
+[[wait]]
+id = "system.rtc_fastmem_crc_finish"
+kind = "wait"
+seed = true
+register = "SYSTEM_RTC_FASTMEM_CONFIG"
+field = "SYSTEM_RTC_MEM_CRC_FINISH"
+trigger = "write SYSTEM_RTC_MEM_CRC_START = 1"
+expect = "read SYSTEM_RTC_MEM_CRC_FINISH == 1"
+within = "same_access"
+polled_at = ["cacl_rtc_memory_crc", "rtc_sleep_pu"]
+images = ["official", "pk"]
+milestone = "M1"
+provenance = "IDF soc/esp32c3/register/soc/system_reg.h:734-737 (SYSTEM_RTC_FASTMEM_CONFIG 0x600C_0048 bit 31) and IDF esp_hw_support/port/esp32c3/rtc_sleep.c:309-314; the bundled ROM's cacl_rtc_memory_crc (0x4004a5f4) polls it too; boot-path seed row"
+
+[[wait]]
+id = "system.from_cpu_intr0"
+kind = "wait"
+seed = true
+register = "SYSTEM_CPU_INTR_FROM_CPU_0"
+field = "SYSTEM_CPU_INTR_FROM_CPU_0"
+trigger = "write SYSTEM_CPU_INTR_FROM_CPU_0 = 1"
+expect = "IRQ source 50 is asserted and its handler runs, which clears the bit; the poll ends because the ISR ran, not because a read changed"
+within = "same_access"
+polled_at = ["vPortYield"]
+images = ["official", "pk"]
+milestone = "M3"
+provenance = "IDF freertos/FreeRTOS-Kernel/portable/riscv/port.c:631-650 vPortYield (the crosscore yield through SYSTEM_CPU_INTR_FROM_CPU_0_REG 0x600C_0028, polled until the interrupt is taken); boot-path seed row. Driven into the fabric by periph::system::tests::a_from_cpu_write_raises_the_software_interrupt_line; without the drive pk parks in start_cpu0 (pc 0x4200121a) after vTaskStartScheduler returns"
+
+[[stable_read]]
+register = "SYSTEM_RTC_FASTMEM_CONFIG"
+provenance = "The CRC completes inside the start write, so FINISH reads 1 whenever the guest can observe it"
+
+[[stable_read]]
+register = "SYSTEM_CPU_PER_CONF"
+provenance = "IDF soc/esp32c3/register/soc/system_reg.h (0x600C_0008) and hal/esp32c3/include/hal/clk_tree_ll.h: CPUPERIOD_SEL and PLL_FREQ_SEL feed f_cpu and the guest reads them back through the clock code, so the value is a function of modeled state"
+
+[[stable_read]]
+register = "SYSTEM_SYSCLK_CONF"
+provenance = "IDF soc/esp32c3/register/soc/system_reg.h (0x600C_0058) and hal/esp32c3/include/hal/clk_tree_ll.h: SOC_CLK_SEL feeds f_cpu and CLK_XTAL_FREQ must read 40, which the bundled ROM's boot_prepare checks"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: the SYSTEM block is in the digital domain, which every reset scope restores. SYSTEM_CPU_PERI_RST_EN bit 6 (the assist-debug reset) resets to 1, which the generated table takes from specs/c3-registers.csv (IDF soc/esp32c3/register/soc/system_reg.h)"
+
+# The clock gates, the reset enables and the remaining configuration words the boot path writes.
+# A class C row below is stored and gates nothing: a declared approximation, not a claim that the
+# register matches the spec.
+[[overrides]]
+register = "SYSTEM_CPU_PERI_CLK_EN"
+value = "stored; no emulated CPU peripheral checks its clock gate"
+class = "C"
+provenance = "IDF bootloader_support/src/esp32c3/bootloader_esp32c3.c wdt_reset_cpu0_info_enable sets the assist-debug clock gate; crates/pemu-soc-c3/src/periph/system.rs records that the clock gates are stored and gate nothing. Declared class C rationale"
+
+[[overrides]]
+register = "SYSTEM_CPU_PERI_RST_EN"
+value = "bit 6 resets the assist_debug block and republishes the stack monitor; the other reset enables are stored and hold no block in reset"
+class = "C"
+provenance = "IDF bootloader_support/src/esp32c3/bootloader_esp32c3.c wdt_reset_cpu0_info_enable (SYSTEM_RST_EN_ASSIST_DEBUG resets to 1 and the boot path clears it, which is what makes the Saved PC record readable); the modeled bit is covered by crate::wiring::reset::tests::the_assist_debug_reset_enable_clears_a_stale_spill_and_keeps_the_record. The remaining bits are storage, so the register as a whole is a declared class C approximation"
+
+[[overrides]]
+register = "SYSTEM_MEM_PD_MASK"
+value = "stored; the emulator has no memory power domains to keep alive across a sleep"
+class = "C"
+provenance = "IDF soc/reset_reasons.h reset terminology, which the emulator implements as the reset_domains masks of these files. Declared class C rationale"
+
+[[overrides]]
+register = "SYSTEM_PERIP_CLK_EN0"
+value = "stored; a block a capture gated, with its clock bit clear and its reset released, drops writes and answers a read by its own rule (wiring/gates.rs): I2S0 (bit 21) and SPI2 (bit 6) the last value the block returned while clocked, LEDC (bit 11) and I2C0 (bit 7) the register's value; every other block answers whether or not the guest clocked it, UNVERIFIED"
+class = "B"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log lines 381 to 390, the gate experiment of probe_campaign_regs.c gate_experiment on I2S0 (I2S_TX_TIMING) and AES (AES_KEY_0): clock on and reset held, a write of 0x5a5a5a5a reads 0; reset released, the register reads 0, its reset value; clock off, a write of 0x12345678 is dropped and the read returns 0x33330033 and 0xffffffff, the value the block returned last. The probe read the writable-bits pattern just before it gated the clock, so 'the writable bits read 1' fitted step 3 as well. Per block (device-probe_campaign_regs-20260926T024930Z-run1.clean.log lines 405 to 426, probe_campaign_regs gate_latch and gate_experiment: with the clock on p1 written and read, p3 written and not read, the clock gated and the register read, p2 written gated and read, the clock back on and the register read): I2S0 (I2S_TX_TIMING, line 405), AES (AES_KEY_0, 406) and SPI2 (SPI_MS_DLEN, 421) read p1, the last value read, and SPI2's gate experiment reads 0x3ffff, the writable bits it read last, while it holds 0 (line 420), which settles the step 3 latch reading against 'the writable bits read 1'; LEDC (LEDC_LSCH0_HPOINT, 411) and I2C0 (I2C_SCL_LOW_PERIOD, 416) read p3, the stored value; SHA (message word 0, 426) reads 0; every gated write is dropped whole and the register holds p3 once the clock is back. Whether the latch is per block or per register is UNVERIFIED (each probe read one register only), and so is a read side effect of a gated LEDC or I2C0 register (the probe read plain storage). Not a rule of every block: SARADC answers with APB_SARADC_CLK_EN (bit 28) clear (device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 340 reads the bit clear, and lines 273 to 276 read four different stored SARADC values, neither 0 nor one latched value), and no capture gates the other bits (SPI0 and SPI1, UART0, UART1, UHCI0, RMT, TIMG0, EFUSE, TIMG1, TWAI, SYSTIMER), so they gate nothing here, UNVERIFIED; class B for them. Tests: wiring::gates::tests, periph::system::tests::the_reserved_clock_enable_bit_reads_one, tests/milestones/campaign.rs t1_campaign_regs_rows_match_the_device_capture and t1_campaign_gate_and_adc_rows_match_the_device_capture"
+
+[[overrides]]
+register = "SYSTEM_PERIP_CLK_EN1"
+value = "stored, with the reserved bit 9 reading 1 after every reset and ignoring writes; AES (bit 1) with its clock off and its reset released drops writes and reads the last value it returned while clocked, SHA (bit 2) drops writes and reads 0 (wiring/gates.rs); RSA, DS, HMAC and GDMA answer whether or not the guest clocked them, UNVERIFIED"
+class = "B"
+provenance = "Bit 9: device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 341 reads 0x00000200 with every crypto clock off, and TRM register 16.4 gives bits 9:7 as reserved with reset 1 0 0; the ROM and IDF write the register by read-modify-write. The AES and SHA gates: the evidence of SYSTEM_PERIP_CLK_EN0 (lines 386 to 389, 406, 422 to 426). No capture gates RSA, DS, HMAC or GDMA, so they gate nothing here, UNVERIFIED; class B for them. Tests: wiring::gates::tests, periph::system::tests::the_reserved_clock_enable_bit_reads_one, tests/milestones/campaign.rs t1_campaign_regs_rows_match_the_device_capture and t1_campaign_gate_and_adc_rows_match_the_device_capture"
+
+[[overrides]]
+register = "SYSTEM_PERIP_RST_EN0"
+value = "a block whose bit is 1 reads 0 and drops writes, and the write that raises a bit resets the block as a peripheral reset (wiring/gates.rs): SPI0 and SPI1 (bit 1), UART0, UART1, SPI2, I2C0, UHCI0, RMT, LEDC, TIMG0, EFUSE, TIMG1, TWAI, I2S0 and SYSTIMER (bit 29: IDF pulses it in esp_timer_impl_early_init, so esp_timer counts from there); SARADC (bit 28) and USJ (bit 23) are left out"
+class = "B"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log lines 381 to 390, the gate experiment of probe_campaign_regs.c gate_experiment on I2S0 (I2S_TX_TIMING) and AES (AES_KEY_0): clock on and reset held, a write of 0x5a5a5a5a reads 0; reset released, the register reads 0, its reset value; clock off, a write of 0x12345678 is dropped and the read returns 0x33330033 and 0xffffffff, the value the block returned last (I2S0, bit 21); device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log lines 351 to 354, UART0 held (RST_EN0 0x886d1bec, line 342) reads 0 in every register; lines 356 and 357, TIMG0's RTCCALICFG and RTCCALICFG2 read their reset values after the app's calibration wrote them, because IDF's enable_timer_group0_for_calibration pulses TIMERGROUP_RST afterwards; the timing probe's capture device-probe_campaign_timing-20260924T155139Z-run1.log reads UART0 CONF0 and CONF1 as the UART driver's read-modify-writes make them from the reset values after its UART_RST pulse. SARADC is left out on the device's word: lines 273 to 276 read CTRL, FSM_WAIT and APB_ADC_CLKM_CONF at the bootloader's values after the app's two APB_SARADC_RST pulses. Bits from IDF v5.5.3 soc/esp32c3/register/soc/system_reg.h. SYSTIMER follows the rule on device-probe_campaign_reset-20260924T232751Z run1 to run3: line 59 reads esp_timer at 2632 to 2645 us at app_main of a boot whose ROM and bootloader alone take about 70 ms, and line 66 reads 50400 us against an RTC counter of 128169 us after the super-watchdog reset, so the counter restarts at the SYSTIMER_RST pulse of esp_timer_impl_early_init (tests/milestones/campaign.rs t1_campaign_the_boot_time_base_against_the_device_capture); it restarts at the raising write, not the release, a few instructions apart, which no capture separates. LEDC, I2C0 and SPI2 held read 0 after a write of 0x5a5a5a5a and read their reset value once released (device-probe_campaign_regs-20260926T024930Z-run1.clean.log lines 408, 409, 413, 414, 418 and 419), so the rule is the device's on seven of the fifteen blocks (I2S0, UART0, LEDC, I2C0, SPI2, TIMG0, SYSTIMER) and applied to the other eight (SPI0, SPI1, UART1, UHCI0, RMT, EFUSE, TIMG1, TWAI) UNVERIFIED; class B. The approximation: a USJ reset drops the USB link the machine re-applies only after a chip reset; no corpus image asserts that bit while the block is in use. Tests: wiring::gates::tests, periph::system::tests::the_reserved_clock_enable_bit_reads_one, tests/milestones/campaign.rs t1_campaign_regs_rows_match_the_device_capture and t1_campaign_gate_and_adc_rows_match_the_device_capture"
+
+[[overrides]]
+register = "SYSTEM_PERIP_RST_EN1"
+value = "a block whose bit is 1 reads 0 and drops writes, and the write that raises a bit resets the block as a peripheral reset (wiring/gates.rs): AES, SHA, RSA, DS, HMAC and GDMA; the power-on value 0x1fe holds all of them until a driver releases them"
+class = "A"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log lines 381 to 390, the gate experiment of probe_campaign_regs.c gate_experiment on I2S0 (I2S_TX_TIMING) and AES (AES_KEY_0): clock on and reset held, a write of 0x5a5a5a5a reads 0; reset released, the register reads 0, its reset value; clock off, a write of 0x12345678 is dropped and the read returns 0x33330033 and 0xffffffff, the value the block returned last (AES, bit 1); bits from IDF v5.5.3 soc/esp32c3/register/soc/system_reg.h. Tests: wiring::gates::tests, periph::system::tests::the_reserved_clock_enable_bit_reads_one, tests/milestones/campaign.rs t1_campaign_regs_rows_match_the_device_capture"
+
+[[overrides]]
+register = "SYSTEM_BT_LPCK_DIV_INT"
+value = "stored; there is no emulated BT controller for the low-power clock divider to feed"
+class = "C"
+provenance = "The BLE pages are store plus tripwires at class U (specs/blocks/radio_ble.toml), so no modeled block consumes this divider. Declared class C rationale"
+
+[[overrides]]
+register = "SYSTEM_BT_LPCK_DIV_FRAC"
+value = "stored; there is no emulated BT controller for the low-power clock divider to feed"
+class = "C"
+provenance = "the same rule as SYSTEM_BT_LPCK_DIV_INT: the BLE pages are store plus tripwires (specs/blocks/radio_ble.toml), so no modeled block consumes this divider"
+
+[[overrides]]
+register = "SYSTEM_CACHE_CONTROL"
+value = "stored; the cache clock enable and the cache reset reach nothing, because the emulated cache is the address-space fold and is always available"
+class = "C"
+provenance = "emulator design: a flash-window access resolves through the MMU entry onto the flash image (crates/pemu-soc-c3/src/mmu.rs); the cache controls the boot path depends on are in extmem (IDF soc/esp32c3/register/soc/extmem_reg.h) rather than here. Declared class C rationale"

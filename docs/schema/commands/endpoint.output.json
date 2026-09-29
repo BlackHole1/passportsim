@@ -1,0 +1,65 @@
+{
+  "properties": {
+    "auto_download": {
+      "type": "boolean"
+    },
+    "clients": {
+      "type": "integer"
+    },
+    "clock": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "closed": {
+      "type": "boolean"
+    },
+    "connections": {
+      "type": "integer"
+    },
+    "final_vt_us": {
+      "type": "integer"
+    },
+    "insns": {
+      "type": "integer"
+    },
+    "instance": {
+      "type": "string"
+    },
+    "last_mode": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "open": {
+      "type": "boolean"
+    },
+    "pty": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "qos": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reanchors": {
+      "type": "integer"
+    },
+    "tcp": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "vt_us": {
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}

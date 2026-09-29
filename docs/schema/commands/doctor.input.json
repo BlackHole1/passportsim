@@ -1,0 +1,273 @@
+{
+  "description": "Arguments of `doctor`: the discovery report the CLI builds.",
+  "properties": {
+    "report": {
+      "description": "What native discovery found (pemu_host::assets::discovery_report).",
+      "properties": {
+        "bundled_roms": {
+          "description": "The bundled ROM ELFs and their pins.",
+          "items": {
+            "properties": {
+              "chip_revisions": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "embedded_sha256": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "file": {
+                "type": "string"
+              },
+              "pinned_sha256": {
+                "type": "string"
+              },
+              "rev": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "file",
+              "rev",
+              "pinned_sha256"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "config_file": {
+          "type": "string"
+        },
+        "corpus": {
+          "description": "Every corpus entry.",
+          "items": {
+            "properties": {
+              "files": {
+                "items": {
+                  "properties": {
+                    "expected_sha256": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "found": {
+                      "type": "boolean"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "sha256": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "path",
+                    "found"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "corpus_file": {
+          "type": "string"
+        },
+        "demo": {
+          "description": "The embedded demo image, if any.",
+          "properties": {
+            "bytes": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "id": {
+              "type": "string"
+            },
+            "sha256": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "sha256"
+          ],
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "esp_rom_elfs": {
+          "description": "Local esp-rom-elfs copies, to warn.",
+          "items": {
+            "properties": {
+              "dir": {
+                "type": "string"
+              },
+              "files": {
+                "items": {
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "pinned": {
+                      "type": "boolean"
+                    },
+                    "sha256": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "sha256",
+                    "pinned"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "dir"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "host": {
+          "description": "Host triple, OS, roles.",
+          "properties": {
+            "local_dumps": {
+              "type": "string"
+            },
+            "local_dumps_error": {
+              "type": "string"
+            },
+            "os_version": {
+              "type": "string"
+            },
+            "os_version_error": {
+              "type": "string"
+            },
+            "roles": {
+              "items": {
+                "properties": {
+                  "error": {
+                    "type": "string"
+                  },
+                  "path": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "role"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "target": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "target",
+            "roles"
+          ],
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "problems": {
+          "description": "Discovery failures; `doctor` returns the first code.",
+          "items": {
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "rom_override": {
+          "description": "The active ROM override, if any.",
+          "properties": {
+            "origin": {
+              "type": "string"
+            },
+            "path": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "pinned": {
+              "type": "boolean"
+            },
+            "pinned_rev": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "sha256": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "origin",
+            "sha256",
+            "pinned"
+          ],
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "required": [
+    "report"
+  ],
+  "type": "object"
+}

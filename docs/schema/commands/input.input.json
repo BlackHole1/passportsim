@@ -1,0 +1,76 @@
+{
+  "additionalProperties": false,
+  "description": "`input` arguments.",
+  "properties": {
+    "action": {
+      "description": "What to do with it (click).",
+      "enum": [
+        "click",
+        "double_click",
+        "hold",
+        "press",
+        "release",
+        "open",
+        "close",
+        "plug",
+        "unplug"
+      ],
+      "type": "string"
+    },
+    "button": {
+      "description": "What to press.",
+      "enum": [
+        "up",
+        "down",
+        "ok",
+        "power",
+        "reset",
+        "usb"
+      ],
+      "type": "string"
+    },
+    "duration": {
+      "description": "Press length.",
+      "oneOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "pattern": "^[0-9]+(\\.[0-9]+)?(us|ms|s|m)$",
+          "type": "string"
+        }
+      ]
+    },
+    "instance": {
+      "description": "Instance id.",
+      "pattern": "^[pb][0-9]+$",
+      "type": "string"
+    },
+    "reset_kind": {
+      "description": "Reset kind (chip).",
+      "enum": [
+        "chip",
+        "usb_rts"
+      ],
+      "type": "string"
+    },
+    "then_run": {
+      "description": "Run after release.",
+      "oneOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "pattern": "^[0-9]+(\\.[0-9]+)?(us|ms|s|m)$",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "required": [
+    "button"
+  ],
+  "type": "object"
+}

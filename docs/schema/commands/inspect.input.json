@@ -1,0 +1,43 @@
+{
+  "additionalProperties": false,
+  "description": "`inspect` arguments.",
+  "properties": {
+    "instance": {
+      "description": "Instance id.",
+      "pattern": "^[pb][0-9]+$",
+      "type": "string"
+    },
+    "nvs_values": {
+      "description": "Show non-credential NVS values (false).",
+      "type": "boolean"
+    },
+    "vars": {
+      "description": "Globals the `vars` section reads, as `s_sel`, `main.c::s_sel` or `s_ok[2]`. Required by `vars`, refused without it.",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "what": {
+      "description": "Sections to report.",
+      "items": {
+        "enum": [
+          "tasks",
+          "heap",
+          "nvs",
+          "lvgl",
+          "vars",
+          "fidelity"
+        ],
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "what"
+  ],
+  "type": "object"
+}

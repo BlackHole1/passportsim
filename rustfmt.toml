@@ -1,0 +1,3 @@
+edition = "2024"
+# Committed files are LF on every host (see `.gitattributes`).
+newline_style = "Unix"

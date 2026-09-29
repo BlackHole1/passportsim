@@ -1,0 +1,213 @@
+# Block spec of the `systimer` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/systimer.rs.
+schema = 1
+block = "systimer"
+base = 0x6002_3000
+size = 0x1000
+class = "B"
+milestone = "M3"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h; size 0x1000 UNVERIFIED"
+
+# The FreeRTOS tick (source 37) and esp_timer (source 39). Counters run at 16 ticks per
+# microsecond; the formula is checked by
+# periph::systimer::tests::the_counters_run_at_sixteen_ticks_per_microsecond, not by a row here.
+
+[[wait]]
+id = "systimer.value_valid"
+kind = "wait"
+seed = true
+register = "SYSTIMER_UNIT0_OP"
+field = "SYSTIMER_TIMER_UNIT0_VALUE_VALID"
+trigger = "write SYSTIMER_TIMER_UNIT0_UPDATE = 1"
+expect = "read SYSTIMER_TIMER_UNIT0_VALUE_VALID == 1, then UNIT0_VALUE_HI and _LO hold the snapshot"
+within = "same_access"
+polled_at = ["systimer_hal_get_counter_value"]
+images = ["official", "pk"]
+milestone = "M3"
+provenance = "IDF hal/systimer_hal.c:46-62, poll at 51 (SYSTIMER_UNIT0_OP 0x6002_3004 and UNIT1_OP 0x6002_3008 bit 29, set on the UPDATE write) and IDF soc/esp32c3/register/soc/systimer_reg.h; boot-path seed row. The same rule applies to UNIT1_OP; one row covers both units"
+
+[[stable_read]]
+register = "SYSTIMER_UNIT0_OP"
+provenance = "IDF hal/systimer_hal.c:46-62: VALUE_VALID is set inside the UPDATE write, so the read value is a function of modeled state"
+
+[[stable_read]]
+register = "SYSTIMER_UNIT1_OP"
+provenance = "IDF hal/systimer_hal.c:46-62: same rule as UNIT0_OP"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h; TRM Reset and Clock chapter: SYSTIMER is in the digital domain, which every reset scope restores"
+
+# Classes of the registers the systimer model implements exactly. The counters are lazy and the
+# comparators are scheduler events, so every register below is exact rather than quantised: a
+# read returns the value the counter has at that virtual time. None of the rows is a deliberate
+# difference from the IDF header.
+
+[[overrides]]
+register = "SYSTIMER_CONF"
+value = "counter and comparator enables: TIMER_UNITn_WORK_EN at bit 30 - n, TARGETn_WORK_EN at bit 24 - n; resets to 0x46000000, so counter 0 runs from chip reset"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h: a write re-derives which counters run and which comparators compare, keeping the value a running counter shows across a stop or start. periph::systimer::tests::{the_conf_reset_value_starts_counter_zero_only, a_stopped_counter_holds_its_value_and_resumes_from_it, a_fired_one_shot_is_not_re_raised_by_a_later_conf_write}"
+
+[[overrides]]
+register = "SYSTIMER_UNIT0_LOAD_HI"
+value = "high 20 bits of the value UNIT0_LOAD writes into counter 0"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x00C): the counter is 52 bits, HI 20 and LO 32. periph::systimer::tests::{the_unit_load_trigger_sets_the_counter_and_the_epoch, the_counters_wrap_at_fifty_two_bits}"
+
+[[overrides]]
+register = "SYSTIMER_UNIT0_LOAD_LO"
+value = "low 32 bits of the value UNIT0_LOAD writes into counter 0"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x010): same rule as UNIT0_LOAD_HI. periph::systimer::tests::{the_unit_load_trigger_sets_the_counter_and_the_epoch, the_counters_wrap_at_fifty_two_bits}"
+
+[[overrides]]
+register = "SYSTIMER_UNIT1_LOAD_HI"
+value = "high 20 bits of the value UNIT1_LOAD writes into counter 1"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x014): same rule as UNIT0_LOAD_HI, for counter 1. periph::systimer::tests::a_periodic_alarm_drives_the_freertos_tick, which is the vSystimerSetup sequence"
+
+[[overrides]]
+register = "SYSTIMER_UNIT1_LOAD_LO"
+value = "low 32 bits of the value UNIT1_LOAD writes into counter 1"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x018): same rule as UNIT0_LOAD_LO, for counter 1. periph::systimer::tests::a_periodic_alarm_drives_the_freertos_tick"
+
+[[overrides]]
+register = "SYSTIMER_TARGET0_HI"
+value = "high 20 bits of comparator 0's target, latched by COMP0_LOAD"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x01C): the comparator compares the whole 52-bit target, and only a COMPn_LOAD moves it into the comparator. periph::systimer::tests::{a_one_shot_alarm_fires_once, a_target_already_in_the_past_fires_at_once}"
+
+[[overrides]]
+register = "SYSTIMER_TARGET0_LO"
+value = "low 32 bits of comparator 0's target, latched by COMP0_LOAD"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x020): same rule as TARGET0_HI. periph::systimer::tests::{a_one_shot_alarm_fires_once, a_target_already_in_the_past_fires_at_once}"
+
+[[overrides]]
+register = "SYSTIMER_TARGET1_HI"
+value = "high 20 bits of comparator 1's target, latched by COMP1_LOAD"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x024): same rule as TARGET0_HI. periph::systimer::tests::a_one_shot_alarm_fires_once covers the shared path"
+
+[[overrides]]
+register = "SYSTIMER_TARGET1_LO"
+value = "low 32 bits of comparator 1's target, latched by COMP1_LOAD"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x028): same rule as TARGET0_LO"
+
+[[overrides]]
+register = "SYSTIMER_TARGET2_HI"
+value = "high 20 bits of comparator 2's target, latched by COMP2_LOAD"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x02C): same rule as TARGET0_HI. periph::systimer::tests::{a_target_already_in_the_past_fires_at_once, a_fired_one_shot_is_not_re_raised_by_a_later_conf_write}"
+
+[[overrides]]
+register = "SYSTIMER_TARGET2_LO"
+value = "low 32 bits of comparator 2's target, latched by COMP2_LOAD"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x030): same rule as TARGET0_LO. periph::systimer::tests::{a_target_already_in_the_past_fires_at_once, a_fired_one_shot_is_not_re_raised_by_a_later_conf_write}"
+
+[[overrides]]
+register = "SYSTIMER_TARGET0_CONF"
+value = "comparator 0: 26-bit period, PERIOD_MODE at bit 30, TIMER_UNIT_SEL at bit 31; the period, the counter select and the target are latched by COMP0_LOAD alone; a write that turns PERIOD_MODE on starts period mode one latched period after that write (nothing while the latched period is 0); a period-0 load in period mode fires once, 2 ticks after the load, and never again until the next load"
+class = "A"
+provenance = "device-probe_campaign_timing-20260924T155139Z run1 and run2, lines 72 to 74 (probe_campaign_timing TIME systimer_idf_order, systimer_mode_without_load, systimer_zero_period; comparator 1, the same rule): in ESP-IDF's order (period, COMP1_LOAD, PERIOD_MODE 8000 ticks later) the first alarm comes 16010 ticks after the mode write and 24016 after the load, cadence 15999 and 15997; a new period of 32000 written with the mode off then on and no load keeps the latched 16000 (first 16003 and 16011 ticks after the write, cadence 16004 and 15999); period 0 fires once 22 ticks after the load and not again within 4 ms. This settles three points: (1) a PERIOD_MODE 0 to 1 write does not load the comparator, it re-bases the latched period; (2) the first tick is one period after that write, not after COMP0_LOAD; (3) a period of 0 fires once. The emulator reads 16001, 24007, 15999; 16001, 15999; fired once at 4 (tests/fw/campaign/probe_campaign_timing.emu.txt): the ten-tick offsets are the probe's poll on silicon, whose APB accesses the model does not charge (timing-profiles cpi_milli basis). The period-0 alarm's 2 ticks are class C inside the capture's bound: silicon raises it after the INT_CLR store that follows COMP1_LOAD and before the 22 ticks the probe's first poll took. periph::systimer::tests::{the_idf_setup_order_selects_period_mode_after_the_load, a_period_mode_write_re_bases_the_latched_period_and_not_the_written_one, a_zero_period_load_fires_once_after_the_load, period_mode_with_a_zero_period_does_not_load_the_comparator}, t1_campaign_probes_print_the_recorded_emulator_lines, t1_m3_v0_pk_boots_to_bsp_i2c"
+
+[[overrides]]
+register = "SYSTIMER_TARGET1_CONF"
+value = "comparator 1: period, period mode and counter select; latched by COMP1_LOAD alone, period mode started by a PERIOD_MODE write, as TARGET0_CONF"
+class = "A"
+provenance = "device-probe_campaign_timing-20260924T155139Z run1 and run2, lines 72 to 74: the probe drives comparator 1 itself; see TARGET0_CONF"
+
+[[overrides]]
+register = "SYSTIMER_TARGET2_CONF"
+value = "comparator 2: period, period mode and counter select; latched by COMP2_LOAD alone, period mode started by a PERIOD_MODE write, as TARGET0_CONF"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x03C): same rule as TARGET0_CONF, which comparator 1's capture settled (device-probe_campaign_timing-20260924T155139Z lines 72 to 74). periph::systimer::tests::a_target_already_in_the_past_fires_at_once uses it in one-shot mode"
+
+[[overrides]]
+register = "SYSTIMER_UNIT0_VALUE_HI"
+value = "high 20 bits of the counter 0 value the UNIT0_OP UPDATE trigger latched"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x040) and IDF hal/systimer_hal.c:46-62: the latch happens inside the UPDATE write, which is what systimer_hal_get_counter_value polls for. periph::systimer::tests::the_update_write_latches_the_counter_and_sets_value_valid"
+
+[[overrides]]
+register = "SYSTIMER_UNIT0_VALUE_LO"
+value = "low 32 bits of the counter 0 value the UPDATE trigger latched"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x044) and IDF hal/systimer_hal.c:46-62: same rule as UNIT0_VALUE_HI. periph::systimer::tests::the_update_write_latches_the_counter_and_sets_value_valid"
+
+[[overrides]]
+register = "SYSTIMER_UNIT1_VALUE_HI"
+value = "high 20 bits of the counter 1 value the UNIT1_OP UPDATE trigger latched"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x048) and IDF hal/systimer_hal.c:46-62: same rule as UNIT0_VALUE_HI, for counter 1"
+
+[[overrides]]
+register = "SYSTIMER_UNIT1_VALUE_LO"
+value = "low 32 bits of the counter 1 value the UPDATE trigger latched"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x04C) and IDF hal/systimer_hal.c:46-62: same rule as UNIT0_VALUE_LO, for counter 1"
+
+[[overrides]]
+register = "SYSTIMER_COMP0_LOAD"
+value = "write trigger, self-clearing: latch TARGET0_HI, TARGET0_LO and TARGET0_CONF into comparator 0"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x050): IDF hal/systimer_hal.c systimer_hal_set_alarm_target disables the alarm, writes the target, pulses this bit and enables the alarm again, so this is the only write that arms a new target, including one already in the past. periph::systimer::tests::a_periodic_alarm_drives_the_freertos_tick"
+
+[[overrides]]
+register = "SYSTIMER_COMP1_LOAD"
+value = "write trigger: latch comparator 1's target and configuration"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x054): same rule as COMP0_LOAD"
+
+[[overrides]]
+register = "SYSTIMER_COMP2_LOAD"
+value = "write trigger: latch comparator 2's target and configuration"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x058): same rule as COMP0_LOAD. periph::systimer::tests::{a_target_already_in_the_past_fires_at_once, a_fired_one_shot_is_not_re_raised_by_a_later_conf_write}"
+
+[[overrides]]
+register = "SYSTIMER_UNIT0_LOAD"
+value = "write trigger, self-clearing: load counter 0 from UNIT0_LOAD_HI and _LO at the time of the write"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x05C): the counter is an epoch and a loaded value, so the write sets both. periph::systimer::tests::the_unit_load_trigger_sets_the_counter_and_the_epoch"
+
+[[overrides]]
+register = "SYSTIMER_UNIT1_LOAD"
+value = "write trigger: load counter 1 from UNIT1_LOAD_HI and _LO"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x060): same rule as UNIT0_LOAD. periph::systimer::tests::a_periodic_alarm_drives_the_freertos_tick"
+
+[[overrides]]
+register = "SYSTIMER_INT_ENA"
+value = "interrupt enable, bit n for comparator n; INT_ST is INT_RAW and INT_ENA and its bit n is the level of source 37 + n"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x064) and specs/irq-sources.toml (SYSTIMER_TARGET0 to 2, sources 37 to 39). periph::systimer::tests::the_raw_bit_stays_set_until_int_clr_and_ena_gates_the_source"
+
+[[overrides]]
+register = "SYSTIMER_INT_RAW"
+value = "raw status, bit n set when comparator n reaches its target and held until INT_CLR"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x068). periph::systimer::tests::{the_raw_bit_stays_set_until_int_clr_and_ena_gates_the_source, a_fired_one_shot_is_not_re_raised_by_a_later_conf_write}"
+
+[[overrides]]
+register = "SYSTIMER_INT_CLR"
+value = "write 1 to clear the matching INT_RAW bit"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x06C). periph::systimer::tests::the_raw_bit_stays_set_until_int_clr_and_ena_gates_the_source"
+
+[[overrides]]
+register = "SYSTIMER_INT_ST"
+value = "masked status, read-only: INT_RAW and INT_ENA"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x070): the value is a function of the two registers above and drives sources 37 to 39. periph::systimer::tests::the_raw_bit_stays_set_until_int_clr_and_ena_gates_the_source"
+
+[[overrides]]
+register = "SYSTIMER_DATE"
+value = "block version, reads its reset constant"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/systimer_reg.h (+0x0FC): served from the generated table's reset value through the register bank. periph::systimer::tests::every_register_shares_one_reset_domain walks the table"

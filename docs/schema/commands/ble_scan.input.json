@@ -1,0 +1,33 @@
+{
+  "additionalProperties": false,
+  "description": "`ble_scan` arguments.",
+  "properties": {
+    "duration_ms": {
+      "description": "How long the central scans, in milliseconds of virtual time; 0 scans nothing and reports the radio's state.",
+      "maximum": 30000,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "fresh": {
+      "description": "Report only the advertisers this scan added, not every one the central knows.",
+      "type": "boolean"
+    },
+    "instance": {
+      "description": "Instance id.",
+      "pattern": "^[pb][0-9]+$",
+      "type": "string"
+    },
+    "timeout_ms": {
+      "description": "Virtual time this call may spend before E_TIMEOUT.",
+      "maximum": 60000,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "wall_budget_ms": {
+      "description": "Host time this call may spend before E_WALL_BUDGET.",
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}

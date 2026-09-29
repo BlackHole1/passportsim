@@ -1,0 +1,423 @@
+# The console lines the replaced radio functions would have printed: the BLE lines, then the
+# Wi-Fi lines.
+#
+# Replacing `esp_bt_controller_init` and `esp_bt_controller_enable` removes the device's four
+# `BLE_INIT` lines and its `phy_init: phy_version` line (dev:L68-L72). The handler prints each one
+# through nested calls to the image's own `esp_log_timestamp` and `esp_log`, so the level, tag,
+# timestamp and output path are the guest's.
+#
+# ## How a line is printed (log v1)
+#
+# In the IDF 5.5 log v1 these images use, `ESP_LOGI(tag, fmt, ...)` passes the whole line layout
+# in the format: `esp_log(level, tag, "I (%lu) %s: " fmt "\n", esp_log_timestamp(), tag, ...)`,
+# and `esp_log` only checks the level and hands the format to the vprintf hook
+# (`log/include/esp_log.h`, `log/src/log.c`, Apache-2.0). The handler makes the same call with
+# `format` below and the line's text as the last `%s`, so a `%` in a text is printed rather than
+# interpreted. `format` must hold exactly the three conversions `%lu`, `%s`, `%s` in that order.
+#
+# ## Classes
+#
+# - `bt.c`: the format string is open-source `bt/controller/esp32c3/bt.c` (Apache-2.0) and every
+#   value comes from the guest at run time. `{mac}` is replaced by the six bytes the nested
+#   `esp_read_mac(mac, ESP_MAC_BT)` wrote, as `%02x` pairs joined by `:` (`bt.c`
+#   `read_mac_wrapper`).
+# - `B`: text that exists only inside the closed blob or is a compile-time constant of one sdkconfig,
+#   bound here to the IDF 5.5.3 blob version, taken from the `pk` device boot log (dev:L68-L72).
+#   The controller version string and the PHY version string are blob text. `Using main XTAL as
+#   clock source` and the `Feature Config` values are `bt.c` formats whose branch and numbers the
+#   sdkconfig decides; they are `pk`'s, and UNVERIFIED for an image built with another BLE
+#   sleep-clock or feature configuration.
+#
+# `config = "pk"` marks those sdkconfig-dependent lines. They are printed only when the bound
+# `esp_bt_controller_init` matched a `ble.toml` variant marked `log_lines = "verified"`, the shape
+# the `pk` device boot log was captured from. Any other bound image prints the remaining lines and
+# its receipt reports `log_lines: unverified`.
+#
+# `stage` says which handler prints the line: `init` lines in order at the end of a successful
+# `esp_bt_controller_init`, `enable` lines once per boot at the first successful
+# `esp_bt_controller_enable` (the PHY prints its version when it is first enabled; the `pk`
+# device boot log prints it once).
+
+[format]
+info = "I (%lu) %s: %s\n"
+
+[[line]]
+stage = "init"
+level = "info"
+tag = "BLE_INIT"
+class = "B"
+text = "BT controller compile version [1bb2f50]"
+
+[[line]]
+stage = "init"
+level = "info"
+tag = "BLE_INIT"
+class = "B"
+config = "pk"
+text = "Using main XTAL as clock source"
+
+[[line]]
+stage = "init"
+level = "info"
+tag = "BLE_INIT"
+class = "B"
+config = "pk"
+text = "Feature Config, ADV:1, BLE_50:1, DTM:1, SCAN:1, CCA:0, SMP:1, CONNECT:1"
+
+[[line]]
+stage = "init"
+level = "info"
+tag = "BLE_INIT"
+class = "bt.c"
+text = "Bluetooth MAC: {mac}"
+
+[[line]]
+stage = "enable"
+level = "info"
+tag = "phy_init"
+class = "B"
+text = "phy_version 1232,d493f299,Aug 25 2025,19:01:20"
+
+# ## Wi-Fi
+#
+# Replacing `esp_wifi_init` (open-source `wifi_init.c`, compiled into the app) and `esp_wifi_start`
+# removes the lines below. They are **class A**: every one is a line of the device capture
+# `device-wifi_facts-20260917T193712Z` (see its `.notes.md`), taken with verbose Wi-Fi logging on,
+# and only its info-level lines are here, because the corpus images are built with
+# `CONFIG_LOG_MAXIMUM_LEVEL=3` and cannot print a debug one. The debug lines the capture holds
+# (`Reset scan defaults in ms ...`, `Start wifi scan`, the per-channel `perform scan`/`scan end`
+# pairs, `Send scan done event`) are therefore deliberately absent: an image that could print them
+# is not in the corpus.
+#
+# `module = "wifi"` keeps them out of the BLE module's stages; a row with no `module` is BLE's, as
+# every row above is.
+#
+# ## Classes
+#
+# - `blob`: text that exists only inside the closed Wi-Fi blob, bound to the blob of IDF 5.5.3
+#   (firmware version 4df78f2, certification v7.0).
+# - `wifi_init.c`: an open-source `esp_wifi_init` line whose value one sdkconfig decides.
+# - `sdkconfig`: blob text whose value one sdkconfig decides.
+#
+# Every `config = "corpus"` row is printed only when the bound `esp_wifi_init` matched the
+# `wifi.toml` variant marked `log_lines = "verified"`, whose sdkconfig the capture shares. The one
+# value that differs is `config NVS flash:`: the capture's probe was built with
+# `CONFIG_ESP_WIFI_NVS_ENABLED=n` and printed `disabled`, and the four corpus builds set it to `y`,
+# so the row carries `enabled`.
+#
+# `{task}` is the `wifi` task handle the HLE created, printed as the guest's `%p` does; `{mac}` is
+# the six bytes the nested `esp_read_mac(mac, ESP_MAC_WIFI_STA)` wrote, as `%02x` pairs joined by
+# `:`. The blob prints with no space after the tag (`wifi:wifi driver task: ...`), which is what
+# `[format] info_bare` is for; the app's own `wifi_init` lines use the ordinary `info` format.
+#
+# `stage` says which handler prints the line: `init` at the end of a successful `esp_wifi_init`,
+# `start` at the end of a successful `esp_wifi_start`, before its events.
+#
+# **Not here:** `phy_init: phy_version ...`. The device prints it once per boot, from whichever
+# radio enables the PHY first, and the BLE module already owns that line (stage `enable` above). A
+# module has no way to know another module printed it, so a Wi-Fi-only image is missing that one
+# line; `scan3` and `demo` run BLE too and print it there.
+# The `deinit_refused` stage is the one error-level row: `E (t) wifi_init: Wi-Fi not stop`, which
+# the device prints when `esp_wifi_deinit` is called on a started driver (capture
+# `device-scan3-20260917T201219Z`). The `stop` stage is the four lines the blob prints inside
+# `esp_wifi_stop`, from the same capture.
+
+[format]
+info_bare = "I (%lu) %s:%s\n"
+error = "E (%lu) %s: %s\n"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "pp"
+class = "blob"
+text = "pp rom version: 74f9620"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "net80211"
+class = "blob"
+text = "net80211 rom version: 74f9620"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi"
+class = "blob"
+format = "info_bare"
+text = "wifi driver task: {task}, prio:23, stack:6656, core=0"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi"
+class = "blob"
+format = "info_bare"
+text = "wifi firmware version: 4df78f2"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi"
+class = "blob"
+format = "info_bare"
+text = "wifi certification version: v7.0"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi"
+class = "sdkconfig"
+format = "info_bare"
+config = "corpus"
+text = "config NVS flash: enabled"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi"
+class = "sdkconfig"
+format = "info_bare"
+config = "corpus"
+text = "config nano formatting: disabled"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi"
+class = "sdkconfig"
+format = "info_bare"
+config = "corpus"
+text = "Init data frame dynamic rx buffer num: 32"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi"
+class = "sdkconfig"
+format = "info_bare"
+config = "corpus"
+text = "Init static rx mgmt buffer num: 5"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi"
+class = "sdkconfig"
+format = "info_bare"
+config = "corpus"
+text = "Init management short buffer num: 32"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi"
+class = "sdkconfig"
+format = "info_bare"
+config = "corpus"
+text = "Init dynamic tx buffer num: 32"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi"
+class = "sdkconfig"
+format = "info_bare"
+config = "corpus"
+text = "Init static tx FG buffer num: 2"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi"
+class = "sdkconfig"
+format = "info_bare"
+config = "corpus"
+text = "Init static rx buffer size: 1600"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi"
+class = "sdkconfig"
+format = "info_bare"
+config = "corpus"
+text = "Init static rx buffer num: 10"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi"
+class = "sdkconfig"
+format = "info_bare"
+config = "corpus"
+text = "Init dynamic rx buffer num: 32"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi_init"
+class = "wifi_init.c"
+config = "corpus"
+text = "rx ba win: 6"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi_init"
+class = "wifi_init.c"
+config = "corpus"
+text = "accept mbox: 6"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi_init"
+class = "wifi_init.c"
+config = "corpus"
+text = "tcpip mbox: 32"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi_init"
+class = "wifi_init.c"
+config = "corpus"
+text = "udp mbox: 6"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi_init"
+class = "wifi_init.c"
+config = "corpus"
+text = "tcp mbox: 6"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi_init"
+class = "wifi_init.c"
+config = "corpus"
+text = "tcp tx win: 5760"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi_init"
+class = "wifi_init.c"
+config = "corpus"
+text = "tcp rx win: 5760"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi_init"
+class = "wifi_init.c"
+config = "corpus"
+text = "tcp mss: 1440"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi_init"
+class = "wifi_init.c"
+config = "corpus"
+text = "WiFi IRAM OP enabled"
+
+[[line]]
+module = "wifi"
+stage = "init"
+level = "info"
+tag = "wifi_init"
+class = "wifi_init.c"
+config = "corpus"
+text = "WiFi RX IRAM OP enabled"
+
+[[line]]
+module = "wifi"
+stage = "start"
+level = "info"
+tag = "wifi"
+class = "blob"
+format = "info_bare"
+text = "mode : sta ({mac})"
+
+[[line]]
+module = "wifi"
+stage = "start"
+level = "info"
+tag = "wifi"
+class = "blob"
+format = "info_bare"
+text = "enable tsf"
+
+[[line]]
+module = "wifi"
+stage = "stop"
+level = "info"
+tag = "wifi"
+class = "blob"
+format = "info_bare"
+text = "flush txq"
+
+[[line]]
+module = "wifi"
+stage = "stop"
+level = "info"
+tag = "wifi"
+class = "blob"
+format = "info_bare"
+text = "stop sw txq"
+
+[[line]]
+module = "wifi"
+stage = "stop"
+level = "info"
+tag = "wifi"
+class = "blob"
+format = "info_bare"
+text = "lmac stop hw txq"
+
+[[line]]
+module = "wifi"
+stage = "stop"
+level = "info"
+tag = "wifi"
+class = "sdkconfig"
+config = "corpus"
+format = "info_bare"
+text = "Deinit lldesc rx mblock:10"
+
+[[line]]
+module = "wifi"
+stage = "deinit_refused"
+level = "error"
+tag = "wifi_init"
+class = "wifi_init.c"
+text = "Wi-Fi not stop"

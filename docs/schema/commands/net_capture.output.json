@@ -1,0 +1,38 @@
+{
+  "properties": {
+    "bytes": {
+      "type": "integer"
+    },
+    "capture": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "dropped": {
+      "type": "integer"
+    },
+    "frames": {
+      "type": "integer"
+    },
+    "instance": {
+      "type": "string"
+    },
+    "linktype": {
+      "type": "integer"
+    },
+    "op": {
+      "type": "string"
+    },
+    "rx": {
+      "type": "integer"
+    },
+    "tx": {
+      "type": "integer"
+    },
+    "vt_us": {
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}

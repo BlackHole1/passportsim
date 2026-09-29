@@ -1,0 +1,66 @@
+# Chip spec of the CW2017 fuel gauge on I2C0. Not a `c3_devices!` row: the chip sits on the bus
+# of specs/blocks/i2c0.toml, and a board chip's overrides live in its own specs/blocks/<chip>.toml.
+schema = 1
+chip = "cw2017"
+bus = "i2c0"
+address = 0x63
+class = "B"
+milestone = "M5"
+provenance = "device console line naming the i2c0 bus pins and devices es8311@0x18 and cw2017@0x63 (identity masked)"
+
+# The datasheet power-on value of register 0x00 is 0xA0; this unit reads 0x0F, and the boot line
+# the golden console test expects prints that value. Only one unit has been read, so the value is
+# a board fact rather than a part fact.
+[[overrides]]
+register = "VERSION"
+reg = 0x00
+value = 0x0F
+class = "A"
+provenance = "device reference boot line reporting CW2017 VERSION=0x0F (identity masked); the CW2017 datasheet register table gives the default as 0xA0 RO at register 0x00. Class A because a device capture fixes it; no second unit has been read, so whether it is a part or a unit property is UNVERIFIED"
+
+# The provisioned default start state, kept as rows because it is what makes bsp_battery_init take
+# the fast path and log the profile-matched line the golden console test expects.
+[[overrides]]
+register = "SOC_ALERT"
+reg = 0x0B
+value = 0x94
+class = "B"
+provenance = "emulator default start state: UPDATE_FLAG set with a 20 percent threshold, the state of a gauge the BSP has already configured. At the datasheet power-on default (0x14) the profile never matches and the BSP logs the profile write line instead"
+
+[[overrides]]
+register = "CONFIG"
+reg = 0x08
+value = 0x00
+class = "B"
+provenance = "emulator default start state (computing); CW2017 datasheet CONFIG state machine: 0xF0 is sleep and the power-on value, a write of 0x30 enters restart, a later write of 0x00 starts computation"
+
+[[overrides]]
+register = "PROFILE"
+reg = 0x10
+value = "the 80 bytes of the BSP profile table, copied into specs/boards/cw2017-profile.toml"
+class = "B"
+provenance = "emulator default start state: the profile bytes of the BSP table at bsp_battery.c:26-37, so bsp_battery_init matches on the first read and takes the fast path of bsp_battery.c:173 (1 + 1 + 80 reads, no writes)"
+
+[[overrides]]
+register = "SOC"
+reg = 0x04
+value = "0xFF for 1 s of virtual time after a guest write of CONFIG 0x00 starts a computation, then the battery model through a first-order lag; the provisioned start state has no window left to serve and reads a settled value at t = 0"
+class = "C"
+provenance = "CW2017 datasheet CONFIG state machine; the BSP tolerates up to 5 s of values above 100 (UNVERIFIED: no public source states it), so the 1 s window is a deliberate approximation and its length is class C. The window belongs to a computation the guest starts; the default start state's cell stays connected to a gauge the BSP already configured, whose computation finished before the machine existed, so cw_wait_soc_ready succeeds on its first read and bsp_battery_init finishes at 438 ms as the device does. The lag that follows is class C in the same way: no time constant is given anywhere, and the discrete integer form is shaped by how often the board samples"
+
+[[stable_read]]
+register = "VERSION"
+provenance = "CW2017 datasheet (VERSION is RO): constant, so the read value is a function of the board configuration alone"
+
+[[stable_read]]
+register = "CONFIG"
+provenance = "CW2017 datasheet CONFIG state machine: the value is a function of the modeled state machine, which only guest writes advance"
+
+[[stable_read]]
+register = "PROFILE"
+provenance = "bsp_battery.c:26-37 and :173: the 80 profile bytes are what the BSP reads back and compares, so they must be exact"
+
+[[reset_domains]]
+registers = "*"
+scopes = []
+provenance = "the registers and the profile live in the battery domain and survive MCU resets and power-off, so no MCU reset scope reaches them (UNVERIFIED on the schematic). battery.fresh() and a disconnect and reconnect put the gauge at the datasheet power-on defaults instead, which is the slow path and has its own golden"

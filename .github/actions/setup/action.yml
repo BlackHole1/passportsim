@@ -1,0 +1,47 @@
+name: Set up the build
+description: >-
+  Installs the Rust toolchain rust-toolchain.toml pins (with its targets), restores the cargo cache,
+  installs Bun and the web packages.
+inputs:
+  cache-key:
+    description: Extra key that separates this job's cargo cache from other jobs' caches.
+    required: true
+  save-cache:
+    description: >-
+      Whether this job saves the cargo cache. Callers save only on main, so pull requests restore
+      main's cache without evicting it.
+    required: false
+    default: "true"
+runs:
+  using: composite
+  steps:
+    - name: Install the pinned Rust toolchain
+      shell: bash
+      # `rustup toolchain install` with no argument reads rust-toolchain.toml, components and
+      # targets included, so the cache key below sees the right rustc.
+      run: |
+        rustup toolchain install
+        rustc --version
+
+    - uses: Swatinem/rust-cache@v2
+      with:
+        key: ${{ inputs.cache-key }}
+        save-if: ${{ inputs.save-cache }}
+
+    # Both hosts must run the same Bun: `xtask package --payload-from` needs the Windows web bundle
+    # byte-identical to the macOS one, and bundler output changes between Bun releases.
+    - uses: oven-sh/setup-bun@v2
+      with:
+        bun-version-file: .bun-version
+
+    - name: Restore the Bun package cache
+      uses: actions/cache@v6
+      with:
+        path: ~/.bun/install/cache
+        key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
+        restore-keys: bun-${{ runner.os }}-
+
+    - name: Install the web packages
+      shell: bash
+      working-directory: web
+      run: bun install --frozen-lockfile

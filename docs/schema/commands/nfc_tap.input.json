@@ -1,0 +1,104 @@
+{
+  "additionalProperties": false,
+  "description": "`nfc_tap` arguments.",
+  "properties": {
+    "dwell_ms": {
+      "description": "Phone in field (300).",
+      "maximum": 60000,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "instance": {
+      "description": "Instance id.",
+      "pattern": "^[pb][0-9]+$",
+      "type": "string"
+    },
+    "ops": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "frames": {
+            "description": "Hex frames, no CRC.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "ndef": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "auth": {
+                  "enum": [
+                    "open",
+                    "wpa-personal",
+                    "wpa",
+                    "wpa2-personal",
+                    "wpa2"
+                  ],
+                  "type": "string"
+                },
+                "encr": {
+                  "enum": [
+                    "none",
+                    "wep",
+                    "tkip",
+                    "aes"
+                  ],
+                  "type": "string"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "lang": {
+                  "type": "string"
+                },
+                "ssid": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "type": {
+                  "enum": [
+                    "uri",
+                    "text",
+                    "wifi"
+                  ],
+                  "type": "string"
+                },
+                "uri": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "op": {
+            "enum": [
+              "readNdef",
+              "writeNdef",
+              "raw"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "op"
+        ],
+        "type": "object"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "ops"
+  ],
+  "type": "object"
+}

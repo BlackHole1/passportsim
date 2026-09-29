@@ -1,0 +1,69 @@
+# Block spec of the `regi2c` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/regi2c.rs.
+schema = 1
+block = "regi2c"
+base = 0x6000_E000
+size = 0x1000
+class = "B"
+milestone = "M1"
+provenance = "base IDF soc/esp32c3/include/soc/regi2c_defs.h (regi2c master, I2C_MST / ANA_CONF at 0x6000_E040); size 0x1000 UNVERIFIED. No rows in specs/c3-registers.csv: IDF names only the three ANA_CONF registers (soc/esp32c3/include/soc/regi2c_defs.h:12-24) and the host command register is decoded from ROM disassembly, so its name here is UNVERIFIED"
+
+# The store model. The slave register space
+# is a byte array indexed by (block id, register), and a read returns the last byte written to
+# that index. Masked updates are software read-modify-write in ROM rom_i2c_writeReg_Mask, so a
+# model that answers every read with 0xFF (or 0xFFFFFF for the whole word) boots but corrupts
+# them.
+[[overrides]]
+register = "slave register space"
+field = "*"
+value = "last written byte, 0x00 when never written"
+class = "B"
+provenance = "A store model rather than one that returns 0x00FFFFFF for every read, because the latter corrupts the masked writes that the bundled ROM's rom_i2c_writeReg_Mask performs in software; the store model passes both the bootloader and the ADC calibration in the emulator's own boots. Hardware defaults are UNVERIFIED"
+
+[[overrides]]
+register = "slave I2C_ULP block 0x61 register 3"
+field = "O_DONE_FLAG, BG_O_DONE_FLAG"
+value = 0x09
+class = "B"
+provenance = "IDF esp_hw_support/port/esp32c3/rtc_init.c:216-227: bits 0 and 3 must read 1 or the o-code calibration loop spins for its 10 ms timeout and logs a failure. Reached only when BLK_VERSION_MAJOR != 1 (rtc_init.c:67), so MUST for eFuse images without BLOCK2 calibration and SHOULD otherwise"
+
+[[wait]]
+id = "regi2c.busy"
+kind = "wait"
+seed = true
+register = "REGI2C_HOST0_CMD"
+field = "BUSY"
+trigger = "write the command word (slave block id, register, data, write flag) to offset 0x000 or 0x004"
+expect = "read bit 25 (BUSY) == 0; for a read command, bits [23:16] hold the stored byte"
+within = "same_access"
+polled_at = ["rom_chip_i2c_readReg_org", "rom1_chip_i2c_writeReg", "rom_i2c_paral_read", "rom_i2c_paral_write", "rom1_i2c_master_reset"]
+images = ["official", "pk"]
+milestone = "M1"
+provenance = "The bundled ROM ELF's regi2c routines poll bit 25 BUSY of 0x6000_E000 (host 0) and 0x6000_E004 (host 1); the model executes synchronously, so BUSY always reads 0; boot-path seed row (BBPLL and o-code calibration). Register name UNVERIFIED: decoded from ROM disassembly, IDF has no define for it"
+
+[[stable_read]]
+register = "REGI2C_HOST0_CMD"
+provenance = "The transfer completes inside the write, so BUSY reads 0 and the data byte is a function of the stored slave space alone. It is an intended oracle divergence, recorded in specs/oracle-known-diffs.toml (regi2c.analog-store)"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: the regi2c master is in the digital domain. Whether the analog slave bytes survive a core reset is UNVERIFIED (no public source gives one); the emulator restores them with the block, because the guest reprograms them in rtc_init on every boot"
+
+# The classes of this block by offset. It has no rows in specs/c3-registers.csv, so the rows below
+# carry offsets and codegen renders them into crates/pemu-soc-c3/src/gen/classes.rs, which
+# periph/regi2c.rs answers Peripheral::fidelity from instead of the classes it used to carry as
+# constants.
+[[overrides]]
+register = "REGI2C host command registers"
+offsets = [0x000, 0x004]
+value = "the command word: the transfer runs inside the write against the slave byte store, BUSY reads 0, and a read command leaves the fetched byte in bits 23:16"
+class = "B"
+provenance = "The host command registers (0x6000_E000 host 0, 0x6000_E004 host 1, bit 25 BUSY always reads 0, execute synchronously), which the wait row regi2c.busy and the stable_read row above already record. The offsets are named here so the class is spec data rather than a constant in periph/regi2c.rs. Register name UNVERIFIED, as the header of this file records"
+
+[[overrides]]
+register = "REGI2C analog configuration registers"
+offsets = [0x040, 0x044, 0x048]
+value = "stored, with the device's boot values: ANA_CONF0 resets to 0x2100E400 (bits 2 and 3 are the bootloader's), ANA_CONFIG keeps bits 23 to 0 only, ANA_CONFIG2 resets to 0x00000004; the master is always available, so forcing its clock or holding it in reset through these registers changes nothing"
+class = "C"
+provenance = "IDF soc/esp32c3/include/soc/regi2c_defs.h:12-24 names the three ANA_CONF registers, which is the only source for them (this file's header); no public source describes the master enables. The model executes every command whether or not the guest enabled the master, so a guest that disabled it would still get an answer, which the device would not do: a declared class C approximation. The block has no field layout, so the model stores the window byte by byte with no access types. The boot values are class A inside the row: device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log lines 251 to 253 (REG|regi2c.0x040 0x2100e408, 0x044 0x00fbffff, 0x048 0x0001fe04), read after the boot's own writes, which an MMIO trace of the emulator's run of the same image shows to be a read-modify-write of ANA_CONF0 bits 2 and 3 (bootloader regi2c_ctrl_ll_bbpll_calibration_start), whole-word writes of ANA_CONFIG with bits 31 to 24 set (ROM rom_i2c_writeReg, last 0xFFFBFFFF) and read-modify-writes of ANA_CONFIG2 setting bits 16 to 9 (ROM); so ANA_CONF0 carries 0x2100E400 from reset, ANA_CONFIG has no bits 31 to 24, and ANA_CONFIG2 carries bit 2 from reset. Whether those reset bits are stored or read-only status is UNVERIFIED (both give the capture). Tests: periph::regi2c::tests::the_ana_conf_registers_read_the_device_boot_values, tests/milestones/campaign.rs t1_campaign_regs_rows_match_the_device_capture. The row stays C for the master-enable approximation, which the capture does not test"

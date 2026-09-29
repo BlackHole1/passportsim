@@ -1,0 +1,38 @@
+{
+  "properties": {
+    "applied": {
+      "type": "object"
+    },
+    "effects": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "elapsed_vt_us": {
+      "type": "integer"
+    },
+    "input": {
+      "type": "object"
+    },
+    "instance": {
+      "type": "string"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "serial": {
+      "type": "object"
+    },
+    "stream": {
+      "type": "string"
+    },
+    "vt_us": {
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}

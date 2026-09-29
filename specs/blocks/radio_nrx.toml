@@ -1,0 +1,23 @@
+# Block spec of the `radio_nrx` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/radio_store.rs.
+schema = 1
+block = "radio_nrx"
+base = 0x6001_CC00
+size = 0x400
+class = "U"
+milestone = "M3"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h (DR_REG_NRX_BASE); NRXPD_CTRL 0x6001_CCD4 is the only boot access (UNVERIFIED: no capture named); the window is 0x400 at 0x6001_CC00, not the usual 0x1000, UNVERIFIED"
+
+# Store only, with tripwires. Boot touches exactly 14 radio register accesses, all of them the
+# `rtc_sleep_pu` power-up clears in `rtc_init` (read 0, write 0), and coexistence init touches
+# none. Every register is class U: a read of one the ledger does not
+# claim is a signal that the emulator is running controller code it does not model.
+
+[[stable_read]]
+register = "NRXPD_CTRL"
+provenance = "rtc_sleep_pu reads 0 and writes 0 at 0x6001_CCD4 on every boot, so the read value is a function of modeled state. UNVERIFIED: no capture or IDF line named"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: the radio blocks are in the digital domain, not the RTC domain"

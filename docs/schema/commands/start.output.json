@@ -1,0 +1,23 @@
+{
+  "properties": {
+    "boot": {
+      "type": "object"
+    },
+    "image": {
+      "type": "object"
+    },
+    "instance": {
+      "type": "string"
+    },
+    "mode": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string"
+    },
+    "vt_us": {
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}

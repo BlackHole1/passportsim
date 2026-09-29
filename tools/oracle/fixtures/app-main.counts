@@ -1,0 +1,11 @@
+# pemu-verify instruction counts v1
+# Instruction counts at app_main, in instructions.
+#
+# These are the esp32sim figures of the oracle table (Passport Keys 7.02 M, official 9.94 M), to
+# the precision that table states them. Our count under `fast` at CPI 1 is compared against them
+# at plus or minus 2 %, informational only.
+#
+# Regenerate on the oracle host with `cargo xtask oracle counts --record`, which prints the
+# command to run; a recorded file replaces this one at full precision and keeps this format.
+pk app_main 7_020_000
+official app_main 9_940_000

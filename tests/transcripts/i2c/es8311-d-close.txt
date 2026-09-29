@@ -1,0 +1,21 @@
+# ES8311 sequence D, `esp_codec_dev_close`, as bus transactions.
+# Replay it after sequences A, B and C.
+# Generated from specs/es8311-sequences.toml; crates/pemu-board/tests/es8311.rs checks they agree.
+
+R 18 31 00
+W 18 31 60
+W 18 32 00
+W 18 17 00
+W 18 0E FF
+W 18 12 02
+W 18 14 00
+W 18 0D FA
+W 18 15 00
+W 18 02 10
+W 18 00 00
+W 18 00 1F
+W 18 01 30
+W 18 01 00
+W 18 45 00
+W 18 0D FC
+W 18 02 00

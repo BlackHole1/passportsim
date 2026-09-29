@@ -1,0 +1,500 @@
+# Interrupt sources of the ESP32-C3 interrupt matrix.
+# Written by `cargo xtask codegen import` from ESP-IDF v5.5.3 `soc/interrupts.h`
+# (enumerator values) and `interrupt_core0_reg.h` (MAP register offsets), paired by name.
+# `cargo xtask codegen` checks every row and generates crates/pemu-core/src/irq_source.rs.
+
+[[source]]
+name = "WIFI_MAC"
+number = 0
+map_off = 0x000
+idf = "ETS_WIFI_MAC_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_MAC_INTR_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:18 and soc/esp32c3/register/soc/interrupt_core0_reg.h:17"
+
+[[source]]
+name = "WIFI_MAC_NMI"
+number = 1
+map_off = 0x004
+idf = "ETS_WIFI_MAC_NMI_SOURCE"
+map_reg = "INTERRUPT_CORE0_MAC_NMI_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:19 and soc/esp32c3/register/soc/interrupt_core0_reg.h:25"
+
+[[source]]
+name = "WIFI_PWR"
+number = 2
+map_off = 0x008
+idf = "ETS_WIFI_PWR_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_PWR_INTR_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:20 and soc/esp32c3/register/soc/interrupt_core0_reg.h:33"
+
+[[source]]
+name = "WIFI_BB"
+number = 3
+map_off = 0x00C
+idf = "ETS_WIFI_BB_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_BB_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:21 and soc/esp32c3/register/soc/interrupt_core0_reg.h:41"
+
+[[source]]
+name = "BT_MAC"
+number = 4
+map_off = 0x010
+idf = "ETS_BT_MAC_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_BT_MAC_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:22 and soc/esp32c3/register/soc/interrupt_core0_reg.h:49"
+
+[[source]]
+name = "BT_BB"
+number = 5
+map_off = 0x014
+idf = "ETS_BT_BB_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_BT_BB_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:23 and soc/esp32c3/register/soc/interrupt_core0_reg.h:57"
+
+[[source]]
+name = "BT_BB_NMI"
+number = 6
+map_off = 0x018
+idf = "ETS_BT_BB_NMI_SOURCE"
+map_reg = "INTERRUPT_CORE0_BT_BB_NMI_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:24 and soc/esp32c3/register/soc/interrupt_core0_reg.h:65"
+
+[[source]]
+name = "RWBT"
+number = 7
+map_off = 0x01C
+idf = "ETS_RWBT_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_RWBT_IRQ_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:25 and soc/esp32c3/register/soc/interrupt_core0_reg.h:73"
+
+[[source]]
+name = "RWBLE"
+number = 8
+map_off = 0x020
+idf = "ETS_RWBLE_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_RWBLE_IRQ_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:26 and soc/esp32c3/register/soc/interrupt_core0_reg.h:81"
+
+[[source]]
+name = "RWBT_NMI"
+number = 9
+map_off = 0x024
+idf = "ETS_RWBT_NMI_SOURCE"
+map_reg = "INTERRUPT_CORE0_RWBT_NMI_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:27 and soc/esp32c3/register/soc/interrupt_core0_reg.h:89"
+
+[[source]]
+name = "RWBLE_NMI"
+number = 10
+map_off = 0x028
+idf = "ETS_RWBLE_NMI_SOURCE"
+map_reg = "INTERRUPT_CORE0_RWBLE_NMI_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:28 and soc/esp32c3/register/soc/interrupt_core0_reg.h:97"
+
+[[source]]
+name = "I2C_MASTER"
+number = 11
+map_off = 0x02C
+idf = "ETS_I2C_MASTER_SOURCE"
+map_reg = "INTERRUPT_CORE0_I2C_MST_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:29 and soc/esp32c3/register/soc/interrupt_core0_reg.h:105"
+
+[[source]]
+name = "SLC0"
+number = 12
+map_off = 0x030
+idf = "ETS_SLC0_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_SLC0_INTR_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:30 and soc/esp32c3/register/soc/interrupt_core0_reg.h:113"
+
+[[source]]
+name = "SLC1"
+number = 13
+map_off = 0x034
+idf = "ETS_SLC1_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_SLC1_INTR_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:31 and soc/esp32c3/register/soc/interrupt_core0_reg.h:121"
+
+[[source]]
+name = "APB_CTRL"
+number = 14
+map_off = 0x038
+idf = "ETS_APB_CTRL_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_APB_CTRL_INTR_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:32 and soc/esp32c3/register/soc/interrupt_core0_reg.h:129"
+
+[[source]]
+name = "UHCI0"
+number = 15
+map_off = 0x03C
+idf = "ETS_UHCI0_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_UHCI0_INTR_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:33 and soc/esp32c3/register/soc/interrupt_core0_reg.h:137"
+
+[[source]]
+name = "GPIO"
+number = 16
+map_off = 0x040
+idf = "ETS_GPIO_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_GPIO_INTERRUPT_PRO_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:34 and soc/esp32c3/register/soc/interrupt_core0_reg.h:145"
+
+[[source]]
+name = "GPIO_NMI"
+number = 17
+map_off = 0x044
+idf = "ETS_GPIO_NMI_SOURCE"
+map_reg = "INTERRUPT_CORE0_GPIO_INTERRUPT_PRO_NMI_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:35 and soc/esp32c3/register/soc/interrupt_core0_reg.h:153"
+
+[[source]]
+name = "SPI1"
+number = 18
+map_off = 0x048
+idf = "ETS_SPI1_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_SPI_INTR_1_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:36 and soc/esp32c3/register/soc/interrupt_core0_reg.h:161"
+
+[[source]]
+name = "SPI2"
+number = 19
+map_off = 0x04C
+idf = "ETS_SPI2_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_SPI_INTR_2_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:37 and soc/esp32c3/register/soc/interrupt_core0_reg.h:169"
+
+[[source]]
+name = "I2S0"
+number = 20
+map_off = 0x050
+idf = "ETS_I2S0_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_I2S_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:38 and soc/esp32c3/register/soc/interrupt_core0_reg.h:177"
+
+[[source]]
+name = "UART0"
+number = 21
+map_off = 0x054
+idf = "ETS_UART0_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_UART_INTR_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:39 and soc/esp32c3/register/soc/interrupt_core0_reg.h:185"
+
+[[source]]
+name = "UART1"
+number = 22
+map_off = 0x058
+idf = "ETS_UART1_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_UART1_INTR_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:40 and soc/esp32c3/register/soc/interrupt_core0_reg.h:193"
+
+[[source]]
+name = "LEDC"
+number = 23
+map_off = 0x05C
+idf = "ETS_LEDC_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_LEDC_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:41 and soc/esp32c3/register/soc/interrupt_core0_reg.h:201"
+
+[[source]]
+name = "EFUSE"
+number = 24
+map_off = 0x060
+idf = "ETS_EFUSE_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_EFUSE_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:42 and soc/esp32c3/register/soc/interrupt_core0_reg.h:209"
+
+[[source]]
+name = "TWAI"
+number = 25
+map_off = 0x064
+idf = "ETS_TWAI_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_CAN_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:43 and soc/esp32c3/register/soc/interrupt_core0_reg.h:217"
+
+[[source]]
+name = "USB_SERIAL_JTAG"
+number = 26
+map_off = 0x068
+idf = "ETS_USB_SERIAL_JTAG_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_USB_INTR_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:44 and soc/esp32c3/register/soc/interrupt_core0_reg.h:225"
+
+[[source]]
+name = "RTC_CORE"
+number = 27
+map_off = 0x06C
+idf = "ETS_RTC_CORE_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_RTC_CORE_INTR_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:45 and soc/esp32c3/register/soc/interrupt_core0_reg.h:233"
+
+[[source]]
+name = "RMT"
+number = 28
+map_off = 0x070
+idf = "ETS_RMT_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_RMT_INTR_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:46 and soc/esp32c3/register/soc/interrupt_core0_reg.h:241"
+
+[[source]]
+name = "I2C_EXT0"
+number = 29
+map_off = 0x074
+idf = "ETS_I2C_EXT0_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_I2C_EXT0_INTR_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:47 and soc/esp32c3/register/soc/interrupt_core0_reg.h:249"
+
+[[source]]
+name = "TIMER1"
+number = 30
+map_off = 0x078
+idf = "ETS_TIMER1_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_TIMER_INT1_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:48 and soc/esp32c3/register/soc/interrupt_core0_reg.h:257"
+
+[[source]]
+name = "TIMER2"
+number = 31
+map_off = 0x07C
+idf = "ETS_TIMER2_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_TIMER_INT2_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:49 and soc/esp32c3/register/soc/interrupt_core0_reg.h:265"
+
+[[source]]
+name = "TG0_T0"
+number = 32
+map_off = 0x080
+idf = "ETS_TG0_T0_LEVEL_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_TG_T0_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:50 and soc/esp32c3/register/soc/interrupt_core0_reg.h:273"
+
+[[source]]
+name = "TG0_WDT"
+number = 33
+map_off = 0x084
+idf = "ETS_TG0_WDT_LEVEL_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_TG_WDT_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:51 and soc/esp32c3/register/soc/interrupt_core0_reg.h:281"
+
+[[source]]
+name = "TG1_T0"
+number = 34
+map_off = 0x088
+idf = "ETS_TG1_T0_LEVEL_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_TG1_T0_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:52 and soc/esp32c3/register/soc/interrupt_core0_reg.h:289"
+
+[[source]]
+name = "TG1_WDT"
+number = 35
+map_off = 0x08C
+idf = "ETS_TG1_WDT_LEVEL_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_TG1_WDT_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:53 and soc/esp32c3/register/soc/interrupt_core0_reg.h:297"
+
+[[source]]
+name = "CACHE_IA"
+number = 36
+map_off = 0x090
+idf = "ETS_CACHE_IA_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_CACHE_IA_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:54 and soc/esp32c3/register/soc/interrupt_core0_reg.h:305"
+
+[[source]]
+name = "SYSTIMER_TARGET0"
+number = 37
+map_off = 0x094
+idf = "ETS_SYSTIMER_TARGET0_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_SYSTIMER_TARGET0_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:55 and soc/esp32c3/register/soc/interrupt_core0_reg.h:313"
+
+[[source]]
+name = "SYSTIMER_TARGET1"
+number = 38
+map_off = 0x098
+idf = "ETS_SYSTIMER_TARGET1_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_SYSTIMER_TARGET1_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:56 and soc/esp32c3/register/soc/interrupt_core0_reg.h:321"
+
+[[source]]
+name = "SYSTIMER_TARGET2"
+number = 39
+map_off = 0x09C
+idf = "ETS_SYSTIMER_TARGET2_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_SYSTIMER_TARGET2_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:57 and soc/esp32c3/register/soc/interrupt_core0_reg.h:329"
+
+[[source]]
+name = "SPI_MEM_REJECT"
+number = 40
+map_off = 0x0A0
+idf = "ETS_SPI_MEM_REJECT_CACHE_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_SPI_MEM_REJECT_INTR_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:61 and soc/esp32c3/register/soc/interrupt_core0_reg.h:337"
+
+[[source]]
+name = "ICACHE_PRELOAD0"
+number = 41
+map_off = 0x0A4
+idf = "ETS_ICACHE_PRELOAD0_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_ICACHE_PRELOAD_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:62 and soc/esp32c3/register/soc/interrupt_core0_reg.h:345"
+
+[[source]]
+name = "ICACHE_SYNC0"
+number = 42
+map_off = 0x0A8
+idf = "ETS_ICACHE_SYNC0_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_ICACHE_SYNC_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:63 and soc/esp32c3/register/soc/interrupt_core0_reg.h:353"
+
+[[source]]
+name = "APB_ADC"
+number = 43
+map_off = 0x0AC
+idf = "ETS_APB_ADC_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_APB_ADC_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:64 and soc/esp32c3/register/soc/interrupt_core0_reg.h:361"
+
+[[source]]
+name = "DMA_CH0"
+number = 44
+map_off = 0x0B0
+idf = "ETS_DMA_CH0_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_DMA_CH0_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:65 and soc/esp32c3/register/soc/interrupt_core0_reg.h:369"
+
+[[source]]
+name = "DMA_CH1"
+number = 45
+map_off = 0x0B4
+idf = "ETS_DMA_CH1_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_DMA_CH1_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:66 and soc/esp32c3/register/soc/interrupt_core0_reg.h:377"
+
+[[source]]
+name = "DMA_CH2"
+number = 46
+map_off = 0x0B8
+idf = "ETS_DMA_CH2_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_DMA_CH2_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:67 and soc/esp32c3/register/soc/interrupt_core0_reg.h:385"
+
+[[source]]
+name = "RSA"
+number = 47
+map_off = 0x0BC
+idf = "ETS_RSA_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_RSA_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:68 and soc/esp32c3/register/soc/interrupt_core0_reg.h:393"
+
+[[source]]
+name = "AES"
+number = 48
+map_off = 0x0C0
+idf = "ETS_AES_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_AES_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:69 and soc/esp32c3/register/soc/interrupt_core0_reg.h:401"
+
+[[source]]
+name = "SHA"
+number = 49
+map_off = 0x0C4
+idf = "ETS_SHA_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_SHA_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:70 and soc/esp32c3/register/soc/interrupt_core0_reg.h:409"
+
+[[source]]
+name = "FROM_CPU_INTR0"
+number = 50
+map_off = 0x0C8
+idf = "ETS_FROM_CPU_INTR0_SOURCE"
+map_reg = "INTERRUPT_CORE0_CPU_INTR_FROM_CPU_0_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:71 and soc/esp32c3/register/soc/interrupt_core0_reg.h:417"
+
+[[source]]
+name = "FROM_CPU_INTR1"
+number = 51
+map_off = 0x0CC
+idf = "ETS_FROM_CPU_INTR1_SOURCE"
+map_reg = "INTERRUPT_CORE0_CPU_INTR_FROM_CPU_1_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:72 and soc/esp32c3/register/soc/interrupt_core0_reg.h:425"
+
+[[source]]
+name = "FROM_CPU_INTR2"
+number = 52
+map_off = 0x0D0
+idf = "ETS_FROM_CPU_INTR2_SOURCE"
+map_reg = "INTERRUPT_CORE0_CPU_INTR_FROM_CPU_2_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:73 and soc/esp32c3/register/soc/interrupt_core0_reg.h:433"
+
+[[source]]
+name = "FROM_CPU_INTR3"
+number = 53
+map_off = 0x0D4
+idf = "ETS_FROM_CPU_INTR3_SOURCE"
+map_reg = "INTERRUPT_CORE0_CPU_INTR_FROM_CPU_3_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:74 and soc/esp32c3/register/soc/interrupt_core0_reg.h:441"
+
+[[source]]
+name = "ASSIST_DEBUG"
+number = 54
+map_off = 0x0D8
+idf = "ETS_ASSIST_DEBUG_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_ASSIST_DEBUG_INTR_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:75 and soc/esp32c3/register/soc/interrupt_core0_reg.h:449"
+
+[[source]]
+name = "DMA_APBPERI_PMS"
+number = 55
+map_off = 0x0DC
+idf = "ETS_DMA_APBPERI_PMS_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_DMA_APBPERI_PMS_MONITOR_VIOLATE_INTR_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:76 and soc/esp32c3/register/soc/interrupt_core0_reg.h:457"
+
+[[source]]
+name = "CORE0_IRAM0_PMS"
+number = 56
+map_off = 0x0E0
+idf = "ETS_CORE0_IRAM0_PMS_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_CORE_0_IRAM0_PMS_MONITOR_VIOLATE_INTR_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:77 and soc/esp32c3/register/soc/interrupt_core0_reg.h:465"
+
+[[source]]
+name = "CORE0_DRAM0_PMS"
+number = 57
+map_off = 0x0E4
+idf = "ETS_CORE0_DRAM0_PMS_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_CORE_0_DRAM0_PMS_MONITOR_VIOLATE_INTR_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:78 and soc/esp32c3/register/soc/interrupt_core0_reg.h:473"
+
+[[source]]
+name = "CORE0_PIF_PMS"
+number = 58
+map_off = 0x0E8
+idf = "ETS_CORE0_PIF_PMS_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_CORE_0_PIF_PMS_MONITOR_VIOLATE_INTR_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:79 and soc/esp32c3/register/soc/interrupt_core0_reg.h:481"
+
+[[source]]
+name = "CORE0_PIF_PMS_SIZE"
+number = 59
+map_off = 0x0EC
+idf = "ETS_CORE0_PIF_PMS_SIZE_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_CORE_0_PIF_PMS_MONITOR_VIOLATE_SIZE_INTR_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:80 and soc/esp32c3/register/soc/interrupt_core0_reg.h:489"
+
+[[source]]
+name = "BAK_PMS_VIOLATE"
+number = 60
+map_off = 0x0F0
+idf = "ETS_BAK_PMS_VIOLATE_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_BACKUP_PMS_VIOLATE_INTR_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:81 and soc/esp32c3/register/soc/interrupt_core0_reg.h:497"
+
+[[source]]
+name = "CACHE_CORE0_ACS"
+number = 61
+map_off = 0x0F4
+idf = "ETS_CACHE_CORE0_ACS_INTR_SOURCE"
+map_reg = "INTERRUPT_CORE0_CACHE_CORE0_ACS_INT_MAP_REG"
+cite = "IDF v5.5.3 soc/esp32c3/include/soc/interrupts.h:82 and soc/esp32c3/register/soc/interrupt_core0_reg.h:505"

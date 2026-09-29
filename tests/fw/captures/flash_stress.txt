@@ -1,0 +1,120 @@
+ESP-ROM:esp32c3-eco7-20230720
+Build:Jul 20 2023
+rst:0x1 (POWERON),boot:0xa (SPI_FAST_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5830,len:0x1564
+load:0x403cbf10,len:0xc20
+load:0x403ce710,len:0x2ff8
+entry 0x403cbf1a
+I (0) boot: ESP-IDF v5.5.3 2nd stage bootloader
+I (0) boot: chip revision: v1.1
+I (0) boot: efuse block revision: v1.3
+I (0) boot.esp32c3: SPI Speed      : 80MHz
+I (0) boot.esp32c3: SPI Mode       : SLOW READ
+I (0) boot.esp32c3: SPI Flash Size : 8MB
+I (0) boot: Enabling RNG early entropy source...
+I (0) boot: Partition Table:
+I (0) boot: ## Label            Usage          Type ST Offset   Length
+I (0) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+I (0) boot:  1 phy_init         RF data          01 01 0000f000 00001000
+I (0) boot:  2 factory          factory app      00 00 00010000 00177000
+I (0) boot:  3 scratch          Unknown data     01 40 00500000 00040000
+I (0) boot: End of partition table
+I (0) esp_image: segment 0: paddr=00010020 vaddr=3c020020 size=0858ch ( 34188) map
+I (1) esp_image: segment 1: paddr=000185b4 vaddr=3fc8bc00 size=01780h (  6016) load
+I (1) esp_image: segment 2: paddr=00019d3c vaddr=40380000 size=062dch ( 25308) load
+I (1) esp_image: segment 3: paddr=00020020 vaddr=42000020 size=13fa4h ( 81828) map
+I (2) esp_image: segment 4: paddr=00033fcc vaddr=403862dc size=0586ch ( 22636) load
+I (2) esp_image: segment 5: paddr=00039840 vaddr=50000008 size=00020h (    32) load
+I (3) boot: Loaded app from partition at offset 0x10000
+I (3) boot: Disabling RNG early entropy source...
+I (3) cpu_start: Unicore app
+I (11) cpu_start: Pro cpu start user code
+I (11) cpu_start: cpu freq: 160000000 Hz
+I (11) app_init: Application information:
+I (11) app_init: Project name:     flash_stress
+I (11) app_init: App version:      probe
+I (11) app_init: ELF file SHA256:  941393faf...
+I (11) app_init: ESP-IDF:          v5.5.3
+I (11) efuse_init: Min chip rev:     v0.3
+I (11) efuse_init: Max chip rev:     v1.99 
+I (11) efuse_init: Chip rev:         v1.1
+I (11) heap_init: Initializing. RAM available for dynamic allocation:
+I (11) heap_init: At 3FC8F220 len 00030DE0 (195 KiB): RAM
+I (11) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM
+I (11) heap_init: At 3FCDC710 len 0000294C (10 KiB): Retention RAM
+I (11) heap_init: At 50000028 len 00001FC0 (7 KiB): RTCRAM
+I (11) spi_flash: detected chip: gd
+I (11) spi_flash: flash io: dio
+I (11) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (11) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (11) main_task: Started on CPU0
+I (11) main_task: Calling app_main()
+PROBE|name=flash_stress|schema=passport-emu/probe-line/1
+PART|offset=0x500000|size=0x040000
+ERASE|bytes=262144|not_ff=0
+TIME|erase_256k_us=19|program_64k_us=4780
+PATTERN|bytes=65536|mismatches=0|crc32=0x19eaf539
+AND|bytes=65536|mismatches=0|crc32=0x517983ee
+SECTOR|offset=0x08000|inside_not_ff=0|before_mismatches=0|after_mismatches=0
+STRADDLE|offset=0x1f800|bytes=6144|mismatches=0|crc32=0xd3f15eee
+CYCLES|cycles=16|mismatches=0|last_crc32=0xf1d02665
+ESP-ROM:esp32c3-eco7-20230720
+Build:Jul 20 2023
+rst:0xc (RTC_SW_CPU_RST),boot:0xa (SPI_FAST_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5830,len:0x1564
+load:0x403cbf10,len:0xc20
+load:0x403ce710,len:0x2ff8
+entry 0x403cbf1a
+I (122) boot: ESP-IDF v5.5.3 2nd stage bootloader
+I (122) boot: chip revision: v1.1
+I (122) boot: efuse block revision: v1.3
+I (122) boot.esp32c3: SPI Speed      : 80MHz
+I (122) boot.esp32c3: SPI Mode       : SLOW READ
+I (122) boot.esp32c3: SPI Flash Size : 8MB
+I (122) boot: Enabling RNG early entropy source...
+I (122) boot: Partition Table:
+I (122) boot: ## Label            Usage          Type ST Offset   Length
+I (122) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+I (122) boot:  1 phy_init         RF data          01 01 0000f000 00001000
+I (122) boot:  2 factory          factory app      00 00 00010000 00177000
+I (122) boot:  3 scratch          Unknown data     01 40 00500000 00040000
+I (122) boot: End of partition table
+I (122) esp_image: segment 0: paddr=00010020 vaddr=3c020020 size=0858ch ( 34188) map
+I (123) esp_image: segment 1: paddr=000185b4 vaddr=3fc8bc00 size=01780h (  6016) load
+I (123) esp_image: segment 2: paddr=00019d3c vaddr=40380000 size=062dch ( 25308) load
+I (123) esp_image: segment 3: paddr=00020020 vaddr=42000020 size=13fa4h ( 81828) map
+I (124) esp_image: segment 4: paddr=00033fcc vaddr=403862dc size=0586ch ( 22636) load
+I (125) esp_image: segment 5: paddr=00039840 vaddr=50000008 size=00020h (    32) load
+I (125) boot: Loaded app from partition at offset 0x10000
+I (125) boot: Disabling RNG early entropy source...
+I (125) cpu_start: Unicore app
+I (133) cpu_start: Pro cpu start user code
+I (133) cpu_start: cpu freq: 160000000 Hz
+I (133) app_init: Application information:
+I (133) app_init: Project name:     flash_stress
+I (133) app_init: App version:      probe
+I (133) app_init: ELF file SHA256:  941393faf...
+I (133) app_init: ESP-IDF:          v5.5.3
+I (133) efuse_init: Min chip rev:     v0.3
+I (133) efuse_init: Max chip rev:     v1.99 
+I (133) efuse_init: Chip rev:         v1.1
+I (133) heap_init: Initializing. RAM available for dynamic allocation:
+I (133) heap_init: At 3FC8F220 len 00030DE0 (195 KiB): RAM
+I (133) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM
+I (133) heap_init: At 3FCDC710 len 0000294C (10 KiB): Retention RAM
+I (133) heap_init: At 50000028 len 00001FC0 (7 KiB): RTCRAM
+I (133) spi_flash: detected chip: gd
+I (133) spi_flash: flash io: dio
+I (133) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (133) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (133) main_task: Started on CPU0
+I (133) main_task: Calling app_main()
+PROBE|name=flash_stress|schema=passport-emu/probe-line/1
+PART|offset=0x500000|size=0x040000
+PERSIST|marker=1
+DONE|name=flash_stress|status=ok
+I (133) main_task: Returned from app_main()

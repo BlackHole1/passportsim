@@ -1,0 +1,112 @@
+# Block spec of the `assist_debug` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/assist_debug.rs.
+schema = 1
+block = "assist_debug"
+base = 0x600C_E000
+size = 0x1000
+class = "B"
+milestone = "M3"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h; size 0x1000 matches the DATE register at offset 0x1FC (IDF soc/esp32c3/register/soc/assist_debug_reg.h)"
+
+# The hottest block of the corpus after SPI2 and SHA: about 99,527 writes in the reference trace,
+# because rtos_int_enter and rtos_int_exit rewrite the SP bounds and toggle the monitor on every
+# interrupt. The SP monitor check itself is exact and lives in the CPU: after every instruction
+# that writes x2, while the monitor is enabled.
+
+# ESP-IDF's LL code uses CORE_0_INTR_ENA as the monitor enable and CORE_0_INTR_RLS as the interrupt
+# enable; IDF is the authority here because it is the code that runs on the device.
+[[overrides]]
+register = "ASSIST_DEBUG_CORE_0_INTR_ENA"
+field = "ASSIST_DEBUG_CORE_0_SP_SPILL_MIN_ENA, ASSIST_DEBUG_CORE_0_SP_SPILL_MAX_ENA"
+value = "monitor enable: while a bit is set, the SP monitor watches that bound"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/assist_debug_ll.h:13 defines ASSIST_DEBUG_CORE_0_MONITOR_REG as ASSIST_DEBUG_CORE_0_INTR_ENA_REG, and :64-71 assist_debug_ll_sp_spill_monitor_enable / _disable set and clear the SP_SPILL bits in INTR_ENA."
+
+[[overrides]]
+register = "ASSIST_DEBUG_CORE_0_INTR_RLS"
+field = "ASSIST_DEBUG_CORE_0_SP_SPILL_MIN_RLS, ASSIST_DEBUG_CORE_0_SP_SPILL_MAX_RLS"
+value = "output enable: while a bit is set, a latched violation raises IRQ source 54"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/assist_debug_ll.h:73-79 assist_debug_ll_sp_spill_interrupt_enable / _disable set and clear the SP_SPILL bits in INTR_RLS; the LL passes the ENA-named bit mask, and bits 8 and 9 of INTR_RLS are SP_SPILL_MIN_RLS and _MAX_RLS (IDF soc/esp32c3/register/soc/assist_debug_reg.h:175-183). Consequence for the model: the FreeRTOS port clears INTR_ENA (not INTR_RLS) around a context switch, so a spurious trip while the bounds are being rewritten is prevented by the ENA bit"
+
+[[overrides]]
+register = "ASSIST_DEBUG_CORE_0_DEBUG_MODE"
+field = "ASSIST_DEBUG_CORE_0_DEBUG_MODE"
+value = 0x0
+class = "B"
+provenance = "Must read 0 without a debugger, because esp_cpu_dbgr_is_attached (IDF hal/esp32c3/include/hal/assist_debug_ll.h:130) changes panic and watchdog handling (IDF esp_hw_support/cpu.c) when CONFIG_ESP_DEBUG_OCDAWARE is set. DEBUG_MODULE_ACTIVE (bit 1) is set only while the emulator's own gdb stub is attached"
+
+[[wait]]
+id = "assist_debug.rcd_pdebugpc"
+kind = "wait"
+seed = false
+register = "ASSIST_DEBUG_CORE_0_RCD_PDEBUGPC"
+field = "*"
+trigger = "a non-power-on reset while ASSIST_DEBUG_CORE_0_RCD_EN == 3"
+expect = "read the PC frozen at reset time, so ROM boot_prepare prints the Saved PC banner line; 0 after a power-on reset"
+within = "same_access"
+polled_at = ["boot_prepare"]
+images = ["official", "pk"]
+milestone = "M3"
+provenance = "IDF soc/esp32c3/register/soc/assist_debug_reg.h (0x600C_E048 and 0x600C_E04C) and IDF bootloader_support/src/esp32c3/bootloader_esp32c3.c wdt_reset_cpu0_info_enable (RCD_EN = 3 records the PC and SP for the ROM to print after a reset), and the device banner Saved PC line (device reference boot log, value masked). Not a seed row: it is a read the ROM makes once, not a poll, and it is recorded here so the banner line has a spec row"
+
+[[stable_read]]
+register = "ASSIST_DEBUG_CORE_0_DEBUG_MODE"
+provenance = "IDF soc/esp32c3/register/soc/assist_debug_reg.h (RO, default 0): reads 0 unless the emulator's gdb stub is attached, so the value is a function of modeled state"
+
+[[stable_read]]
+register = "ASSIST_DEBUG_CORE_0_SP_MIN"
+provenance = "IDF soc/esp32c3/register/soc/assist_debug_reg.h (R/W): plain storage the port reads back on every context switch"
+
+[[stable_read]]
+register = "ASSIST_DEBUG_CORE_0_SP_MAX"
+provenance = "IDF soc/esp32c3/register/soc/assist_debug_reg.h (R/W): plain storage the port reads back on every context switch"
+
+[[stable_read]]
+register = "ASSIST_DEBUG_CORE_0_INTR_RAW"
+provenance = "IDF soc/esp32c3/register/soc/assist_debug_reg.h: set only by an SP monitor violation the emulator itself detects, so the value is a function of modeled state"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: ASSIST_DEBUG is in the digital domain, which every reset scope restores"
+
+[[reset_domains]]
+registers = "ASSIST_DEBUG_CORE_0_RCD_PDEBUGPC"
+scopes = ["chip"]
+provenance = "IDF bootloader_support/src/esp32c3/bootloader_esp32c3.c wdt_reset_cpu0_info_enable and wdt_reset_info_dump (the ROM bootloader prints the saved PC): the record registers are the one part of the block that must survive a reset, because the ROM reads them after the reset to print the Saved PC line. They read 0 after a power-on reset and hold the pre-reset PC after every other reset kind, so only the Chip scope (power-on) clears them"
+
+[[reset_domains]]
+registers = "ASSIST_DEBUG_CORE_0_RCD_PDEBUGSP"
+scopes = ["chip"]
+provenance = "Same rule as RCD_PDEBUGPC"
+
+# Classes of the registers the StackGuard model implements exactly, beyond the rows above.
+#
+# The rows this file does not carry stay class U on purpose: the DRAM0 and PIF area monitors, the
+# IRAM0 and DRAM0 exception monitors, the log unit and LASTPC_BEFORE_EXCEPTION are LATER,
+# stored and read back by the block's register bank and modeled no further.
+
+[[overrides]]
+register = "ASSIST_DEBUG_CORE_0_INTR_CLR"
+value = "write INTR_CLR: INTR_RAW and not the value written; the bits clear on the write itself, not while the register holds them"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/assist_debug_reg.h (+0x00C), IDF esp_hw_stack_guard_clear_sp_spill, which leaves its mask standing in the register. The clear mask is the value the access wrote, so a byte write clears only bits inside its own bytes. periph::assist_debug::tests::{a_violation_latches_raw_and_the_pc_and_rls_gates_the_source, int_clr_clears_only_the_bits_the_access_wrote}"
+
+[[overrides]]
+register = "ASSIST_DEBUG_CORE_0_SP_PC"
+value = "read-only: the PC of the instruction whose stack-pointer write tripped the monitor"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/assist_debug_reg.h (+0x040): the CPU checks the bounds after every instruction that writes x2, and the model latches that PC with the RAW bit. periph::assist_debug::tests::{a_violation_latches_raw_and_the_pc_and_rls_gates_the_source, raw_and_sp_pc_ignore_a_software_write}"
+
+[[overrides]]
+register = "ASSIST_DEBUG_CORE_0_RCD_EN"
+value = "record enable: while both bits are set, a reset freezes the PC and SP into RCD_PDEBUGPC and RCD_PDEBUGSP"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/assist_debug_reg.h (+0x044): the ROM reads the frozen PC after the reset to print the Saved PC banner line (dev:L7). periph::assist_debug::tests::{the_record_freezes_only_while_rcd_en_is_three, the_reset_record_survives_a_watchdog_reset_and_a_power_on_clears_it}"
+
+[[overrides]]
+register = "ASSIST_DEBUG_DATE"
+value = "block version, reads its reset constant 0x02008010"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/assist_debug_reg.h (+0x1FC): served from the generated table's reset value through the register bank. periph::assist_debug::tests::the_date_register_reads_its_constant"

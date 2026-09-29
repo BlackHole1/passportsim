@@ -1,0 +1,36 @@
+{
+  "additionalProperties": false,
+  "description": "`endpoint` arguments.",
+  "properties": {
+    "auto_download": {
+      "description": "Reset to download on a raw SYNC.",
+      "type": "boolean"
+    },
+    "clock": {
+      "description": "Who drives time (endpoint).",
+      "enum": [
+        "endpoint",
+        "agent"
+      ],
+      "type": "string"
+    },
+    "close": {
+      "description": "Close the endpoints.",
+      "type": "boolean"
+    },
+    "instance": {
+      "description": "Instance id.",
+      "pattern": "^[pb][0-9]+$",
+      "type": "string"
+    },
+    "pty": {
+      "description": "Open a pty (macOS, data only).",
+      "type": "boolean"
+    },
+    "tcp": {
+      "description": "Open the TCP endpoint on 127.0.0.1.",
+      "type": "boolean"
+    }
+  },
+  "type": "object"
+}

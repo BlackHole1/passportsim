@@ -1,0 +1,44 @@
+{
+  "additionalProperties": false,
+  "description": "`screenshot` arguments.",
+  "properties": {
+    "compare_with": {
+      "description": "Expected image, relative path.",
+      "type": "string"
+    },
+    "inline": {
+      "description": "Return the image inline (false).",
+      "type": "boolean"
+    },
+    "instance": {
+      "description": "Instance id.",
+      "pattern": "^[pb][0-9]+$",
+      "type": "string"
+    },
+    "max_diff_pixels": {
+      "description": "Pixels that may differ (0).",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "save_as": {
+      "description": "Artifact label.",
+      "type": "string"
+    },
+    "tolerance": {
+      "description": "Per-channel tolerance (0).",
+      "maximum": 255,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "view": {
+      "description": "Which view (glass).",
+      "enum": [
+        "raw",
+        "glass",
+        "perceived"
+      ],
+      "type": "string"
+    }
+  },
+  "type": "object"
+}

@@ -1,0 +1,61 @@
+{
+  "additionalProperties": false,
+  "description": "`wifi_ap` arguments; none lists the air.",
+  "properties": {
+    "auth": {
+      "oneOf": [
+        {
+          "enum": [
+            "open",
+            "wep",
+            "wpa-psk",
+            "wpa2-psk",
+            "wpa-wpa2-psk",
+            "wpa2-enterprise",
+            "wpa3-psk",
+            "wpa2-wpa3-psk"
+          ]
+        },
+        {
+          "maximum": 10,
+          "minimum": 0,
+          "type": "integer"
+        }
+      ]
+    },
+    "bssid": {
+      "pattern": "^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$",
+      "type": "string"
+    },
+    "channel": {
+      "maximum": 11,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "instance": {
+      "description": "Instance id.",
+      "pattern": "^[pb][0-9]+$",
+      "type": "string"
+    },
+    "key": {
+      "description": "Secret; never echoed.",
+      "maxLength": 64,
+      "minLength": 6,
+      "type": "string"
+    },
+    "remove": {
+      "type": "boolean"
+    },
+    "rssi": {
+      "maximum": 0,
+      "minimum": -127,
+      "type": "integer"
+    },
+    "ssid": {
+      "maxLength": 32,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "type": "object"
+}

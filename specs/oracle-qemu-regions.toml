@@ -1,0 +1,357 @@
+# QEMU oracle region map, used by the QEMU trace ingest of `cargo xtask oracle`.
+#
+# A QEMU memory-region trace line names a region, not a block, and several regions cover
+# more than one block while one catch-all region covers every block QEMU does not model (a QEMU
+# run of the official image gave the region names and the catch-all pages; its output is not
+# committed). Accesses are therefore resolved by address through the [[block]] table and the
+# [[region]] table only records which region name is expected to reach which block, so a QEMU build that renames or re-splits a region is reported rather
+# than silently mapped.
+#
+# The [[block]] rows are the c3_devices! table of crates/pemu-soc-c3/src/periph/mod.rs,
+# which carries every MMIO base and size; sizes there are UNVERIFIED at 0x1000
+# except the RTC_CNTL / eFuse split slot and NRX.
+#
+# A [[region]] row carries `covers`, the human description, and `blocks`, the machine-readable
+# list of [[block]] names an access through that region name is expected to resolve to. The
+# ingest checks the resolved block against that list and reports a mismatch instead of mapping
+# it away, so a QEMU build that re-splits a region (a `misc.esp.sha` access landing at a TIMG
+# address, say) is caught. The catch-all region names no blocks: by definition it reaches every
+# block QEMU does not model.
+#
+# `trusted` is true where QEMU is trusted for ordered per-block write streams (SHA, TIMG,
+# SYSTIMER, INTMATRIX, USJ, eFuse, cache, SPI1, RTC_CNTL), false everywhere else. A false block is
+# ingested and histogrammed but never diffed.
+
+schema = 1
+
+[[block]]
+name = "uart0"
+base = 0x6000_0000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "spi1"
+base = 0x6000_2000
+size = 0x1000
+trusted = true
+
+[[block]]
+name = "spi0"
+base = 0x6000_3000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "gpio"
+base = 0x6000_4000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "radio_fe2"
+base = 0x6000_5000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "radio_fe"
+base = 0x6000_6000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "rtc_cntl"
+base = 0x6000_8000
+size = 0x800
+trusted = true
+
+[[block]]
+name = "efuse"
+base = 0x6000_8800
+size = 0x800
+trusted = true
+
+[[block]]
+name = "iomux"
+base = 0x6000_9000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "regi2c"
+base = 0x6000_E000
+size = 0x1000
+trusted = false
+note = "QEMU reads 0xFFFFFF here (seen in QEMU runs; no committed capture)"
+
+[[block]]
+name = "uart1"
+base = 0x6001_0000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "i2c0"
+base = 0x6001_3000
+size = 0x1000
+trusted = false
+note = "not modeled by QEMU"
+
+[[block]]
+name = "uhci0"
+base = 0x6001_4000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "rmt"
+base = 0x6001_6000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "ledc"
+base = 0x6001_9000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "radio_nrx"
+base = 0x6001_CC00
+size = 0x400
+trusted = false
+
+[[block]]
+name = "radio_bb"
+base = 0x6001_D000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "timg0"
+base = 0x6001_F000
+size = 0x1000
+trusted = true
+
+[[block]]
+name = "timg1"
+base = 0x6002_0000
+size = 0x1000
+trusted = true
+
+[[block]]
+name = "systimer"
+base = 0x6002_3000
+size = 0x1000
+trusted = true
+
+[[block]]
+name = "spi2"
+base = 0x6002_4000
+size = 0x1000
+trusted = false
+note = "not modeled by QEMU; reads return 0 from the catch-all region"
+
+[[block]]
+name = "apb_ctrl"
+base = 0x6002_6000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "twai"
+base = 0x6002_B000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "i2s0"
+base = 0x6002_D000
+size = 0x1000
+trusted = false
+note = "not modeled by QEMU"
+
+[[block]]
+name = "radio_ble"
+base = 0x6003_1000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "aes"
+base = 0x6003_A000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "sha"
+base = 0x6003_B000
+size = 0x1000
+trusted = true
+
+[[block]]
+name = "rsa"
+base = 0x6003_C000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "ds"
+base = 0x6003_D000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "hmac"
+base = 0x6003_E000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "gdma"
+base = 0x6003_F000
+size = 0x1000
+trusted = false
+note = "QEMU asserts in its GDMA model, so its stream is not evidence"
+
+[[block]]
+name = "saradc"
+base = 0x6004_0000
+size = 0x1000
+trusted = false
+note = "not modeled by QEMU"
+
+[[block]]
+name = "usj"
+base = 0x6004_3000
+size = 0x1000
+trusted = true
+
+[[block]]
+name = "system"
+base = 0x600C_0000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "sensitive"
+base = 0x600C_1000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "intc"
+base = 0x600C_2000
+size = 0x1000
+trusted = true
+
+[[block]]
+name = "extmem"
+base = 0x600C_4000
+size = 0x1000
+trusted = true
+
+[[block]]
+name = "mmu"
+base = 0x600C_5000
+size = 0x1000
+trusted = true
+
+[[block]]
+name = "xts_aes"
+base = 0x600C_C000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "assist_debug"
+base = 0x600C_E000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "dedicated_gpio"
+base = 0x600C_F000
+size = 0x1000
+trusted = false
+
+[[block]]
+name = "world_cntl"
+base = 0x600D_0000
+size = 0x1000
+trusted = false
+
+# Region names seen in a QEMU run of the official image.
+# `catch_all = true` marks the region that covers every unmodeled block; its accesses are
+# resolved by address alone.
+
+[[region]]
+name = "esp_soc.uart"
+covers = "UART0 and UART1"
+blocks = ["uart0", "uart1"]
+
+[[region]]
+name = "esp.systimer"
+covers = "SYSTIMER"
+blocks = ["systimer"]
+
+[[region]]
+name = "esp32.gpio"
+covers = "GPIO"
+blocks = ["gpio"]
+
+[[region]]
+name = "esp32c3.cache"
+covers = "EXTMEM and the MMU table"
+blocks = ["extmem", "mmu"]
+
+[[region]]
+name = "esp32c3.gdma"
+covers = "GDMA"
+blocks = ["gdma"]
+
+[[region]]
+name = "esp32c3.soc.clk"
+covers = "SYSTEM"
+blocks = ["system"]
+
+[[region]]
+name = "misc.esp.sha"
+covers = "SHA"
+blocks = ["sha"]
+
+[[region]]
+name = "misc.esp32c3.intmatrix"
+covers = "INTC"
+blocks = ["intc"]
+
+[[region]]
+name = "misc.esp32c3.rtc_cntl"
+covers = "RTC_CNTL"
+blocks = ["rtc_cntl"]
+
+[[region]]
+name = "misc.esp32c3.usb_serial_jtag"
+covers = "USB Serial/JTAG"
+blocks = ["usj"]
+
+[[region]]
+name = "nvram.esp.efuse"
+covers = "eFuse"
+blocks = ["efuse"]
+
+[[region]]
+name = "ssi.esp32c3.spi"
+covers = "SPI1, the flash controller"
+blocks = ["spi1"]
+
+[[region]]
+name = "timer.esp.timg"
+covers = "TIMG0 and TIMG1"
+blocks = ["timg0", "timg1"]
+
+[[region]]
+name = "esp32c3.iomem"
+covers = "every block QEMU does not model"
+catch_all = true

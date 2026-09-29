@@ -1,0 +1,26 @@
+{
+  "properties": {
+    "fidelity": {
+      "type": "object"
+    },
+    "heap": {
+      "type": "object"
+    },
+    "instance": {
+      "type": "string"
+    },
+    "lvgl": {
+      "type": "object"
+    },
+    "nvs": {
+      "type": "object"
+    },
+    "tasks": {
+      "type": "object"
+    },
+    "vars": {
+      "type": "array"
+    }
+  },
+  "type": "object"
+}

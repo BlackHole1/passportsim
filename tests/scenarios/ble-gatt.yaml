@@ -1,0 +1,75 @@
+# On the release Passport Keys build, the virtual central finds the advertising, connects,
+# discovers the vendor service, subscribes, and gets an answer to each of two command lines. No
+# host reset occurs, and the btsnoop capture is taken.
+#
+# Run it on a `pk` instance past `pk_app: ready` (the advertising is up from there on), with the
+# `ble` radio module bound, as a corpus `pk` start does. A `ble.*` call fails by itself when the
+# central's step does not complete, so every step is an assertion; `expect` adds the facts of
+# the answer.
+#
+# That the btsnoop parses is asserted in tests/milestones/m8.rs
+# (`t1_m8_pk_gatt_hello_and_ping_through_the_ble_gatt_scenario`): a scenario sees the
+# capture's summary, not its bytes.
+schema: passportsim/scenario@1
+name: ble-gatt
+description: The virtual central runs the Passport Keys hello and ping exchange over GATT
+image: pk
+tags: [t1, m8, ble]
+setup: {power: on}
+defaults: {timeout: 10s}
+steps:
+  - name: the central hears Passport Keys advertising, connectable
+    ble.scan: {duration_ms: 500}
+    expect:
+      found: [{name: Passport Keys, pdu: ADV_IND, connectable: true}]
+
+  - name: it connects to the advertiser of the vendor service and agrees MTU 247
+    ble.connect: {service: 12D4FA08-7418-48FA-A95A-B43A2E669E55}
+    expect: {connected: true, mtu: 247}
+
+  - name: the vendor service and its two characteristics are discovered
+    ble.gatt: {op: discover}
+    expect:
+      tree:
+        - uuid: 12D4FA08-7418-48FA-A95A-B43A2E669E55
+          children:
+            - {uuid: 12D4FA09-7418-48FA-A95A-B43A2E669E55}
+            - {uuid: 12D4FA0A-7418-48FA-A95A-B43A2E669E55}
+
+  - name: the central subscribes to the events characteristic
+    ble.gatt: {op: subscribe, uuid: 12D4FA09-7418-48FA-A95A-B43A2E669E55}
+
+  - name: hello goes out on the commands characteristic
+    ble.gatt:
+      op: write
+      uuid: 12D4FA0A-7418-48FA-A95A-B43A2E669E55
+      text: "{\"cmd\":\"hello\"}\n"
+  - name: a notification on the events characteristic answers it with the hello line
+    ble.gatt:
+      op: notifications
+      uuid: 12D4FA09-7418-48FA-A95A-B43A2E669E55
+      text: "\"t\":\"hello\""
+      within_ms: 5000
+    expect: {status: ok}
+
+  - name: ping goes out on the commands characteristic
+    ble.gatt:
+      op: write
+      uuid: 12D4FA0A-7418-48FA-A95A-B43A2E669E55
+      text: "{\"cmd\":\"ping\"}\n"
+  - name: a notification on the events characteristic answers it with the pong line
+    ble.gatt:
+      op: notifications
+      uuid: 12D4FA09-7418-48FA-A95A-B43A2E669E55
+      text: "{\"t\":\"pong\"}"
+      within_ms: 5000
+    expect: {status: ok}
+
+  # `from: start` reads the whole console of this instance, not only what printed during the
+  # window, so a reset at any point of the exchange above fails this step.
+  - name: the NimBLE host never reset
+    expect_not: {serial: {re: host reset, from: start}, for: 1ms}
+
+  - name: the btsnoop capture is taken, as HCI UART (H4) records
+    ble.gatt: {op: capture, artifact: false}
+    expect: {datalink: 1002}

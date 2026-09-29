@@ -1,0 +1,25 @@
+{
+  "properties": {
+    "aps": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "change": {
+      "enum": [
+        "listed",
+        "added",
+        "updated",
+        "removed"
+      ]
+    },
+    "instance": {
+      "type": "string"
+    },
+    "vt_us": {
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}

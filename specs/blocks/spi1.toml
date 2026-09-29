@@ -1,0 +1,154 @@
+# Block spec of the `spi1` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/spi_mem.rs.
+schema = 1
+block = "spi1"
+base = 0x6000_2000
+size = 0x1000
+class = "B"
+milestone = "M1"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h (SPI_MEM 1, the flash command host); size 0x1000 UNVERIFIED"
+
+# SPI1 is the flash command host: the ROM loader and the bootloader drive one flash transaction
+# per CMD bit, and every completion predicate is CMD == 0 (IDF hal/esp32c3/include/hal/spimem_flash_ll.h). The attached chip is
+# specs/blocks/flash_xmc.toml.
+
+[[wait]]
+id = "spi1.cmd"
+kind = "wait"
+seed = true
+register = "SPI_MEM_CMD"
+field = "*"
+trigger = "write one of the SC command bits (FLASH_READ, PP, SE, BE, CE, WREN, WRDI, RDSR, RDID, RES, USR) = 1"
+expect = "read SPI_MEM_CMD == 0 (every command bit self-clears, MST_ST and SLV_ST read 0)"
+within = { fast = "same_access", device = "the command's cmd, addr, dummy and data cycles over the lines CTRL and USER select at the SPI_MEM_CLOCK rate, when spi1_clocked (specs/timing-profiles.toml)" }
+polled_at = ["spi_flash_ll_cmd_is_done", "esp_rom_spiflash_read", "Wait_SPI_Idle"]
+images = ["official", "pk"]
+milestone = "M1"
+provenance = "IDF bootloader_support/bootloader_flash/src/bootloader_flash.c:841-842 and hal/esp32c3/include/hal/spimem_flash_ll.h:61-64 and 404-407; the bundled ROM's read 0x4004eb30 and PP 0x4004f1b4; boot-path seed row"
+
+[[stable_read]]
+register = "SPI_MEM_CMD"
+provenance = "Every command bit self-clears inside the access (the spi1.cmd wait row above), so CMD reads 0 whenever the guest can observe it"
+
+[[stable_read]]
+register = "SPI_MEM_FSM"
+provenance = "The SPI1 transaction engine is synchronous, so the FSM reads idle whenever the guest can observe it"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: SPI_MEM is in the digital domain, which every reset scope restores"
+
+# The registers the flash transaction reads. A command bit written to SPI_MEM_CMD is the only
+# trigger; every register below is the input the decode takes, and the attached part is
+# specs/blocks/flash_xmc.toml. The ROM-phase write stream of this block is oracle-clean, which is
+# the passing oracle comparison a class B needs: tests/milestones/m1.rs, test 
+# t2_m1_rom_write_streams_match_oracle reports `block spi1: 26 of our writes, 26 oracle writes,
+# 26 aligned, clean`.
+[[overrides]]
+register = "SPI_MEM_ADDR"
+value = "bits 23:0 are the flash address of a legacy command and the low bits of a user transaction; bits 31:24 are the byte count of a legacy FLASH_READ or FLASH_PP"
+class = "B"
+provenance = "The legacy command layout of the bundled ROM's read (0x4004eb30) and PP (0x4004f1b4) with IDF hal/esp32c3/include/hal/spimem_flash_ll.h; the oracle comparison above. Tests: periph::spi_mem::tests::the_legacy_page_program_writes_the_array_and_reports_its_pages, ::a_user_transaction_reads_the_array_into_the_w_buffer and ::a_transaction_beyond_the_part_reads_erased_and_writes_nothing"
+
+[[overrides]]
+register = "SPI_MEM_CTRL"
+value = "WRSR_2B makes the legacy status commands two bytes wide; the read-mode bits are stored, because the emulated part answers the same bytes in every protocol mode"
+class = "B"
+provenance = "WRSR_2B pairs SR1 and SR2, which the XMC startup check (IDF bootloader_flash.c bootloader_flash_xmc_startup) depends on; specs/blocks/flash_xmc.toml, whose part model is protocol-independent by construction; the oracle comparison above. Test: periph::spi_mem::tests::the_legacy_identity_and_status_commands_answer_where_the_rom_reads_them"
+
+[[overrides]]
+register = "SPI_MEM_USER"
+value = "USR_COMMAND gates the transaction, and USR_ADDR, USR_MOSI and USR_MISO select which phases run"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/spimem_flash_ll.h; the oracle comparison above. Tests: periph::spi_mem::tests::a_user_transaction_reads_the_array_into_the_w_buffer and ::a_user_transaction_runs_the_status_and_program_commands_too"
+
+[[overrides]]
+register = "SPI_MEM_USER1"
+value = "USR_ADDR_BITLEN is how many bits of SPI_MEM_ADDR the address phase sends; the dummy-cycle count is stored, because the part answers inside the access"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/spimem_flash_ll.h user transactions; a dummy cycle costs no emulated time, because the part answers inside the access. Test: periph::spi_mem::tests::a_user_transaction_reads_the_array_into_the_w_buffer, which pins that a 24-bit width drops the address bits above it"
+
+[[overrides]]
+register = "SPI_MEM_USER2"
+value = "the low byte is the flash opcode of a user transaction; the 16-bit command form is not decoded"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/spimem_flash_ll.h user transactions; no ROM or IDF path uses the 16-bit command form on this part. Test: periph::spi_mem::tests::a_user_transaction_runs_the_status_and_program_commands_too"
+
+[[overrides]]
+register = "SPI_MEM_MOSI_DLEN"
+value = "the write phase length in bits, taken as whole bytes and bounded by the 64-byte data buffer"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/spimem_flash_ll.h user transactions; the bound is the hardware buffer of specs/blocks/flash_xmc.toml. Test: periph::spi_mem::tests::a_user_transaction_runs_the_status_and_program_commands_too"
+
+[[overrides]]
+register = "SPI_MEM_MISO_DLEN"
+value = "the read phase length in bits, taken as whole bytes and bounded by the 64-byte data buffer"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/spimem_flash_ll.h user transactions. Test: periph::spi_mem::tests::a_user_transaction_reads_the_array_into_the_w_buffer"
+
+[[overrides]]
+register = "SPI_MEM_RD_STATUS"
+value = "bits 15:0 are the status bytes: a legacy RDSR writes them here and a legacy WRSR takes them from here, paired as SR1 and SR2 when WRSR_2B is set"
+class = "B"
+provenance = "IDF bootloader_flash.c bootloader_flash_xmc_startup (the XMC startup check reads the status registers); the oracle comparison above. Tests: periph::spi_mem::tests::the_legacy_identity_and_status_commands_answer_where_the_rom_reads_them, ::every_legacy_erase_kind_clears_its_span_and_charges_its_own_wip and ::a_program_arriving_while_the_part_is_busy_is_ignored"
+
+[[overrides]]
+registers = "SPI_MEM_W*"
+value = "the 64-byte data buffer of a transaction, in stream order: a read phase fills it from the part and a write phase takes its bytes, leaving the words above the transfer untouched"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/spi_mem_reg.h (the data buffer W0 to W15 of the flash host); the oracle comparison above. Tests: periph::spi_mem::tests::a_user_transaction_reads_the_array_into_the_w_buffer, ::the_legacy_page_program_writes_the_array_and_reports_its_pages and ::an_export_clears_the_w_buffer_and_latched_program_of_a_secret_range, the last of which is the secret-range redaction path"
+
+# What the flash host stores and deliberately does not act on (class C).
+[[overrides]]
+register = "SPI_MEM_CTRL1"
+value = "stored; the bus timing and the RX FIFO reset reach nothing, because the transaction is synchronous"
+class = "C"
+provenance = "The transaction completes inside the access. Declared class C rationale"
+
+[[overrides]]
+register = "SPI_MEM_CTRL2"
+value = "stored but for bits 9:0 (CS_SETUP_TIME, CS_HOLD_TIME), which read 0 (periph/spi_mem.rs unstored); the timing trim has no effect and SYNC_RESET reads back 0 as the device does"
+class = "C"
+provenance = "The same rule as SPI_MEM_CTRL1. The unstored bits: device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 330 reads 0 after ROM spi_common_set_flash_cs_timing writes 0x41, the bootloader 0x21 and 0x20, and IDF spi_flash_hal_device_config writes 0x3e0 (an MMIO trace of the emulator's run of the same image). Tests: periph::spi_mem::tests::the_unstored_bits_read_the_device_values_after_the_boot_writes, tests/milestones/campaign.rs t1_campaign_regs_rows_match_the_device_capture"
+
+[[overrides]]
+register = "SPI_MEM_CLOCK"
+value = "stored; the emulated part answers inside the access, so the clock divider paces nothing"
+class = "C"
+provenance = "The same rule as SPI_MEM_CTRL1"
+
+[[overrides]]
+register = "SPI_MEM_MISC"
+value = "stored; the chip-select and hold controls reach no emulated pin"
+class = "C"
+provenance = "emulator design choice: the flash part is attached as a chip model (specs/blocks/flash_xmc.toml) rather than over modeled pins. Declared class C rationale"
+
+[[overrides]]
+register = "SPI_MEM_FLASH_WAITI_CTRL"
+value = "stored; the model charges its own write-in-progress time, so the wait-idle command and its dummy cycles are not issued"
+class = "C"
+provenance = "The completion predicate is CMD == 0 (IDF hal/esp32c3/include/hal/spimem_flash_ll.h), and specs/blocks/flash_xmc.toml, whose part model charges the program and erase times. Declared class C rationale"
+
+[[overrides]]
+register = "SPI_MEM_CLOCK_GATE"
+value = "stored; the block is never clock-gated, so the gate reaches nothing"
+class = "C"
+provenance = "emulator design choice: the model covers the flash command path, not the clock tree. Declared class C rationale"
+
+# The auto-suspend registers. Their SC bits self-clear inside the write, as the device clears
+# them when the suspend completes, so the read-back is the device's; what the model does not run is
+# the suspend itself, which makes the two registers a declared approximation rather than a wrong
+# answer. The remaining fields are wait enables, end masks and delay counts of that same engine:
+# stored, read back, and acted on by nothing.
+[[overrides]]
+register = "SPI_MEM_FLASH_SUS_CTRL"
+value = "FLASH_PER and FLASH_PES self-clear inside the write as the device clears them; the program-erase suspend they ask for never runs, and the wait enables, end mask and timeout count around them are stored and do nothing"
+class = "C"
+provenance = "The suspend and resume path, with the SC access column of specs/c3-registers.csv for SPI_MEM_FLASH_PER and SPI_MEM_FLASH_PES, which xtask/src/codegen/access.rs maps to 'clears after effect'; periph/spi_mem.rs runs clear_sc for every SC register of the block and periph::spi_mem::tests::the_suspend_bits_self_clear_like_the_device covers both. The model covers the flash command path and not auto-suspend, so the suspend effect is a declared class C approximation. Neither corpus image uses auto-suspend: the boot path disables it (UNVERIFIED: no public source named; IDF spi_flash/Kconfig SPI_FLASH_AUTO_SUSPEND is off by default), so no observable behavior depends on the missing engine"
+
+[[overrides]]
+register = "SPI_MEM_SUS_STATUS"
+value = "FLASH_SUS self-clears inside the write as the device clears it; the model holds no suspended program or erase for it to report, and the delay and lock fields beside it are stored and do nothing"
+class = "C"
+provenance = "the same rule, the same model test and the same model boundary as SPI_MEM_FLASH_SUS_CTRL, for the SPI_MEM_FLASH_SUS field. The device also sets this bit itself while a suspend is in progress (idf_access R/W/SS/SC in specs/c3-registers.csv); with no suspend engine the model never sets it, which is part of the same declared approximation"

@@ -1,0 +1,207 @@
+# Block spec of the `timg0` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/timg.rs.
+schema = 1
+block = "timg0"
+base = 0x6001_F000
+size = 0x1000
+class = "B"
+milestone = "M2"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h; size 0x1000 UNVERIFIED"
+
+# TIMG0 carries the RTC slow-clock calibration the app cannot boot without: clk.c loops
+# `do { rtc_clk_cal } while (cal_val == 0)`, so a zero result is an infinite outer loop.
+
+[[wait]]
+id = "timg0.rtccali_rdy"
+kind = "wait"
+seed = true
+register = "TIMG_RTCCALICFG"
+field = "TIMG_RTC_CALI_RDY"
+trigger = "write TIMG_RTC_CALI_START = 1"
+expect = "read TIMG_RTC_CALI_RDY == 1, and TIMG_RTCCALICFG1 TIMG_RTC_CALI_VALUE != 0"
+within = "same_access"
+polled_at = ["rtc_clk_cal_internal", "rtc_clk_cal"]
+images = ["official", "pk"]
+milestone = "M2"
+provenance = "IDF esp_hw_support/port/esp32c3/rtc_time.c rtc_clk_cal (RTC slow clock calibration; TIMG_RTCCALICFG 0x6001_F068 bit 15; outer loop IDF esp_system/port/soc/esp32c3/clk.c:196); boot-path seed row. The reset value of START_CYCLING is no trigger, because a cycling calibration sets no RDY (device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 356 reads 0x00013000 after the TIMERGROUP_RST pulse of IDF's enable_timer_group0_for_calibration; IDF rtc_time.c: RDY is the one-off mode's); the poll entered with START_CYCLING set is the row timg0.rtccali_cycling_timeout"
+
+[[wait]]
+id = "timg0.rtccali_cycling_timeout"
+kind = "wait"
+seed = false
+register = "TIMG_RTCCALICFG2"
+field = "TIMG_RTC_CALI_TIMEOUT"
+trigger = "write TIMG_RTCCALICFG2 while TIMG_RTC_CALI_START_CYCLING = 1 and TIMG_RTC_CALI_RDY = 0"
+expect = "read TIMG_RTC_CALI_TIMEOUT == 1"
+within = "same_access"
+polled_at = ["rtc_clk_cal_internal"]
+images = ["official", "pk"]
+milestone = "M2"
+provenance = "IDF v5.5.3 esp_hw_support/port/esp32c3/rtc_time.c rtc_clk_cal_internal: with START_CYCLING set it writes TIMEOUT_THRES 1, 'a small timeout threshold to accelerate the generation of timeout', and polls for RDY or TIMEOUT; the register resets with START_CYCLING set and RDY clear (device-probe_campaign_regs-20260924T164141Z-run1.clean.log lines 356 and 357). UNVERIFIED as a timing: the device times out after the threshold. periph::timg::tests::the_cycling_calibration_of_reset_sets_no_rdy_and_times_out_at_a_threshold_write"
+
+[[overrides]]
+register = "TIMG_RTCCALICFG1"
+field = "TIMG_RTC_CALI_VALUE"
+value = 301176
+class = "B"
+provenance = "IDF esp_hw_support/port/esp32c3/rtc_time.c counts XTAL cycles over the slow cycles: 1024 cycles at 136 kHz (IDF soc/esp32c3/include/soc/clk_tree_defs.h SOC_CLK_RC_SLOW_FREQ_APPROX) with the 40 MHz XTAL give 301176, the value the emulator must return for the default slow clock. The figure is derived from the modeled slow-clock frequency, so the block owner recomputes it when the clock model changes rather than hard-coding it"
+
+[[stable_read]]
+register = "TIMG_RTCCALICFG"
+provenance = "IDF esp_hw_support/port/esp32c3/rtc_time.c:75 polls RDY after the start write: RDY is set by every start write, so the read value is a function of modeled state, not of timing; RDY reads 0 at reset (device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 356)"
+
+[[stable_read]]
+register = "TIMG_RTCCALICFG1"
+provenance = "IDF esp_hw_support/port/esp32c3/rtc_time.c: the calibration result is a function of the selected slow clock and the cycle count alone"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h; TRM Reset and Clock chapter: the timer groups are in the digital domain, which every reset scope restores"
+
+# Classes of the registers the timg model implements exactly. One model serves both groups
+# (periph/timg.rs), so these rows and the ones in timg1.toml are the same rows.
+
+[[overrides]]
+register = "TIMG_T0CONFIG"
+value = "T0: enable, increase, auto-reload, 16-bit divider, alarm enable and the level interrupt enable"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x000): the counter is lazy and its alarm is a scheduler event, so a divider change restarts the tick from the value the counter shows at that moment. periph::timg::tests::t0_counts_at_its_divider_and_alarms_with_autoreload"
+
+[[overrides]]
+register = "TIMG_T0LO"
+value = "low 32 bits of the T0 value the T0UPDATE trigger latched"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x004): T0 is 54 bits, LO 32 and HI 22, and a read is only defined after an update. periph::timg::tests::t0_counts_at_its_divider_and_alarms_with_autoreload"
+
+[[overrides]]
+register = "TIMG_T0HI"
+value = "high 22 bits of the T0 value the T0UPDATE trigger latched"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x008): same rule as T0LO. periph::timg::tests::t0_counts_at_its_divider_and_alarms_with_autoreload"
+
+[[overrides]]
+register = "TIMG_T0UPDATE"
+value = "write trigger, self-clearing: latch the T0 value into T0LO and T0HI in the same access"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x00C): the latch is inside the write, as the SYSTIMER UPDATE trigger is (IDF hal/systimer_hal.c). periph::timg::tests::t0_counts_at_its_divider_and_alarms_with_autoreload"
+
+[[overrides]]
+register = "TIMG_T0ALARMLO"
+value = "low 32 bits of the T0 alarm target"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x010): the alarm is scheduled at the virtual time T0 reaches the target. periph::timg::tests::t0_counts_at_its_divider_and_alarms_with_autoreload"
+
+[[overrides]]
+register = "TIMG_T0ALARMHI"
+value = "high 22 bits of the T0 alarm target"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x014): same rule as T0ALARMLO. periph::timg::tests::t0_counts_at_its_divider_and_alarms_with_autoreload"
+
+[[overrides]]
+register = "TIMG_T0LOADLO"
+value = "low 32 bits of the value T0LOAD writes into T0"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x018): auto-reload uses the same pair when the alarm fires. periph::timg::tests::t0_counts_at_its_divider_and_alarms_with_autoreload"
+
+[[overrides]]
+register = "TIMG_T0LOADHI"
+value = "high 22 bits of the value T0LOAD writes into T0"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x01C): same rule as T0LOADLO. periph::timg::tests::t0_counts_at_its_divider_and_alarms_with_autoreload"
+
+[[overrides]]
+register = "TIMG_T0LOAD"
+value = "write trigger: load T0 from T0LOADLO and T0LOADHI at the time of the write"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x020): the counter is an epoch and a loaded value, so the write sets both. periph::timg::tests::t0_counts_at_its_divider_and_alarms_with_autoreload"
+
+[[overrides]]
+register = "TIMG_WDTCONFIG0"
+value = "watchdog enable at bit 31, the four stage actions at bits 29 - 2n, USE_XTAL and FLASHBOOT_MOD_EN; stored exactly, and every field but FLASHBOOT_MOD_EN acts"
+class = "C"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x048). Declared class C approximation: WDT_FLASHBOOT_MOD_EN resets to 1 and the bootloader clears it in IDF bootloader_support/src/bootloader_init.c bootloader_config_wdt, so on silicon MWDT0 counts from reset until then. The flash-boot watchdogs are deferred, and arming one would make a stalled bring-up run reset itself instead of stopping where the fidelity ledger can name the stalling block. The bit is stored and read back; only the counter it would start is missing. Everything else in the register acts: periph::timg::tests::{the_interrupt_watchdog_interrupts_then_resets_the_system, the_task_watchdog_uses_timg0_source_33_and_its_own_reset_causes, a_disabled_watchdog_counts_nothing, the_stage_actions_decode_as_idf_wdt_types_lists_them}"
+
+[[overrides]]
+register = "TIMG_WDTCONFIG1"
+value = "16-bit prescaler of the watchdog tick, over the 40 MHz crystal or the 80 MHz APB clock"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x04C), IDF MWDT_CLK_SRC_DEFAULT = SOC_MOD_CLK_XTAL: a prescaler write restarts the current stage's tick from the write. periph::timg::tests::{the_interrupt_watchdog_interrupts_then_resets_the_system, feeding_the_watchdog_restarts_stage_zero}"
+
+[[overrides]]
+register = "TIMG_WDTCONFIG2"
+value = "hold of watchdog stage 0, in prescaled ticks"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x050): the stage is a scheduler event at the virtual time the hold expires. periph::timg::tests::{the_interrupt_watchdog_interrupts_then_resets_the_system, feeding_the_watchdog_restarts_stage_zero}"
+
+[[overrides]]
+register = "TIMG_WDTCONFIG3"
+value = "hold of watchdog stage 1"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x054): same rule as WDTCONFIG2. periph::timg::tests::the_interrupt_watchdog_interrupts_then_resets_the_system drives stage 0 into stage 1"
+
+[[overrides]]
+register = "TIMG_WDTCONFIG4"
+value = "hold of watchdog stage 2"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x058): same rule as WDTCONFIG2"
+
+[[overrides]]
+register = "TIMG_WDTCONFIG5"
+value = "hold of watchdog stage 3"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x05C): same rule as WDTCONFIG2; after stage 3 the behavior is UNVERIFIED and the model stops the counter"
+
+[[overrides]]
+register = "TIMG_WDTFEED"
+value = "write trigger: restart the watchdog at stage 0"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x060): the write needs the WDTWPROTECT key like the configuration registers. periph::timg::tests::{feeding_the_watchdog_restarts_stage_zero, the_write_protect_key_gates_the_watchdog_registers}"
+
+[[overrides]]
+register = "TIMG_WDTWPROTECT"
+value = "write-protection key, 0x50D83AA1; while the register holds another value, WDTCONFIG0 to 5 and WDTFEED ignore writes"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x064): the key is the register's own reset value, so the watchdog is writable out of reset. periph::timg::tests::the_write_protect_key_gates_the_watchdog_registers"
+
+[[overrides]]
+register = "TIMG_RTCCALICFG2"
+value = "calibration timeout: TIMG_RTC_CALI_TIMEOUT, bit 0, set when the selected clock does not tick"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x080) and IDF esp_hw_support/port/esp32c3/rtc_time.c: the C3 has no 32 kHz crystal on this board, so RTC_CALI_CLK_SEL 2 times out, RDY stays clear and the value reads 0, which is what clk.c retries around. periph::timg::tests::the_missing_32k_crystal_makes_the_calibration_time_out"
+
+[[overrides]]
+register = "TIMG_INT_ENA_TIMERS"
+value = "interrupt enable: bit 0 T0, bit 1 the watchdog; INT_ST is INT_RAW and INT_ENA and drives the group's two sources"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x070) and specs/irq-sources.toml (TG0_T0 32, TG0_WDT 33, TG1_T0 34, TG1_WDT 35). periph::timg::tests::{the_interrupt_watchdog_interrupts_then_resets_the_system, the_task_watchdog_uses_timg0_source_33_and_its_own_reset_causes}"
+
+[[overrides]]
+register = "TIMG_INT_RAW_TIMERS"
+value = "raw status: bit 0 set by a T0 alarm, bit 1 by a watchdog stage whose action is an interrupt; held until INT_CLR"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x074). periph::timg::tests::{the_interrupt_watchdog_interrupts_then_resets_the_system, t0_counts_at_its_divider_and_alarms_with_autoreload}"
+
+[[overrides]]
+register = "TIMG_INT_ST_TIMERS"
+value = "masked status, read-only: INT_RAW and INT_ENA"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x078): a function of the two registers above. periph::timg::tests::the_interrupt_watchdog_interrupts_then_resets_the_system"
+
+[[overrides]]
+register = "TIMG_INT_CLR_TIMERS"
+value = "write 1 to clear the matching INT_RAW bit"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x07C). periph::timg::tests::the_interrupt_watchdog_interrupts_then_resets_the_system"
+
+[[overrides]]
+register = "TIMG_NTIMERS_DATE"
+value = "block version, reads its reset constant"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x0F8): served from the generated table's reset value through the register bank. periph::timg::tests::every_register_shares_one_reset_domain_and_a_reset_restores_the_block walks the table"
+
+[[overrides]]
+register = "TIMG_REGCLK"
+value = "block clock gate: stored and read back; clearing CLK_EN stops nothing, neither the counters nor register access"
+class = "A"
+provenance = "IDF soc/esp32c3/register/soc/timer_group_reg.h (+0x0FC). Device capture device-probe_campaign_regs-20260926T024930Z-run1.clean.log lines 390 and 427 (probe_campaign_regs gate_timg and gate_timg_count): with CLK_EN clear a write to T0ALARMLO lands and reads back and DATE reads, and general timer 0 at 1 MHz, latched after 200 us, then after 200 us more with CLK_EN clear, then at once and 200 us after it is set again, reads 201, 406, 407 and 608: it counts on with the bit clear, every latch request clearing (latched=1111). The model reads 202, 405, 407 and 607 (tests/milestones/campaign.rs t1_campaign_gate_and_adc_rows_match_the_device_capture)"

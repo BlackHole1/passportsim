@@ -1,0 +1,97 @@
+# Block spec of the `efuse` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/efuse.rs.
+schema = 1
+block = "efuse"
+base = 0x6000_8800
+size = 0x800
+class = "B"
+milestone = "M1"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h (DR_REG_EFUSE_BASE 0x6000_8800); size 0x800: efuse shares page 0x6000_8000 with rtc_cntl and takes its upper half"
+
+# The controller is a read-only window onto the eFuse image the loader supplies. The image itself
+# is never committed; a synthesized v1.1 image pairs with the rev101 ROM.
+
+[[wait]]
+id = "efuse.cmd"
+kind = "wait"
+seed = true
+register = "EFUSE_CMD"
+field = "EFUSE_READ_CMD"
+trigger = "write EFUSE_READ_CMD = 1 (or EFUSE_PGM_CMD = 1)"
+expect = "read EFUSE_CMD == 0 (both command bits self-clear)"
+within = "same_access"
+polled_at = ["efuse_hal_read", "efuse_hal_program"]
+images = ["official", "pk"]
+milestone = "M1"
+provenance = "IDF hal/esp32c3/efuse_hal.c:38-48 and 55-66 (EFUSE_CMD 0x6000_89D4); boot-path seed row"
+
+[[stable_read]]
+register = "EFUSE_CMD"
+provenance = "IDF hal/esp32c3/efuse_hal.c efuse_hal_read polls the command bits back to 0: they self-clear inside the access, so CMD reads 0 whenever the guest can observe it"
+
+[[stable_read]]
+register = "EFUSE_RD_REPEAT_ERR0"
+provenance = "IDF hal/esp32c3/efuse_hal.c efuse_hal_is_coding_error_in_block: the repeat-error registers must read 0 for a valid image, so their read value is a function of the loaded image alone. Device identity never appears in a read comparison: the diff compares only that the value is 0"
+
+[[stable_read]]
+register = "EFUSE_RD_RS_ERR0"
+provenance = "IDF hal/esp32c3/efuse_hal.c efuse_hal_is_coding_error_in_block: a nonzero RS_ERR breaks reads, so it must read 0 for a valid image"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: the eFuse controller registers are in the digital domain. The RD_* shadow registers are reloaded from the eFuse array by the read command, so their value after any reset is the image content, not zero (IDF hal/esp32c3/efuse_hal.c efuse_hal_read and the TRM eFuse Controller chapter)"
+
+# The read window. EFUSE_RD_WR_DIS (0x02C) to EFUSE_RD_SYS_PART1_DATA7 (0x178) is served from the
+# eFuse image the loader supplies rather than from the reset column of specs/c3-registers.csv, and
+# the read command reloads it (IDF hal/esp32c3/efuse_hal.c efuse_hal_read). Three rows cover the three register arrays inside that
+# window that the boot path reads, so the array takes one class from one row.
+# No value appears here: a row names behavior, never an eFuse word, which can carry device identity.
+[[overrides]]
+registers = "EFUSE_RD_REPEAT_DATA*"
+value = "read-only; the word of the loaded eFuse image, reloaded into the shadow by EFUSE_READ_CMD and after every reset"
+class = "B"
+provenance = "IDF hal/esp32c3/efuse_hal.c efuse_hal_read and the TRM eFuse Controller chapter (the RD_* window is the shadow of the eFuse array and EFUSE_READ_CMD refills it); the loader supplies the image. Oracle evidence: tests/milestones/m1.rs, test t2_m1_rom_write_streams_match_oracle reports `block efuse: 0 writes on both sides; 48 read offsets equal the oracle's` over the ROM phase, which is the passing oracle comparison a class B needs. Those 48 reads are five distinct offsets of this array and the next, DATA0 (+0x030), DATA2 (+0x038) and DATA3 (+0x03C) here; the glob claims the rest of the array on the strength of the one code path all of its members share, which is the read of the loaded image below, not on the oracle; model evidence: periph::efuse::tests::the_rd_window_reads_the_loaded_image and ::a_read_command_leaves_the_shadow_equal_to_the_image"
+
+[[overrides]]
+registers = "EFUSE_RD_MAC_SPI_SYS_*"
+value = "read-only; the word of the loaded eFuse image, reloaded into the shadow by EFUSE_READ_CMD and after every reset"
+class = "B"
+provenance = "The same rule as the RD_REPEAT_DATA array; the same oracle comparison as the RD_REPEAT_DATA array, which reaches _1 (+0x048) and _2 (+0x04C) of this one, and the same two model tests of periph/efuse.rs. The identity words in this array never leave the model: the ledger records no value and pemu_soc_c3::periph::efuse::redact_image clears the image for an export"
+
+[[overrides]]
+registers = "EFUSE_RD_SYS_PART1_DATA*"
+value = "read-only; the word of the loaded eFuse image, reloaded into the shadow by EFUSE_READ_CMD and after every reset"
+class = "B"
+provenance = "The same rule as the RD_REPEAT_DATA array; BLK_VERSION_MAJOR 0 hangs the ADC2 self-calibration, which is decoded out of this array (UNVERIFIED); the same model tests as the other two arrays. The oracle read comparison of t2_m1_rom_write_streams_match_oracle does not reach this array, so the evidence here is pemu_machine::machine::tests::the_adc_calibration_decodes_across_its_two_efuse_words, which reads the calibration out of it end to end, which is the IDF-LL-derived test a class B may rest on in place of an oracle comparison"
+
+# The repeat-error registers above the read window. The model decodes no Reed-Solomon and no
+# repeat-consistency error out of the image: it treats the loaded image as the only valid one and
+# leaves the error registers at their reset value 0 (periph/efuse.rs module documentation). That is
+# a declared approximation of a real decode, so all four are class C. The oracle read comparison
+# of t2_m1_rom_write_streams_match_oracle covers five distinct offsets (EFUSE_RD_REPEAT_DATA0,
+# DATA2, DATA3 and EFUSE_RD_MAC_SPI_SYS_1 and _2) and none of the error registers, so none of them
+# may claim it. The stable_read row of ERR0 is a read stability statement, not a class.
+[[overrides]]
+register = "EFUSE_RD_REPEAT_ERR0"
+value = "reads 0; the model performs no repeat-consistency decode of the image"
+class = "C"
+provenance = "IDF hal/esp32c3/efuse_hal.c efuse_hal_is_coding_error_in_block (the repeat-error registers must read 0 for a valid image; a nonzero RS_ERR breaks reads). The emulated image is consistent by construction, so 0 is the right answer for every image the corpus runs, but the model would answer 0 for an inconsistent image as well, which the device would not. Declared class C rationale. The oracle read comparison of t2_m1_rom_write_streams_match_oracle does not reach this register, so it claims no oracle evidence; it returns to U, or is promoted to B, only with a decode of the image behind it"
+
+[[overrides]]
+register = "EFUSE_RD_REPEAT_ERR1"
+value = "reads 0; the model performs no repeat-consistency decode of the image"
+class = "C"
+provenance = "IDF hal/esp32c3/efuse_hal.c efuse_hal_is_coding_error_in_block (the repeat-error registers must read 0 for a valid image; a nonzero RS_ERR breaks reads). The emulated image is consistent by construction, so 0 is the right answer for every image the corpus runs, but the model would answer 0 for an inconsistent image as well, which the device would not. Declared class C rationale"
+
+[[overrides]]
+register = "EFUSE_RD_REPEAT_ERR2"
+value = "reads 0; the model performs no repeat-consistency decode of the image"
+class = "C"
+provenance = "IDF hal/esp32c3/efuse_hal.c efuse_hal_is_coding_error_in_block, the same rule as EFUSE_RD_REPEAT_ERR1"
+
+[[overrides]]
+register = "EFUSE_RD_REPEAT_ERR3"
+value = "reads 0; the model performs no repeat-consistency decode of the image"
+class = "C"
+provenance = "IDF hal/esp32c3/efuse_hal.c efuse_hal_is_coding_error_in_block, the same rule as EFUSE_RD_REPEAT_ERR1"

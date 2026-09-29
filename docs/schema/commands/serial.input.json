@@ -1,0 +1,55 @@
+{
+  "additionalProperties": false,
+  "description": "`serial` arguments.",
+  "properties": {
+    "cursor": {
+      "description": "Byte offset.",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "hex": {
+      "description": "Bytes as hex pairs.",
+      "pattern": "^([0-9a-fA-F]{2})*$",
+      "type": "string"
+    },
+    "instance": {
+      "description": "Instance id.",
+      "pattern": "^[pb][0-9]+$",
+      "type": "string"
+    },
+    "max_bytes": {
+      "description": "Largest read (8192).",
+      "maximum": 1048576,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "newline": {
+      "description": "Append a newline (false).",
+      "type": "boolean"
+    },
+    "op": {
+      "description": "What to do.",
+      "enum": [
+        "read",
+        "write"
+      ],
+      "type": "string"
+    },
+    "stream": {
+      "description": "Console (usj).",
+      "enum": [
+        "usj",
+        "uart0"
+      ],
+      "type": "string"
+    },
+    "text": {
+      "description": "Text to write.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "op"
+  ],
+  "type": "object"
+}

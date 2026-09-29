@@ -1,0 +1,82 @@
+# Block spec of the `gdma` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/gdma.rs.
+schema = 1
+block = "gdma"
+base = 0x6003_F000
+size = 0x1000
+class = "B"
+milestone = "M4"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h; size 0x1000 UNVERIFIED"
+
+# The per-channel register indices are derived from the CH0 rows and the strides of the generated
+# table, and a test pins CH1 and CH2 against the offsets below, so an S3-shaped layout fails
+# instead of mis-decoding. Routing is by PERI_SEL.
+
+# C3 layout, not the S3 layout: IN_CONF0 0x70, OUT_CONF0 0xD0, OUT_LINK 0xE0, channel stride
+# 0xC0, PERI_SEL SPI2 0 / I2S0 3 / SHA 7. The layout is checked structurally by codegen,
+# because with it wrong the LVGL flush never completes.
+# Descriptors and buffers live in internal DRAM 0x3FC8_0000 to 0x3FCD_FFFF; the link registers
+# hold 20 bits (IDF soc/esp32c3/register/soc/gdma_reg.h) and the DMA-visible address is rebuilt as
+# 0x3FC0_0000 | addr20 (the prefix is UNVERIFIED).
+
+# The two I2S EOF seed rows. The registers belong to GDMA, not to I2S0, so the rows live here
+# (codegen rejects a row whose register belongs to another block); the I2S TX and RX paths poll
+# them.
+[[wait]]
+id = "gdma.i2s_out_eof"
+kind = "wait"
+seed = true
+register = "GDMA_INT_RAW_CH0"
+field = "GDMA_OUT_EOF_CH0_INT_RAW"
+trigger = "the outbound descriptor chain of the I2S TX channel reaches a descriptor with EOF set"
+expect = "read GDMA_OUT_EOF_CH0_INT_RAW == 1, and the I2S TX DMA callback runs"
+within = "same_access"
+polled_at = ["i2s_dma_tx_callback", "s_i2s_write"]
+images = ["official", "pk"]
+milestone = "M6"
+provenance = "IDF soc/esp32c3/register/soc/gdma_reg.h:54-58 (GDMA_OUT_EOF_CH0_INT_RAW, bit 4 of the per-channel INT_RAW register, R/WTC/SS); board-path seed row (I2S OUT_EOF). The row is written against channel 0; the channel bound to I2S0 is selected through PERI_SEL 3, and CH1 and CH2 follow the same rule at stride 0x10 for the interrupt registers"
+
+[[wait]]
+id = "gdma.i2s_in_suc_eof"
+kind = "wait"
+seed = true
+register = "GDMA_INT_RAW_CH0"
+field = "GDMA_IN_SUC_EOF_CH0_INT_RAW"
+trigger = "the inbound descriptor chain of the I2S RX channel completes a descriptor successfully"
+expect = "read GDMA_IN_SUC_EOF_CH0_INT_RAW == 1, and the I2S RX DMA callback runs"
+within = "same_access"
+polled_at = ["i2s_dma_rx_callback", "s_i2s_read"]
+images = ["official", "pk"]
+milestone = "M6"
+provenance = "IDF soc/esp32c3/register/soc/gdma_reg.h:26-33 (GDMA_IN_SUC_EOF_CH0_INT_RAW, bit 1 of the per-channel INT_RAW register, R/WTC/SS); board-path seed row (I2S IN_SUC_EOF). The row is written against channel 0; CH1 and CH2 follow the same rule"
+
+# Not a seed row: the link start, stop and restart bits are write-only pulses, so nothing polls
+# them. Recorded because a model that stores them instead breaks the descriptor walk.
+[[overrides]]
+register = "GDMA_OUT_LINK_CH0"
+field = "GDMA_OUTLINK_START_CH0, GDMA_OUTLINK_STOP_CH0, GDMA_OUTLINK_RESTART_CH0"
+value = "write-only pulse: the bit takes effect and reads back 0"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/gdma_ll.h gdma_ll_tx_start and the matching stop and restart set one bit each, which IDF soc/esp32c3/register/soc/gdma_reg.h gives as R/W/SC (write-only pulses). The same rule applies to GDMA_IN_LINK_CH0 and to channels 1 and 2"
+
+[[stable_read]]
+register = "GDMA_INT_RAW_CH0"
+provenance = "IDF soc/esp32c3/register/soc/gdma_reg.h (R/WTC/SS): the EOF bits are a function of the modeled descriptor walk, which the emulator performs synchronously"
+
+# Channels 1 and 2 raise the same bits from the same walk, so they are the same stable, modeled
+# read. Without these rows the registers default to class U, and the hang detector reads a guest
+# polling `OUT_EOF` on channel 1 for an I2S period as a loop on a register nothing can change
+# (`StuckKind::Unchangeable`), because the event that sets the bit belongs to I2S0 and not to
+# this block (`tests/milestones/cross_host/guest.rs` phase 8).
+[[stable_read]]
+register = "GDMA_INT_RAW_CH1"
+provenance = "As GDMA_INT_RAW_CH0: channel 1's EOF bits are set by the same modeled descriptor walk (periph/gdma.rs `layout(1)`)"
+
+[[stable_read]]
+register = "GDMA_INT_RAW_CH2"
+provenance = "As GDMA_INT_RAW_CH0: channel 2's EOF bits are set by the same modeled descriptor walk (periph/gdma.rs `layout(2)`)"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: GDMA is in the digital domain, which every reset scope restores"

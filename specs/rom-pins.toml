@@ -1,0 +1,19 @@
+# Per-ROM behavior pins keyed by the full SHA-256 of a bundled ROM ELF as listed in
+# assets/rom/pins.toml. A hook listed under a key is installed only when the loaded ROM has that
+# hash; a ROM accepted with --allow-unpinned-rom gets none of them. Every key must be a sha256 of
+# assets/rom/pins.toml with the same `file`; the pemu-loader test
+# `rom::tests::rom_pins_keys_are_pinned` checks this.
+#
+# Each pin: `name`, `pc` (address in the IROM view of the ROM image), `insn` (the 32-bit
+# instruction word the image holds at `pc`, compared by the same test), `hook` (the HLE hook kind
+# installed at `pc`) and `cite`. A ROM without known pins keeps an empty list.
+
+[rom.9495e1453f36f7eec4112714ea1dca22d77808776adffa93dda7dda4393e8336]
+file = "esp32c3_rev101_rom.elf"
+pins = [
+    { name = "ets_delay_us_loop", pc = 0x40047e9e, insn = 0x802027f3, hook = "FastForward(RomDelayLoop)", cite = "rev101 ROM ELF: ets_delay_us 0x40047e8e, loop head 0x40047e9e (csrr a5,0x802; sub a5,a5,a4; bltu a5,a0)" },
+]
+
+[rom.19ac22e08707df926fb0cf4c54795d4067b983fae8635f396ded173a6d78fc3c]
+file = "esp32c3_rev3_rom.elf"
+pins = []

@@ -1,0 +1,105 @@
+# Block spec of the `saradc` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/saradc.rs.
+schema = 1
+block = "saradc"
+base = 0x6004_0000
+size = 0x1000
+class = "B"
+milestone = "M5"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h (APB_SARADC, including TSENS); size 0x1000 UNVERIFIED"
+
+# The buttons are an ADC divider on GPIO0 (boards/ai-passport.toml [buttons]). Without the done
+# bit the adc_oneshot_ll_get_event busy-wait hangs the esp_timer task.
+
+[[wait]]
+id = "saradc.adc1_done"
+kind = "wait"
+seed = true
+register = "APB_SARADC_INT_RAW"
+field = "APB_SARADC_ADC1_DONE_INT_RAW"
+trigger = "rising edge of APB_SARADC_ONETIME_START, which starts a one-shot conversion"
+expect = "read APB_SARADC_ADC1_DONE_INT_RAW == 1, and APB_SARADC_1_DATA_STATUS holds the raw code"
+within = { fast = "same_access", device = "adc_conversion_ps after the rising edge (specs/timing-profiles.toml, 26.24 us)" }
+polled_at = ["adc_oneshot_ll_get_event", "adc_hal_self_calibration"]
+images = ["official", "pk"]
+milestone = "M5"
+provenance = "IDF hal/adc_oneshot_hal.c:152 and hal/adc_hal_common.c:128 (APB_SARADC INT_RAW.adc1_done bit 31, busy-waited by the one-shot read and by self-calibration; the conversion starts on the rising edge of ONETIME_SAMPLE.onetime_start); board-path seed row. The device's conversion time: device-probe_campaign_regs-20260926T024930Z-run1.clean.log line 429 (TIME adc_oneshot_read, 64 reads in 3029 us), the adc_conversion_ps row of specs/timing-profiles.toml; test tests/milestones/campaign.rs t1_campaign_gate_and_adc_rows_match_the_device_capture"
+
+[[stable_read]]
+register = "APB_SARADC_INT_RAW"
+provenance = "The done bit is set inside the start write under fast, and by the block's own completion event adc_conversion_ps later under device, so the read value is a function of modeled state until the next event"
+
+[[stable_read]]
+register = "APB_SARADC_1_DATA_STATUS"
+provenance = "The raw code is a function of the modeled button state, not of timing: up 3, down 393, ok 782, released 4095 (boards/ai-passport.toml [buttons]); device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log lines 395 and 402 to 404 read 4095 idle and medians 3, 394 and 782 pressed, and down is one code below the device because the synthesized eFuse curve reads 274 mV at both 393 and 394. Tests: tests/milestones/campaign.rs t1_campaign_regs_rows_match_the_device_capture, pemu-board tests/ladder.rs the_four_ladder_codes_come_out_of_the_inverse_curve"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: APB_SARADC is in the digital domain, which every reset scope restores. The analog side of the converter is programmed through regi2c (specs/blocks/regi2c.toml, I2C_SAR_ADC block 0x69)"
+
+# Registers the one-shot model interprets or deliberately approximates. None of these rows
+# changes a reset value. APB_SARADC_CTRL, at offset 0x000, is stored and not interpreted; its row
+# is classed C so the strict coverage gate does not stop on the one-shot clock setup.
+[[overrides]]
+register = "APB_SARADC_CTRL"
+field = "APB_SARADC_XPD_SAR_FORCE, APB_SARADC_SAR_CLK_GATED, APB_SARADC_SAR_CLK_DIV"
+value = "stored and read back; the power and clock sequencing the fields set is not applied: a one-shot conversion takes adc_conversion_ps whatever they hold (0 under fast), and the continuous-mode START bits start nothing"
+class = "C"
+provenance = "IDF soc/esp32c3/register/soc/apb_saradc_reg.h (CTRL fields at 0x00) and IDF hal/adc_oneshot_hal.c adc_oneshot_hal_setup (sets CTRL.sar_clk_gated through hal/esp32c3/include/hal/adc_ll.h; the one-shot conversion is started by ONETIME_SAMPLE, not CTRL) and specs/notes/g3-behavior.md g3-adc-read-path (minimal completion behavior); periph/saradc.rs stores it through the generated table. The value before and after the driver equals the device's (device-probe_campaign_regs-20260924T164141Z-run1.clean.log lines 273 and 396), and the one-shot time at the driver's setting is the device's (device-probe_campaign_regs-20260926T024930Z-run1.clean.log line 429); the declared rationale is that the time is one fitted number at that setting, not a function of these fields, and no corpus image changes them"
+
+[[overrides]]
+register = "APB_SARADC_ONETIME_SAMPLE"
+field = "APB_SARADC_ONETIME_START"
+value = "a rising edge with SARADC1_ONETIME_SAMPLE or SARADC2_ONETIME_SAMPLE set starts one conversion of the channel and attenuation the same register carries"
+class = "B"
+provenance = "IDF hal/adc_oneshot_hal.c adc_oneshot_hal_convert and specs/notes/g3-behavior.md g3-adc-read-path (minimal completion behavior); modeled by periph/saradc.rs"
+
+[[overrides]]
+register = "APB_SARADC_INT_ENA"
+field = "APB_SARADC_ADC1_DONE_INT_ENA"
+value = "masks INT_RAW into INT_ST"
+class = "B"
+provenance = "specs/notes/g3-behavior.md g3-adc-read-path (INT_ST reads INT_RAW AND INT_ENA); modeled by periph/saradc.rs"
+
+[[overrides]]
+register = "APB_SARADC_INT_ST"
+field = "APB_SARADC_ADC1_DONE_INT_ST"
+value = "reads INT_RAW masked by INT_ENA"
+class = "B"
+provenance = "specs/notes/g3-behavior.md g3-adc-read-path (INT_ST reads INT_RAW AND INT_ENA); modeled by periph/saradc.rs"
+
+[[overrides]]
+register = "APB_SARADC_INT_CLR"
+field = "APB_SARADC_ADC1_DONE_INT_CLR"
+value = "a written 1 clears the INT_RAW bit behind it; the register itself reads 0"
+class = "B"
+provenance = "IDF hal/adc_oneshot_hal.c adc_oneshot_hal_convert (the conversion starts by clearing bit 31) and specs/notes/g3-behavior.md g3-adc-read-path; modeled by periph/saradc.rs"
+
+[[overrides]]
+register = "APB_SARADC_2_DATA_STATUS"
+field = "APB_SARADC_ADC2_DATA"
+value = "an ADC2 conversion latches 0, because nothing on this board is wired to ADC2"
+class = "C"
+provenance = "specs/notes/g3-behavior.md g3-adc-read-path (completion behavior: bit 30 writes 0 to 2_DATA_STATUS) and boards/ai-passport.toml, whose only ADC pin is the GPIO0 ladder on unit 1; periph/saradc.rs"
+
+[[overrides]]
+register = "APB_SARADC_APB_ADC_CLKM_CONF"
+field = "APB_SARADC_CLKM_DIV_NUM"
+value = "stored and read back; the divider is not applied: a one-shot conversion takes adc_conversion_ps, fitted at the driver's divider (APB / 16), whatever the field holds (0 under fast)"
+class = "C"
+provenance = "IDF hal/esp32c3/include/hal/adc_ll.h adc_ll_digi_clk_sel (writes clk_sel 2) and hal/adc_oneshot_hal.c adc_oneshot_hal_setup (the divider) and specs/notes/g3-behavior.md g3-adc-read-path; periph/saradc.rs stores it. The value equals the device's (device-probe_campaign_regs-20260924T164141Z-run1.clean.log lines 274 and 399) and the one-shot time at this divider is the device's (device-probe_campaign_regs-20260926T024930Z-run1.clean.log line 429); the declared rationale is that no corpus image sets another divider"
+
+[[overrides]]
+register = "APB_SARADC_APB_ADC_ARB_CTRL"
+field = "APB_SARADC_ADC_ARB_APB_FORCE"
+value = "stored and read back; the ADC2 arbiter has nothing to arbitrate on this board"
+class = "C"
+provenance = "IDF hal/adc_hal_common.c adc_hal_arbiter_config (ARB_CTRL is the ADC2 arbiter; hal/adc_oneshot_hal.c calls it on every read path); periph/saradc.rs stores it"
+
+[[overrides]]
+register = "APB_SARADC_FSM_WAIT"
+field = "APB_SARADC_XPD_WAIT"
+value = "stored and read back; the FSM wait states are not applied: a one-shot conversion takes adc_conversion_ps, fitted at the boot's counts (0x00640805), whatever the fields hold (0 under fast)"
+class = "C"
+provenance = "IDF soc/esp32c3/register/soc/apb_saradc_reg.h and specs/notes/g3-behavior.md g3-adc-read-path; periph/saradc.rs stores it. The value equals the device's (device-probe_campaign_regs-20260924T164141Z-run1.clean.log lines 276 and 397) and the one-shot time at these counts is the device's (device-probe_campaign_regs-20260926T024930Z-run1.clean.log line 429; the standby, reset and power-up waits would be 113 of the 131 controller cycles, UNVERIFIED); the declared rationale is that no corpus image changes them"

@@ -1,0 +1,8 @@
+# probe_campaign_reset overrides on top of probes/common/sdkconfig.defaults, for the silicon
+# evidence campaign (specs/notes/silicon-campaign.md).
+#
+# The partition table is the Passport's own layout (partitions.csv beside this file), so the
+# identity guard accepts a flash of this image and no segment falls in cardid; the probe writes no
+# flash and initialises no NVS. Timer and GPIO wake from deep sleep are the stock configuration.
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"

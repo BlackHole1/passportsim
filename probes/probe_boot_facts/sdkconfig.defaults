@@ -1,0 +1,2 @@
+# probe_boot_facts overrides on top of probes/common/sdkconfig.defaults.
+# Nothing beyond the shared defaults: this probe only reads facts the stock configuration gives.

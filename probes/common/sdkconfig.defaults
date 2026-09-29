@@ -1,0 +1,38 @@
+# sdkconfig defaults shared by every probe.
+#
+# `cargo xtask probes` passes this file first and the probe's own `sdkconfig.defaults` second, so
+# a probe can override any line here. Every value exists for a reason:
+#
+#  - the console is the USB Serial/JTAG port, because that is the device's only console and the
+#    port the emulator models; the earlier prototype firmware uses the same setting;
+#  - the flash size and partition table match the 8 MB XMC part of the board (tests/fixtures/device-facts.toml), so
+#    a merged image of a probe has the same layout as the corpus images;
+#  - CONFIG_APP_REPRODUCIBLE_BUILD keeps the build date, time and absolute source paths out of the
+#    image, which is what lets `xtask probes --check` compare a fresh build against the committed
+#    SHA-256 in tests/fw/manifest.toml.
+
+CONFIG_IDF_TARGET="esp32c3"
+
+# Console on the USB Serial/JTAG port only, no secondary console.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+
+# 8 MB XMC flash, DIO, the same single-app-large table the prototype firmware uses.
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+CONFIG_ESPTOOLPY_FLASHMODE_DIO=y
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+
+# Reproducible output: no build date or time in the app and bootloader descriptions, and source
+# paths mapped to relative ones.
+CONFIG_APP_REPRODUCIBLE_BUILD=y
+
+# Keep the console quiet enough that probe lines dominate, but leave the boot banner in place:
+# the banner itself is an oracle fact.
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+CONFIG_BOOTLOADER_LOG_LEVEL_INFO=y
+
+# Pin the project version instead of taking it from `git describe` of this repository. Without
+# this the app description carries the checkout's current commit, so every commit here changes
+# the app image and the ELF, and the manifest would be stale the moment it was committed.
+CONFIG_APP_PROJECT_VER_FROM_CONFIG=y
+CONFIG_APP_PROJECT_VER="probe"

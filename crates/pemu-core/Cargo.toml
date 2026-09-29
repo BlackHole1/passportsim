@@ -1,0 +1,21 @@
+[package]
+name = "pemu-core"
+description = "Deterministic core types of PassportSim."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# The trace digest of `pemu_core::trace`.
+blake3.workspace = true
+serde = { workspace = true, features = ["derive"] }
+# The snapshot section codec (`pemu_core::snap`).
+postcard.workspace = true
+
+# Large fixed-size buffers are heap-built: a Windows .exe gets a 1 MiB main stack, macOS 8 MiB.
+# The size the lints treat as large is `array-size-threshold` of this crate's clippy.toml.
+[lints.clippy]
+large_stack_arrays = "deny"
+large_stack_frames = "deny"

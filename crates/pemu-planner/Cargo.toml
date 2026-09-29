@@ -1,0 +1,31 @@
+# Crate layering: docs/ARCHITECTURE.md (Layering).
+[package]
+name = "pemu-planner"
+description = "Flash-to-device planner of PassportSim."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+# The only code that may open a host serial device (layering rule 5). On Windows it also takes
+# `windows-sys` for the port read and the owner-only scratch files of `exec/windows.rs`, and the
+# communications feature of `windows-sys` is enabled here and nowhere else (`cargo xtask
+# layering` checks both).
+device = ["dep:windows-sys", "windows-sys/Win32_Devices_Communication"]
+
+[dependencies]
+pemu-loader.workspace = true
+
+# Optional, Windows only, and enabled by feature `device` alone: the pure planner stays a core
+# crate with no third-party dependency (layering rule 1).
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true, optional = true }
+
+# Every large fixed-size buffer is heap-built: a Windows .exe gets a 1 MiB stack from its PE
+# header where macOS gives 8 MiB. The size the lints treat as large is `array-size-threshold`
+# of this crate's clippy.toml.
+[lints.clippy]
+large_stack_arrays = "deny"
+large_stack_frames = "deny"

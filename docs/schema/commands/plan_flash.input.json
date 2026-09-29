@@ -1,0 +1,24 @@
+{
+  "description": "Arguments of `plan_flash`: the image to plan and the optional port. Nothing here opens a device.",
+  "properties": {
+    "erase_nvs": {
+      "description": "CLI only, never over MCP: erase the `nvs` partition as well.",
+      "type": "boolean"
+    },
+    "image": {
+      "description": "A merged `.bin` of the whole 8 MB part. A build directory is refused in v1.",
+      "type": "string"
+    },
+    "port": {
+      "description": "A discovered 303A:1001 port; required when several are attached.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "image"
+  ],
+  "type": "object"
+}

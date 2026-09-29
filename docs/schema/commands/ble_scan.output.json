@@ -1,0 +1,127 @@
+{
+  "properties": {
+    "adv_events": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "duration_ms": {
+      "type": "integer"
+    },
+    "elapsed_vt_us": {
+      "type": "integer"
+    },
+    "found": {
+      "items": {
+        "properties": {
+          "addr": {
+            "type": "string"
+          },
+          "at_us": {
+            "type": "integer"
+          },
+          "channel": {
+            "type": "integer"
+          },
+          "connectable": {
+            "type": "boolean"
+          },
+          "data": {
+            "type": "string"
+          },
+          "heard": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pdu": {
+            "type": "string"
+          },
+          "random": {
+            "type": "boolean"
+          },
+          "scan_response": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "heard": {
+      "type": "integer"
+    },
+    "instance": {
+      "type": "string"
+    },
+    "outcome": {
+      "enum": [
+        "heard",
+        "silent",
+        "none_matching",
+        "read"
+      ],
+      "type": "string"
+    },
+    "radio": {
+      "properties": {
+        "advertising": {
+          "properties": {
+            "addr": {
+              "type": "string"
+            },
+            "connectable": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "pdu": {
+              "type": "string"
+            },
+            "random": {
+              "type": "boolean"
+            }
+          },
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "state": {
+          "enum": [
+            "connected",
+            "advertising",
+            "idle"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "status": {
+      "type": "string"
+    },
+    "steps": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "vt_us": {
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}

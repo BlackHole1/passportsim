@@ -1,0 +1,10 @@
+# probe_stack overrides on top of probes/common/sdkconfig.defaults.
+#
+# The overflow must be caught by the hardware stack guard (the ASSIST_DEBUG stack-pointer
+# monitor), which is the default on this chip. FreeRTOS's own canary check runs only at a context
+# switch and would report a different reason if a tick landed mid-recursion, so it is off.
+CONFIG_ESP_SYSTEM_HW_STACK_GUARD=y
+CONFIG_FREERTOS_CHECK_STACKOVERFLOW_NONE=y
+
+# Print the register dump and reboot at once, so the next boot can report the reset reason.
+CONFIG_ESP_SYSTEM_PANIC_PRINT_REBOOT=y

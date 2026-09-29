@@ -1,0 +1,96 @@
+[package]
+name = "pemu-milestones"
+description = "Milestone tests of PassportSim."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+autotests = false
+
+[dev-dependencies]
+pemu-testkit.workspace = true
+# Every crate below is inside the closure this package already has through
+# `pemu-testkit -> pemu-machine -> pemu-soc-c3 -> pemu-board`, so `xtask layering` accepts it.
+pemu-core.workspace = true
+pemu-rv32.workspace = true
+pemu-soc-c3.workspace = true
+pemu-board.workspace = true
+pemu-machine.workspace = true
+pemu-hle.workspace = true
+pemu-loader.workspace = true
+pemu-radio.workspace = true
+pemu-host.workspace = true
+serde_json.workspace = true
+pemu-planner.workspace = true
+pemu-api.workspace = true
+pemu-verify.workspace = true
+
+[[test]]
+name = "m0"
+path = "m0.rs"
+
+[[test]]
+name = "m1"
+path = "m1.rs"
+
+[[test]]
+name = "m2"
+path = "m2.rs"
+
+[[test]]
+name = "m3"
+path = "m3.rs"
+
+[[test]]
+name = "m4"
+path = "m4.rs"
+
+[[test]]
+name = "m5"
+path = "m5.rs"
+
+[[test]]
+name = "m6"
+path = "m6.rs"
+
+[[test]]
+name = "m7"
+path = "m7.rs"
+
+[[test]]
+name = "m8"
+path = "m8.rs"
+
+[[test]]
+name = "m9"
+path = "m9.rs"
+
+[[test]]
+name = "m10"
+path = "m10.rs"
+
+[[test]]
+name = "m11"
+path = "m11.rs"
+
+[[test]]
+name = "m12"
+path = "m12.rs"
+
+[[test]]
+name = "m13"
+path = "m13.rs"
+
+[[test]]
+name = "m14"
+path = "m14.rs"
+
+[[test]]
+name = "campaign"
+path = "campaign.rs"
+
+# Cross-host parity, run by the T0 step `cross-host-parity` on every host.
+[[test]]
+name = "cross_host"
+path = "cross_host/main.rs"

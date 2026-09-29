@@ -1,0 +1,145 @@
+{
+  "properties": {
+    "bytes": {
+      "type": "integer"
+    },
+    "capture": {
+      "properties": {
+        "bytes": {
+          "type": "integer"
+        },
+        "media_type": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "cccd": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "datalink": {
+      "type": "integer"
+    },
+    "dropped": {
+      "type": "integer"
+    },
+    "elapsed_vt_us": {
+      "type": "integer"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "instance": {
+      "type": "string"
+    },
+    "key_material_zeroed": {
+      "type": "integer"
+    },
+    "new": {
+      "type": "integer"
+    },
+    "notifications": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "op": {
+      "type": "string"
+    },
+    "packets": {
+      "type": "integer"
+    },
+    "radio": {
+      "properties": {
+        "advertising": {
+          "properties": {
+            "addr": {
+              "type": "string"
+            },
+            "connectable": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "pdu": {
+              "type": "string"
+            },
+            "random": {
+              "type": "boolean"
+            }
+          },
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "state": {
+          "enum": [
+            "connected",
+            "advertising",
+            "idle"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "secrets": {
+      "type": "boolean"
+    },
+    "status": {
+      "type": "string"
+    },
+    "steps": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "text": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "total": {
+      "type": "integer"
+    },
+    "tree": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "uuid": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "value": {
+      "type": "string"
+    },
+    "vt_us": {
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}

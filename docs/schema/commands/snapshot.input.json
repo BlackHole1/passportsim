@@ -1,0 +1,56 @@
+{
+  "additionalProperties": false,
+  "description": "`snapshot` arguments.",
+  "properties": {
+    "confirm": {
+      "description": "Human confirmation code.",
+      "type": "string"
+    },
+    "count": {
+      "description": "Forks to create (1).",
+      "maximum": 16,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "include_secrets": {
+      "description": "Export unredacted; needs `confirm`.",
+      "type": "boolean"
+    },
+    "instance": {
+      "description": "Instance id.",
+      "pattern": "^[pb][0-9]+$",
+      "type": "string"
+    },
+    "name": {
+      "description": "Snapshot name.",
+      "pattern": "^[A-Za-z0-9_.-]{1,64}$",
+      "type": "string"
+    },
+    "op": {
+      "description": "What to do.",
+      "enum": [
+        "save",
+        "restore",
+        "load",
+        "list",
+        "delete",
+        "fork",
+        "export",
+        "import"
+      ],
+      "type": "string"
+    },
+    "path": {
+      "description": "Artifact path, relative and forward-slashed.",
+      "type": "string"
+    },
+    "vary_seed": {
+      "description": "Give each fork its own seed.",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "op"
+  ],
+  "type": "object"
+}

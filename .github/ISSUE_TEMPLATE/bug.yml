@@ -1,0 +1,45 @@
+name: Bug report
+description: Something in PassportSim does not work as expected.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the web UI
+        2. Drop a firmware
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Web UI (online)
+        - Web UI (local, `just run` or `passportsim serve`)
+        - CLI
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version and host
+      placeholder: "0.1.0, macOS 15 on Apple silicon, Chrome 140"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Remove serial numbers, MAC addresses, Wi-Fi credentials and any other device data first.
+      render: text

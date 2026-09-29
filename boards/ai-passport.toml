@@ -1,0 +1,94 @@
+# The AI Passport board description.
+#
+# `BoardConfig::default` in `crates/pemu-board/src/passport.rs` carries the same values and is what
+# a run uses; `crates/pemu-board/tests/domains.rs` fails if the two disagree. `config_hash` is
+# computed over the parsed configuration, so a CRLF checkout or a reordered key cannot change it.
+
+[soc]
+xtal_hz = 40_000_000
+slow_clk_hz = 136_000
+flash = { vendor = "XMC", jedec = [0x20, 0x40, 0x17], size_mb = 8 }
+# Normal SPI flash boot: the ROM prints `boot:0xa`.
+strap = 0x0A
+
+[display]
+bus = "spi2"
+cs_gpio = 1
+dc_gpio = 20
+hz = 40_000_000
+width = 240
+height = 320
+# UNVERIFIED on real glass.
+invon_shows_ram = true
+
+[backlight]
+gpio = 21
+ledc_channel = 0
+# Active high, observed on the device (the Display demo at 100 % is clearly brighter than at
+# 10 %). The transfer curve is not measured.
+active_high = true
+
+# Open drain with pull-ups.
+[i2c0]
+sda_gpio = 10
+scl_gpio = 7
+devices = ["es8311@0x18", "cw2017@0x63"]
+
+[i2s0]
+mclk_gpio = 6
+bclk_gpio = 5
+ws_gpio = 3
+dout_gpio = 2
+din_gpio = 4
+
+# `raw_code` is what a 12 dB conversion reports under the synthesized eFuse (calibration fields
+# 0); `mv` is the ladder voltage that produces it through the ADC curve-fitting inverse.
+[buttons]
+adc_unit = 1
+adc_channel = 0
+gpio = 0
+# The device reads codes 3, 394 and 782 for Up, Down and OK (medians, `probe_campaign_regs`).
+# They keep the divider's ratio (394/782 = 300/595) at 0.91 of its scale, which is the rail or this
+# chip's ADC gain, UNVERIFIED which: the capture has no calibrated millivolts. The pin voltages
+# below are the ones the synthesized eFuse curve maps onto the device's codes, so they fold that
+# scale in. Down reads 393, not 394: the curve reads 274 mV at both codes and the SAR ADC model
+# takes the first (`t1_campaign_regs_rows_match_the_device_capture`).
+mv = { up = 3, down = 274, ok = 540, released = 3300 }
+raw_code = { up = 3, down = 393, ok = 782, released = 4095 }
+# UNVERIFIED: the buttons are parallel resistors to ground, so the smallest wins.
+multi_press = "lowest_voltage_wins"
+# GPIO0 deep-sleep wake level, UNVERIFIED.
+digital_vil_mv = 825
+# Class B: the pull-up does not hold GPIO0 high in deep sleep, so GPIO0 reads low for the whole
+# sleep whatever the keys, and a deep sleep armed on GPIO0 low wakes at once (`probe_campaign_reset`:
+# GPIO0 low armed beside a 3 s timer wakes by GPIO, cause 7, GPIO_WAKEUP_STATUS pad 0, with no key
+# pressed). IDF turns the chip's own pull-up (about 45 kOhm) on for a low-armed pad, so the board
+# pulls harder to ground: the 10 kOhm pull-up with its supply off gives about 0.6 V. Which supply,
+# UNVERIFIED (no schematic).
+pullup_held_in_deep_sleep = false
+
+# Every value is UNVERIFIED.
+[power]
+on_hold_ms = 500
+off_hold_ms = 2000
+usb_powers_mcu = false
+cutoff_mv = 3000
+
+# The charge values are UNVERIFIED.
+[battery]
+capacity_mah = 520
+charge_ma = 200
+term_ma = 20
+cv_mv = 4200
+
+[gauge]
+# The device reads 0x0F where the datasheet default is 0xA0.
+version_reg = 0x0F
+
+# `enumerate_ms` is 0 under the `fast` timing profile and 100 under `device` (UNVERIFIED,
+# measured against a macOS USB host). `download_strap` is class A: a device capture shows a USB
+# Serial/JTAG download reset latching `boot:0x6 (DOWNLOAD(USB/UART0))` (specs/blocks/usj.toml,
+# specs/notes/usj-download-strap.md).
+[usb]
+enumerate_ms = 0
+download_strap = 0x06

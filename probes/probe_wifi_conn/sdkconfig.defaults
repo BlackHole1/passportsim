@@ -1,0 +1,22 @@
+# probe_wifi_conn overrides on top of probes/common/sdkconfig.defaults.
+#
+# 1. **The partition table.** `partitions.csv` beside this file is the Passport's own layout, with
+#    `cardid` declared at 0x356000 and `factory` at 0x10000 size 0x300000, so the identity guard
+#    accepts a flash of this image. The path is relative to the project directory, so the build
+#    finds it wherever the checkout is.
+#
+# 2. **Nothing is written to the device's NVS.** Both of ESP-IDF's routine NVS writers are off:
+#    the Wi-Fi driver's own NVS store and the PHY calibration store, as in the device Wi-Fi
+#    captures (`wifi_facts`, `scanblock`), because the attached Passport's `nvs` holds the
+#    installed firmware's own data. Neither option changes what the probe measures: the
+#    association events, the disconnect reason and the teardown return codes.
+#    `esp_wifi_set_storage(WIFI_STORAGE_RAM)` in the probe keeps the station configuration in RAM
+#    too, and the probe never calls `nvs_flash_erase`. With all three, the probe writes nothing
+#    outside the bootloader, the partition table and the app.
+#
+# No network setting lives here. The SSID is the placeholder of main/Kconfig.projbuild and there
+# is no password option at all: the probe associates with nothing on purpose (docs/secrets.md).
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_ESP_WIFI_NVS_ENABLED=n
+CONFIG_ESP_PHY_CALIBRATION_AND_DATA_STORAGE=n

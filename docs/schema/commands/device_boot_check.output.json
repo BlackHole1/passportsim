@@ -1,0 +1,45 @@
+{
+  "description": "The boot check: a ROM banner was seen, and the printed ELF SHA-256 prefix starts the image's. The console text itself is never returned, only verdicts and counts.",
+  "properties": {
+    "banner": {
+      "description": "A `rst:0x.. ,boot:0x..` line was read.",
+      "type": "boolean"
+    },
+    "console_bytes": {
+      "description": "How many raw bytes arrived from the port before the redaction. A count only: no console text is ever returned.",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "console_empty": {
+      "description": "The device sent nothing at all in the read window. It is a different outcome from a console that carried lines and did not match, and it is what an idle, already-booted Passport does: ask for `reset` to make it speak.",
+      "type": "boolean"
+    },
+    "elf_sha256_matches": {
+      "type": "boolean"
+    },
+    "lines_omitted": {
+      "description": "How many console lines the *redaction* dropped. Not a measure of silence: `0` also means everything that arrived was kept, so read it with `console_empty`.",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "passed": {
+      "type": "boolean"
+    },
+    "reset": {
+      "description": "Whether this call restarted the device before reading.",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "banner",
+    "elf_sha256_matches",
+    "passed",
+    "console_empty",
+    "console_bytes",
+    "reset"
+  ],
+  "type": "object"
+}

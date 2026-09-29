@@ -1,0 +1,68 @@
+{
+  "additionalProperties": false,
+  "description": "`ble_connect` arguments.",
+  "properties": {
+    "addr": {
+      "description": "Advertiser address, most significant octet first (02:00:00:00:00:01).",
+      "type": "string"
+    },
+    "disconnect": {
+      "description": "End the connection instead of opening one.",
+      "type": "boolean"
+    },
+    "instance": {
+      "description": "Instance id.",
+      "pattern": "^[pb][0-9]+$",
+      "type": "string"
+    },
+    "interval": {
+      "description": "Connection_Interval in 1.25 ms units (Core Vol 4 Part E 7.8.12).",
+      "maximum": 3200,
+      "minimum": 6,
+      "type": "integer"
+    },
+    "latency": {
+      "description": "Max_Latency in connection events.",
+      "maximum": 499,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "mtu": {
+      "description": "Client receive MTU to exchange once connected; 0 exchanges none.",
+      "maximum": 517,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "random": {
+      "description": "The address is random (TxAdd). Taken from the scan report when one is known.",
+      "type": "boolean"
+    },
+    "service": {
+      "description": "Connect to the first connectable advertiser listing this service UUID; `pk` is the Passport Keys vendor service.",
+      "type": "string"
+    },
+    "supervision_timeout": {
+      "description": "Supervision_Timeout in 10 ms units.",
+      "maximum": 3200,
+      "minimum": 10,
+      "type": "integer"
+    },
+    "timeout_ms": {
+      "description": "Virtual time this call may spend before E_TIMEOUT.",
+      "maximum": 60000,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "wall_budget_ms": {
+      "description": "Host time this call may spend before E_WALL_BUDGET.",
+      "minimum": 1,
+      "type": "integer"
+    },
+    "within_ms": {
+      "description": "How long to wait for a connectable advertisement.",
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}

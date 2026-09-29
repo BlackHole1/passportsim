@@ -1,0 +1,243 @@
+# ST7789P3 boot command sequence, 23 steps. `tests/milestones/m4.rs` compares the emulated command
+# trace to it exactly.
+#
+# One row per command the official firmware puts on the wire between power-on and the first
+# LVGL flush, in order. The command byte is sent with DC low; `params` are the bytes that follow
+# with DC high (ST7789 datasheet, 4-line serial interface). `delay_ms_after` is the driver's own
+# vTaskDelay after the command, not a panel requirement; the panel model never enforces it (the
+# SWRESET-to-SLPOUT gap is 20 ms, shorter than the datasheet's 120 ms rule, and the firmware
+# works with it).
+#
+# Between step 20 and step 21 the driver also calls set_gap(0, 0), which stores software offsets
+# and puts nothing on the wire, so it has no row here (IDF `panel_st7789_set_gap`).
+#
+# The rows are mirrored by `pemu_board::st7789::BOOT_SEQUENCE`, and
+# `crates/pemu-board/tests/st7789.rs::boot_spec_matches_table` compares the two, so a row changed
+# here without its constant fails the build.
+#
+# provenance: the official firmware's command trace at boot. Rows 1 to 5 and 19 to 23 are the
+# ESP-IDF panel driver (esp_lcd/src/esp_lcd_panel_st7789.c); rows 6 to 18 are the board's vendor
+# init table, whose bytes only the trace shows.
+
+version = 1
+panel = "ST7789P3"
+width = 240
+height = 320
+provenance = "the official firmware's boot command trace; IDF esp_lcd/src/esp_lcd_panel_st7789.c; tests/milestones/m4.rs compares the emulated trace to these rows"
+
+# Commands whose parameters this table does not interpret are `class = "stored"`: the model keeps
+# the bytes and they have no visual effect. `class = "modeled"` marks a
+# command that changes modeled panel state.
+
+[[step]]
+index = 1
+name = "SWRESET"
+cmd = 0x01
+params = []
+class = "modeled"
+delay_ms_after = 20
+provenance = "IDF esp_lcd/src/esp_lcd_panel_st7789.c panel_st7789_reset: with RST -1 the reset is the command"
+
+[[step]]
+index = 2
+name = "SLPOUT"
+cmd = 0x11
+params = []
+class = "modeled"
+delay_ms_after = 100
+provenance = "IDF esp_lcd/src/esp_lcd_panel_st7789.c panel_st7789_init"
+
+[[step]]
+index = 3
+name = "MADCTL"
+cmd = 0x36
+params = [0x00]
+class = "modeled"
+delay_ms_after = 0
+provenance = "IDF esp_lcd/src/esp_lcd_panel_st7789.c panel_st7789_init: RGB element order, no MX, MY or MV"
+
+[[step]]
+index = 4
+name = "COLMOD"
+cmd = 0x3A
+params = [0x55]
+class = "modeled"
+delay_ms_after = 0
+provenance = "IDF esp_lcd/src/esp_lcd_panel_st7789.c panel_st7789_init: 0x55 is 16 bits per pixel"
+
+[[step]]
+index = 5
+name = "RAMCTRL"
+cmd = 0xB0
+params = [0x00, 0xF0]
+class = "modeled"
+delay_ms_after = 0
+provenance = "IDF esp_lcd/src/esp_lcd_panel_st7789.c panel_st7789_init: ENDIAN bit clear, so RGB565 is big-endian on the wire"
+
+[[step]]
+index = 6
+name = "PORCTRL"
+cmd = 0xB2
+params = [0x05, 0x05, 0x00, 0x33, 0x33]
+class = "stored"
+delay_ms_after = 0
+provenance = "the vendor init table of the official firmware, as its boot trace shows; tests/milestones/m4.rs"
+
+[[step]]
+index = 7
+name = "GCTRL"
+cmd = 0xB7
+params = [0x35]
+class = "stored"
+delay_ms_after = 0
+provenance = "the vendor init table of the official firmware, as its boot trace shows; tests/milestones/m4.rs"
+
+[[step]]
+index = 8
+name = "VCOMS"
+cmd = 0xBB
+params = [0x21]
+class = "stored"
+delay_ms_after = 0
+provenance = "the vendor init table of the official firmware, as its boot trace shows; tests/milestones/m4.rs"
+
+[[step]]
+index = 9
+name = "LCMCTRL"
+cmd = 0xC0
+params = [0x2C]
+class = "stored"
+delay_ms_after = 0
+provenance = "the vendor init table of the official firmware, as its boot trace shows; tests/milestones/m4.rs"
+
+[[step]]
+index = 10
+name = "VDVVRHEN"
+cmd = 0xC2
+params = [0x01]
+class = "stored"
+delay_ms_after = 0
+provenance = "the vendor init table of the official firmware, as its boot trace shows; tests/milestones/m4.rs"
+
+[[step]]
+index = 11
+name = "VRHS"
+cmd = 0xC3
+params = [0x0B]
+class = "stored"
+delay_ms_after = 0
+provenance = "the vendor init table of the official firmware, as its boot trace shows; tests/milestones/m4.rs"
+
+[[step]]
+index = 12
+name = "VDVS"
+cmd = 0xC4
+params = [0x20]
+class = "stored"
+delay_ms_after = 0
+provenance = "the vendor init table of the official firmware, as its boot trace shows; tests/milestones/m4.rs"
+
+[[step]]
+index = 13
+name = "FRCTRL2"
+cmd = 0xC6
+params = [0x0F]
+class = "stored"
+delay_ms_after = 0
+provenance = "the vendor init table of the official firmware, as its boot trace shows, 60 Hz in the ST7789V table, UNVERIFIED for the P3; tests/milestones/m4.rs"
+
+[[step]]
+index = 14
+name = "PWCTRL1"
+cmd = 0xD0
+params = [0xA7, 0xA1]
+class = "stored"
+delay_ms_after = 0
+provenance = "the vendor init table of the official firmware, as its boot trace shows; tests/milestones/m4.rs"
+
+[[step]]
+index = 15
+name = "PWCTRL1"
+cmd = 0xD0
+params = [0xA4, 0xA1]
+class = "stored"
+delay_ms_after = 0
+provenance = "the vendor init table of the official firmware, as its boot trace shows, sent a second time and overriding the first; tests/milestones/m4.rs"
+
+[[step]]
+index = 16
+name = "VENDOR_D6"
+cmd = 0xD6
+params = [0xA1]
+class = "stored"
+delay_ms_after = 0
+provenance = "the vendor init table of the official firmware, as its boot trace shows, P3 specific, meaning UNVERIFIED; tests/milestones/m4.rs"
+
+[[step]]
+index = 17
+name = "PVGAMCTRL"
+cmd = 0xE0
+params = [
+    0xD0, 0x04, 0x08, 0x0A, 0x09, 0x05, 0x2D,
+    0x43, 0x49, 0x09, 0x16, 0x15, 0x26, 0x2B,
+]
+class = "stored"
+delay_ms_after = 0
+provenance = "the vendor init table of the official firmware, as its boot trace shows, positive gamma; tests/milestones/m4.rs"
+
+[[step]]
+index = 18
+name = "NVGAMCTRL"
+cmd = 0xE1
+params = [
+    0xD0, 0x03, 0x09, 0x0A, 0x0A, 0x06, 0x2E,
+    0x44, 0x40, 0x3A, 0x15, 0x15, 0x26, 0x2A,
+]
+class = "stored"
+delay_ms_after = 10
+provenance = "the vendor init table of the official firmware, as its boot trace shows, negative gamma; tests/milestones/m4.rs"
+
+[[step]]
+index = 19
+name = "INVON"
+cmd = 0x21
+params = []
+class = "modeled"
+delay_ms_after = 0
+provenance = "IDF esp_lcd/src/esp_lcd_panel_st7789.c panel_st7789_invert_color(true), from BSP_LCD_INVERT_COLOR 1"
+
+[[step]]
+index = 20
+name = "MADCTL"
+cmd = 0x36
+params = [0x00]
+class = "modeled"
+delay_ms_after = 0
+provenance = "IDF esp_lcd/src/esp_lcd_panel_st7789.c panel_st7789_mirror(false, false)"
+
+[[step]]
+index = 21
+name = "DISPON"
+cmd = 0x29
+params = []
+class = "modeled"
+delay_ms_after = 0
+provenance = "IDF esp_lcd/src/esp_lcd_panel_st7789.c panel_st7789_disp_on_off(true)"
+
+[[step]]
+index = 22
+name = "MADCTL"
+cmd = 0x36
+params = [0x00]
+class = "modeled"
+delay_ms_after = 0
+provenance = "IDF esp_lcd/src/esp_lcd_panel_st7789.c panel_st7789_swap_xy(false), called by the LVGL port"
+
+[[step]]
+index = 23
+name = "MADCTL"
+cmd = 0x36
+params = [0x00]
+class = "modeled"
+delay_ms_after = 0
+provenance = "IDF esp_lcd/src/esp_lcd_panel_st7789.c panel_st7789_mirror(false, false), called by the LVGL port"

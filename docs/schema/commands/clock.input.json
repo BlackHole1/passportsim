@@ -1,0 +1,73 @@
+{
+  "additionalProperties": false,
+  "description": "`clock` arguments.",
+  "properties": {
+    "force": {
+      "description": "Take the lease over (false).",
+      "type": "boolean"
+    },
+    "idle_skip": {
+      "description": "Skip idle time.",
+      "type": "boolean"
+    },
+    "insns": {
+      "description": "`step` instructions.",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "instance": {
+      "description": "Instance id.",
+      "pattern": "^[pb][0-9]+$",
+      "type": "string"
+    },
+    "mode": {
+      "description": "Pacing mode.",
+      "enum": [
+        "deterministic",
+        "realtime"
+      ],
+      "type": "string"
+    },
+    "op": {
+      "description": "What to do.",
+      "enum": [
+        "status",
+        "pause",
+        "resume",
+        "set_speed",
+        "set_mode",
+        "take",
+        "release",
+        "step"
+      ],
+      "type": "string"
+    },
+    "owner": {
+      "description": "Lease holder (agent).",
+      "enum": [
+        "agent",
+        "ui",
+        "endpoint",
+        "scenario"
+      ],
+      "type": "string"
+    },
+    "speed": {
+      "description": "Pacing factor, or `max`.",
+      "oneOf": [
+        {
+          "maximum": 64,
+          "minimum": 0.05,
+          "type": "number"
+        },
+        {
+          "const": "max"
+        }
+      ]
+    }
+  },
+  "required": [
+    "op"
+  ],
+  "type": "object"
+}

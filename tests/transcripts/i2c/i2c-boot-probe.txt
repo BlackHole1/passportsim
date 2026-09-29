@@ -1,0 +1,7 @@
+# The two addresses the boot bus scan must acknowledge (`bsp_i2c_scan` probes 0x08 to 0x77 and
+# only the codec and the gauge answer; tests/milestones/m5.rs t1_m5_official_boot_bus_scan). A
+# probe is the address byte alone. The 110 addresses that must NACK are a property of the bus, so they are
+# checked with the board wiring and the I2C0 executor, not in this file.
+
+P 18 ack
+P 63 ack

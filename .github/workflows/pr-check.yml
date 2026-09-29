@@ -1,0 +1,178 @@
+name: PR check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  t0:
+    # `cargo xtask ci t0` on each supported host: fmt, clippy, the workspace tests, cargo-deny,
+    # the doc, provenance, layering, secrets and portability checks, the release and wasm builds,
+    # `bun test`, and on Windows the Playwright rows. Both hosts check the cross-host parity
+    # scenario against the one committed golden (tests/golden/cross-host/parity.txt), so a green
+    # pair means macOS and Windows agree. With no firmware corpus on a runner, every corpus test
+    # reports SKIPPED-CORPUS; T1 and T2 need the corpus and stay local.
+    name: T0 (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: t0
+          save-cache: ${{ github.ref == 'refs/heads/main' }}
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+
+      - name: Install the Playwright browsers T0 runs on Windows
+        if: runner.os == 'Windows'
+        working-directory: web
+        run: bunx playwright install chromium firefox
+
+      - name: Install the git hooks the hooks-present step checks
+        run: cargo xtask hooks install
+
+      - name: cargo xtask ci t0
+        run: cargo xtask ci t0
+
+  web-bundle:
+    # A release builds the Windows package with `--payload-from` the macOS one, which refuses any
+    # payload file that differs, the web bundle included. Each host builds the page and lists the
+    # SHA-256 of every file in web/dist; `web-bundle-parity` requires the two lists to be equal, so
+    # a host-dependent bundle fails here rather than in a release.
+    name: Web bundle (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Restore the Bun package cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Build the page
+        working-directory: web
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+
+      - name: Hash the bundle
+        shell: bash
+        working-directory: web
+        run: >-
+          bun -e "for (const f of [...new Bun.Glob('**').scanSync('dist')].map((p) => p.replaceAll('\\\\', '/')).sort())
+          console.log(new Bun.CryptoHasher('sha256').update(await Bun.file('dist/' + f).bytes()).digest('hex') + '  ' + f)"
+          | tee "$RUNNER_TEMP/web-bundle.sha256"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: web-bundle-${{ runner.os }}
+          path: ${{ runner.temp }}/web-bundle.sha256
+          retention-days: 7
+
+  web-bundle-parity:
+    name: Web bundle parity
+    needs: web-bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: web-bundle-*
+          path: sums
+
+      - name: Compare the macOS and Windows bundles
+        run: |
+          cat sums/web-bundle-macOS/web-bundle.sha256
+          if ! diff sums/web-bundle-macOS/web-bundle.sha256 sums/web-bundle-Windows/web-bundle.sha256; then
+            echo "::error::the web bundle differs between macOS and Windows, so a release's Windows package would refuse the macOS payload"
+            exit 1
+          fi
+
+  web:
+    # A macOS T0 runs no browser, so the page's type checks and the Playwright rows of the macOS
+    # host (Chromium, Firefox, WebKit) run here.
+    name: Web (macOS browsers)
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: web
+          save-cache: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Release version script
+        run: .github/scripts/release-version.test.sh
+
+      - name: Type check
+        working-directory: web
+        run: |
+          bun run typecheck
+          bun run typecheck:e2e
+
+      - name: Build the wasm core the page loads
+        run: cargo build -p pemu-wasm --lib --target wasm32-unknown-unknown --profile wasm-release
+
+      - name: Restore the Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/Library/Caches/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
+
+      - name: Install the Playwright browsers
+        working-directory: web
+        run: bunx playwright install chromium firefox webkit
+
+      - name: Playwright
+        working-directory: web
+        env:
+          PEMU_E2E_REQUIRE_BROWSERS: "1"
+          TMPDIR: ${{ runner.temp }}
+        run: bun run e2e --project=chromium --project=firefox --project=webkit
+
+      - name: Keep the Playwright traces of a failed run
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-macos
+          path: ${{ runner.temp }}/passportsim-playwright
+          if-no-files-found: ignore
+          retention-days: 7

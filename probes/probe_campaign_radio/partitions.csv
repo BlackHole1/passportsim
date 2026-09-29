@@ -1,0 +1,14 @@
+# probe_campaign_radio partition table: **the Passport's own layout**, the same four rows as
+# probes/probe_wifi_conn/partitions.csv (where their provenance is written out: the device's own
+# bootloader print, `official.pt`, tests/fixtures/device-facts.toml).
+#
+# This probe runs on the device; with the device's own table the identity guard accepts
+# the flash, and `cardid` is declared only to keep the region reserved: no file is assigned to it,
+# so no segment of the merged image falls in [0x356000, 0x35A000), and the probe writes no flash
+# at all (it touches no NVS and no partition).
+#
+# Name,   Type, SubType, Offset,   Size,     Flags
+nvs,      data, nvs,     0x9000,   0x6000,
+phy_init, data, phy,     0xf000,   0x1000,
+factory,  app,  factory, 0x10000,  0x300000,
+cardid,   data, nvs,     0x356000, 0x4000,

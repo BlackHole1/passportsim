@@ -1,0 +1,25 @@
+# Line endings and byte-exact files.
+#
+# Every text file is checked out LF on both supported hosts, whatever `core.autocrlf` is set to
+# locally, so goldens, generated files and hashes do not depend on the host. A T0 step scans tracked
+# text files for CR bytes, skipping the `-text` and `binary` paths below.
+
+* text=auto eol=lf
+
+# Byte-exact captures: never normalized in either direction.
+tests/raw/** -text
+
+# Binary payloads.
+*.elf binary
+*.bin binary
+*.wav binary
+*.png binary
+*.snap binary
+*.pebundle binary
+*.lz4 binary
+*.pcap binary
+*.btsnoop binary
+assets/rom/** binary
+# riscv-tests ELFs carry no extension (their names are the test names), so they need their own
+# line; they are hash-pinned fixtures (THIRD_PARTY.md).
+crates/pemu-rv32/tests/data/riscv-tests/** binary

@@ -1,0 +1,138 @@
+# The four ES8311 driver sequences, as register op lists. The milestone tests compare the
+# emulated driver's I2C writes against them as write traces.
+#
+# The sequences are the official firmware's calls into the ES8311 driver of Espressif's
+# esp_codec_dev component, lettered A open, B set_format(16000, 16, 1) (which contains the
+# enable/start stage), C set_volume, D close.
+#
+# Each op is one bus transaction: `read` is `i2c_master_transmit_receive` with a
+# one-byte register pointer and one returned byte, `write` is `i2c_master_transmit` of
+# `[reg, val]`. The `value` of a `read` is what the chip must return at that point in the
+# sequence, which is what makes a sequence replayable as a check and not only as a script.
+#
+# tests/transcripts/i2c/es8311-<letter>-<name>.txt carries the same sequences in the bus-line form
+# the replayer of crates/pemu-board/src/i2c_transcript.rs takes, and
+# crates/pemu-board/tests/es8311.rs asserts the two encodings agree.
+
+schema = 1
+chip = "es8311"
+bus = "i2c0"
+address = 0x18
+class = "B"
+milestone = "M5"
+provenance = "the ES8311 driver of esp_codec_dev (Espressif, Apache-2.0) as the official firmware calls it, sequences A to D with the register defaults they read back (ES8311 datasheet); IDF i2c_master_transmit and i2c_master_transmit_receive for the transaction shape; tests/milestones/m5.rs t1_m5_es8311_sequences_on_official"
+
+[[sequence]]
+id = "A"
+name = "open"
+summary = "bsp_audio_init -> es8311_codec_new -> es8311_open on a chip at its reset values: 24 transactions"
+provenance = "esp_codec_dev es8311_open, 24 transactions. The two read-modify-writes read back what the sequence itself has just written (register 0x00) or a reset value (0x0D and 0x06), so every returned byte below is a consequence of the reset-value table and not a new fact."
+ops = [
+    { op = "read", reg = 0x0D, value = 0xFC },
+    { op = "write", reg = 0x0D, value = 0xFA },
+    { op = "write", reg = 0x44, value = 0x08 },
+    { op = "write", reg = 0x44, value = 0x08 },
+    { op = "write", reg = 0x01, value = 0x30 },
+    { op = "write", reg = 0x02, value = 0x00 },
+    { op = "write", reg = 0x03, value = 0x10 },
+    { op = "write", reg = 0x16, value = 0x24 },
+    { op = "write", reg = 0x04, value = 0x10 },
+    { op = "write", reg = 0x05, value = 0x00 },
+    { op = "write", reg = 0x0B, value = 0x00 },
+    { op = "write", reg = 0x0C, value = 0x00 },
+    { op = "write", reg = 0x10, value = 0x1F },
+    { op = "write", reg = 0x11, value = 0x7F },
+    { op = "write", reg = 0x00, value = 0x80 },
+    { op = "read", reg = 0x00, value = 0x80 },
+    { op = "write", reg = 0x00, value = 0x80 },
+    { op = "write", reg = 0x01, value = 0x3F },
+    { op = "read", reg = 0x06, value = 0x03 },
+    { op = "write", reg = 0x06, value = 0x03 },
+    { op = "write", reg = 0x13, value = 0x10 },
+    { op = "write", reg = 0x1B, value = 0x0A },
+    { op = "write", reg = 0x1C, value = 0x6A },
+    { op = "write", reg = 0x44, value = 0x08 },
+]
+
+[[sequence]]
+id = "B"
+name = "set_format"
+summary = "bsp_audio_set_format(16000, 16, 1): set_bits_per_sample, config_fmt, config_sample, es8311_start, set_mute(false), the codec-device refresh and the BSP microphone gain"
+provenance = "the esp_codec_dev ES8311 driver's set_format path, whose config_sample stage uses the 16 kHz coefficient row (MCLK 4,096,000 = 256 * 16000), then the codec-device refresh that follows (volume 0 on the first open, then mute, then microphone gain 0, then the BSP's 30 dB). Every returned byte below follows from sequence A's end state."
+ops = [
+    { op = "read", reg = 0x09, value = 0x00 },
+    { op = "read", reg = 0x0A, value = 0x00 },
+    { op = "write", reg = 0x09, value = 0x0C },
+    { op = "write", reg = 0x0A, value = 0x0C },
+    { op = "read", reg = 0x09, value = 0x0C },
+    { op = "read", reg = 0x0A, value = 0x0C },
+    { op = "write", reg = 0x09, value = 0x0C },
+    { op = "write", reg = 0x0A, value = 0x0C },
+    { op = "read", reg = 0x02, value = 0x00 },
+    { op = "write", reg = 0x02, value = 0x00 },
+    { op = "write", reg = 0x05, value = 0x00 },
+    { op = "read", reg = 0x03, value = 0x10 },
+    { op = "write", reg = 0x03, value = 0x10 },
+    { op = "read", reg = 0x04, value = 0x10 },
+    { op = "write", reg = 0x04, value = 0x20 },
+    { op = "read", reg = 0x07, value = 0x00 },
+    { op = "write", reg = 0x07, value = 0x00 },
+    { op = "write", reg = 0x08, value = 0xFF },
+    { op = "read", reg = 0x06, value = 0x03 },
+    { op = "write", reg = 0x06, value = 0x03 },
+    { op = "write", reg = 0x00, value = 0x80 },
+    { op = "write", reg = 0x01, value = 0x3F },
+    { op = "read", reg = 0x09, value = 0x0C },
+    { op = "read", reg = 0x0A, value = 0x0C },
+    { op = "write", reg = 0x09, value = 0x0C },
+    { op = "write", reg = 0x0A, value = 0x0C },
+    { op = "write", reg = 0x17, value = 0xBF },
+    { op = "write", reg = 0x0E, value = 0x02 },
+    { op = "write", reg = 0x12, value = 0x00 },
+    { op = "write", reg = 0x14, value = 0x1A },
+    { op = "read", reg = 0x14, value = 0x1A },
+    { op = "write", reg = 0x14, value = 0x1A },
+    { op = "write", reg = 0x0D, value = 0x01 },
+    { op = "write", reg = 0x15, value = 0x40 },
+    { op = "write", reg = 0x37, value = 0x08 },
+    { op = "write", reg = 0x45, value = 0x00 },
+    { op = "read", reg = 0x31, value = 0x00 },
+    { op = "write", reg = 0x31, value = 0x00 },
+    { op = "write", reg = 0x32, value = 0x06 },
+    { op = "read", reg = 0x31, value = 0x00 },
+    { op = "write", reg = 0x31, value = 0x00 },
+    { op = "write", reg = 0x16, value = 0x00 },
+    { op = "write", reg = 0x16, value = 0x05 },
+]
+
+[[sequence]]
+id = "C"
+name = "set_volume"
+summary = "bsp_audio_set_volume(80): one write of the volume register"
+provenance = "the esp_codec_dev volume path: the codec-device curve turns a percentage into decibels, subtracts the 3.3 V over 5 V hardware gain, and writes the half-decibel step above the -95.5 dB floor. The demo volume is 80, which that curve gives as register 0x32 = 0xB2."
+ops = [{ op = "write", reg = 0x32, value = 0xB2 }]
+
+[[sequence]]
+id = "D"
+name = "close"
+summary = "esp_codec_dev_close -> es8311_enable(false): mute, then the 15 suspend writes"
+provenance = "esp_codec_dev es8311_enable(false). The mute stage reads register 0x31 and sets mask 0x60; after sequence B that register holds 0x00, so the write is 0x60. The suspend writes follow in the order the driver issues them."
+ops = [
+    { op = "read", reg = 0x31, value = 0x00 },
+    { op = "write", reg = 0x31, value = 0x60 },
+    { op = "write", reg = 0x32, value = 0x00 },
+    { op = "write", reg = 0x17, value = 0x00 },
+    { op = "write", reg = 0x0E, value = 0xFF },
+    { op = "write", reg = 0x12, value = 0x02 },
+    { op = "write", reg = 0x14, value = 0x00 },
+    { op = "write", reg = 0x0D, value = 0xFA },
+    { op = "write", reg = 0x15, value = 0x00 },
+    { op = "write", reg = 0x02, value = 0x10 },
+    { op = "write", reg = 0x00, value = 0x00 },
+    { op = "write", reg = 0x00, value = 0x1F },
+    { op = "write", reg = 0x01, value = 0x30 },
+    { op = "write", reg = 0x01, value = 0x00 },
+    { op = "write", reg = 0x45, value = 0x00 },
+    { op = "write", reg = 0x0D, value = 0xFC },
+    { op = "write", reg = 0x02, value = 0x00 },
+]

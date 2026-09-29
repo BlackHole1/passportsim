@@ -1,0 +1,47 @@
+# ES8311 sequence B, `bsp_audio_set_format(16000, 16, 1)`, as bus transactions. Replay it after
+# sequence A.
+# Generated from specs/es8311-sequences.toml; crates/pemu-board/tests/es8311.rs checks they agree.
+
+R 18 09 00
+R 18 0A 00
+W 18 09 0C
+W 18 0A 0C
+R 18 09 0C
+R 18 0A 0C
+W 18 09 0C
+W 18 0A 0C
+R 18 02 00
+W 18 02 00
+W 18 05 00
+R 18 03 10
+W 18 03 10
+R 18 04 10
+W 18 04 20
+R 18 07 00
+W 18 07 00
+W 18 08 FF
+R 18 06 03
+W 18 06 03
+W 18 00 80
+W 18 01 3F
+R 18 09 0C
+R 18 0A 0C
+W 18 09 0C
+W 18 0A 0C
+W 18 17 BF
+W 18 0E 02
+W 18 12 00
+W 18 14 1A
+R 18 14 1A
+W 18 14 1A
+W 18 0D 01
+W 18 15 40
+W 18 37 08
+W 18 45 00
+R 18 31 00
+W 18 31 00
+W 18 32 06
+R 18 31 00
+W 18 31 00
+W 18 16 00
+W 18 16 05

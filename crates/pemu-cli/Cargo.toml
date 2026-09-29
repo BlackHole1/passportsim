@@ -1,0 +1,30 @@
+[package]
+name = "pemu-cli"
+description = "The passportsim command-line binary."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "passportsim"
+path = "src/main.rs"
+
+[dependencies]
+# `string`: an `Arg` id and a flag name are built from a schema property at run time, which clap
+# accepts only with this feature.
+clap = { workspace = true, features = ["string"] }
+pemu-api.workspace = true
+pemu-host.workspace = true
+# The SHA-256 of the payload digest, the one `assets.rs` already uses. Reachable through
+# `pemu-host`, so this adds no edge and no third-party crate.
+pemu-loader.workspace = true
+# `--json` input and `Output::to_json` output are `serde_json` values, `pemu-api`'s own types.
+serde_json.workspace = true
+
+[build-dependencies]
+# `build.rs` hashes the payload it embeds with the same function the run time uses.
+# `default-features = false` would keep the bundled ROMs out of the build script, but Cargo refuses
+# it on an inherited dependency whose workspace entry keeps the defaults.
+pemu-loader.workspace = true

@@ -1,0 +1,4 @@
+# ES8311 sequence C, `bsp_audio_set_volume(80)`, as bus transactions.
+# Generated from specs/es8311-sequences.toml; crates/pemu-board/tests/es8311.rs checks they agree.
+
+W 18 32 B2

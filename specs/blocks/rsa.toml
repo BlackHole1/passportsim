@@ -1,0 +1,180 @@
+# Block spec of the `rsa` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/rsa.rs.
+schema = 1
+block = "rsa"
+base = 0x6003_C000
+size = 0x1000
+class = "B"
+milestone = "M8"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h; size 0x1000 UNVERIFIED. No rows in specs/c3-registers.csv; register names come from IDF soc/esp32c3/include/soc/hwcrypto_reg.h"
+
+# Both seed busy-wait rows are "loop while 0", so the emulator must read 1, not 0: an unmodeled
+# read that returns 0 hangs the guest forever.
+
+[[wait]]
+id = "rsa.query_clean"
+kind = "wait"
+seed = true
+register = "RSA_QUERY_CLEAN"
+field = "*"
+trigger = "the RSA memory is powered up (the guest releases the block reset)"
+expect = "read RSA_QUERY_CLEAN == 1"
+within = "same_access"
+polled_at = ["esp_mpi_enable_hardware_hw_op"]
+images = []
+milestone = "M8"
+provenance = "IDF hal/mpi_hal.c:18 (RSA_QUERY_CLEAN 0x6003_C808, loops while 0); IDF soc/esp32c3/include/soc/hwcrypto_reg.h:29; boot-path seed row"
+
+[[wait]]
+id = "rsa.query_interrupt"
+kind = "wait"
+seed = true
+register = "RSA_QUERY_INTERRUPT"
+field = "*"
+trigger = "write RSA_MODEXP_START, RSA_MOD_MULT_START or RSA_MULT_START = 1"
+expect = "read RSA_QUERY_INTERRUPT == 1"
+within = "same_access"
+polled_at = ["esp_mpi_start_op", "esp_mpi_wait_op_complete"]
+images = []
+milestone = "M8"
+provenance = "IDF hal/mpi_hal.c:113 (RSA_QUERY_INTERRUPT 0x6003_C818, loops while 0); IDF soc/esp32c3/include/soc/hwcrypto_reg.h:37; boot-path seed row"
+
+[[stable_read]]
+register = "RSA_QUERY_CLEAN"
+provenance = "IDF hal/mpi_hal.c:18: reads 1 once the block is powered up, which the emulator models as always"
+
+[[stable_read]]
+register = "RSA_QUERY_INTERRUPT"
+provenance = "IDF hal/mpi_hal.c:113: the operation completes inside the start write, so the bit reads 1 whenever the guest can observe it"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: RSA is in the digital domain, which every reset scope restores"
+
+# The classes of the registers this block implements (TRM chapter 20). The block has no rows in
+# specs/c3-registers.csv, so the rows below carry offsets from IDF
+# soc/esp32c3/include/soc/hwcrypto_reg.h and the TRM 20.4 and 20.5 summaries; codegen renders them
+# into crates/pemu-soc-c3/src/gen/classes.rs, which periph/rsa.rs answers Peripheral::fidelity
+# from. A class A row is A for the lengths and operands the probe_crypto device capture
+# device-probe_crypto-20260923T192126Z exercises; the rest of such a row is class B, as its
+# provenance says. The TRM names 0x808 RSA_CLEAN_REG, 0x804 RSA_MODE_REG and 0x818 RSA_IDLE_REG;
+# this file keeps the IDF names.
+[[overrides]]
+register = "RSA_M_MEM"
+offsets = { first = 0x000, last = 0x17C, stride = 4 }
+value = "the modulus M, 96 words, least significant word at the lowest address"
+class = "A"
+provenance = "TRM 20.3.1 step 3 (little-endian digits) and table 20.4-1 (RSA_M_MEM 0x000 to 0x17F); IDF hal/esp32c3/include/hal/mpi_ll.h mpi_ll_write_to_mem_block. Tests: periph::rsa::tests::known_answers_at_several_lengths. Class A: tests/milestones/m8.rs t1_m8_probe_crypto_matches_the_device_capture compares the probe_crypto lines with both runs of the device capture device-probe_crypto-20260923T192126Z, and its PROBE_CRYPTO_TRAFFIC table, read from the MMIO trace of the same run, shows the modulus of mpi_exp2048's MODEXP_START (64 words, fnv=1ec85460676e2f52) and the all-ones modulus 2^(32n) - 1 of the MOD_MULT_START failover: 96 words for mpi_mul2048x1024 (fnv=78149654ffed5f58) and 66 words for rsa_pub2048 (fnv=658ee505072456a9), whose mbedtls_rsa_public runs mbedTLS's software mbedtls_mpi_exp_mod_unsafe and reaches the block only through the reduction that computes R^2 mod N (167 MULT_START at 2 words and 64 MOD_MULT_START at 66)"
+
+[[overrides]]
+register = "RSA_Z_MEM"
+offsets = { first = 0x200, last = 0x37C, stride = 4 }
+value = "the result Z; before a modular operation the caller's r (R^2 mod M), which the operation computes with, see RSA_M_PRIME; before a multiplication the second factor Y in words n to 2n - 1"
+class = "A"
+provenance = "TRM 20.3.1 to 20.3.3 and table 20.4-1 (RSA_Z_MEM 0x200 to 0x37F); IDF mpi_ll.h mpi_ll_read_from_mem_block, mbedtls/port/bignum/bignum_alt.c esp_mpi_mul_mpi_hw_op (Y at Z_MEM + 4 x num_words). Tests: periph::rsa::tests::known_answers_at_several_lengths, ::the_multiplication_reads_only_its_operand_words. Class A: tests/milestones/m8.rs t1_m8_probe_crypto_matches_the_device_capture compares the probe_crypto lines with both runs of the device capture device-probe_crypto-20260923T192126Z, and its PROBE_CRYPTO_TRAFFIC table, read from the MMIO trace of the same run, shows the result words of every operation read back (mpi_mul1024 64 words, fnv=b74707623b692cd1; mpi_mul1536 96, fnv=1b768b880f94eb80; mpi_mul2048x1024 96, fnv=78149654ffed5f58; mpi_exp2048 64, fnv=1ec85460676e2f52; and rsa_pub2048 (fnv=658ee505072456a9), whose mbedtls_rsa_public runs mbedTLS's software mbedtls_mpi_exp_mod_unsafe and reaches the block only through the reduction that computes R^2 mod N (167 MULT_START at 2 words and 64 MOD_MULT_START at 66)) and MULT_START's second factor in words n to 2n - 1 (mpi_mul1024, mpi_mul1536). The caller's r written before a modular operation is what the operation computes with (see RSA_M_PRIME): every capture loads the r IDF computes, so a wrong r is not observed and its effect is UNVERIFIED inside the row"
+
+[[overrides]]
+register = "RSA_Y_MEM"
+offsets = { first = 0x400, last = 0x57C, stride = 4 }
+value = "the exponent or the second factor Y of the modular operations"
+class = "A"
+provenance = "TRM 20.3.1, 20.3.2 and table 20.4-1 (RSA_Y_MEM 0x400 to 0x57F); IDF bignum_alt.c esp_mpi_exp_mpi_mod_hw_op and esp_mpi_mul_mpi_mod_hw_op. Tests: periph::rsa::tests::known_answers_at_several_lengths. Class A: tests/milestones/m8.rs t1_m8_probe_crypto_matches_the_device_capture compares the probe_crypto lines with both runs of the device capture device-probe_crypto-20260923T192126Z, and its PROBE_CRYPTO_TRAFFIC table, read from the MMIO trace of the same run, shows mpi_exp2048's 256-bit exponent (fnv=1ec85460676e2f52) and the second factor of every MOD_MULT_START: mpi_mul2048x1024 (fnv=78149654ffed5f58) and rsa_pub2048 (fnv=658ee505072456a9), whose mbedtls_rsa_public runs mbedTLS's software mbedtls_mpi_exp_mod_unsafe and reaches the block only through the reduction that computes R^2 mod N (167 MULT_START at 2 words and 64 MOD_MULT_START at 66)"
+
+[[overrides]]
+register = "RSA_X_MEM"
+offsets = { first = 0x600, last = 0x77C, stride = 4 }
+value = "the base or first factor X; left unchanged by every operation here (TRM 20.3.1 says a modular exponentiation overwrites it, with what is not stated: UNVERIFIED)"
+class = "A"
+provenance = "TRM 20.3.1 to 20.3.3 and table 20.4-1 (RSA_X_MEM 0x600 to 0x77F); IDF bignum_alt.c. Tests: periph::rsa::tests::known_answers_at_several_lengths. Class A: tests/milestones/m8.rs t1_m8_probe_crypto_matches_the_device_capture compares the probe_crypto lines with both runs of the device capture device-probe_crypto-20260923T192126Z, and its PROBE_CRYPTO_TRAFFIC table, read from the MMIO trace of the same run, shows the base of mpi_exp2048 (fnv=1ec85460676e2f52) and the first factor of every MULT_START and MOD_MULT_START: mpi_mul1024 (fnv=b74707623b692cd1), mpi_mul1536 (fnv=1b768b880f94eb80), mpi_mul2048x1024 (fnv=78149654ffed5f58) and rsa_pub2048 (fnv=658ee505072456a9), whose mbedtls_rsa_public runs mbedTLS's software mbedtls_mpi_exp_mod_unsafe and reaches the block only through the reduction that computes R^2 mod N (167 MULT_START at 2 words and 64 MOD_MULT_START at 66). That X is left unchanged is not observed (IDF writes X before every operation), so it stays UNVERIFIED"
+
+[[overrides]]
+register = "RSA_M_PRIME"
+offsets = [0x800]
+value = "stores M', and the modular operations compute with it and with the caller's r in Z as loaded: a modular multiplication is the Montgomery product of X and Y, then the Montgomery product of that with r, each with the caller's M' (periph/rsa.rs mod_mul)"
+class = "A"
+provenance = "device capture device-probe_campaign_timing-20260924T155139Z-run1.log lines 67 and 68, the same in -run2.log lines 67 and 68 (MPI|modmult_mprime_right mprime=0xcccccccd want=0x6d660a7e got=0x6d660a7e; MPI|modmult_mprime_wrong mprime=0x00000000 want=0x6d660a7e got=0x00000001), probes/probe_campaign_timing rsa_modmult_1 (one word, M = 2^32 - 5, X = 0x12345678, Y = 0x9ABCDEF1, r = 25). TRM 20.3.1, 20.3.2 and register 20.1 (the caller computes r and M' in advance); IDF mbedtls/port/bignum/esp_bignum.c modular_inverse and calculate_rinv, bignum_alt.c esp_mpi_mult_mpi_failover_mod_mult_hw_op (M' = 1, r = 1 over M = 2^32n - 1). Tests: periph::rsa::tests::a_wrong_m_prime_changes_the_answer_as_on_the_device, tests/milestones/campaign.rs t1_campaign_regs_rows_match_the_device_capture. A model that derived M' and r from M would give the residue for any M', which the capture refutes (got=0x00000001 for M' = 0). What silicon computes with M' = 0 is the reduction-free Montgomery step, floor(a b / 2^32) per word, and the order Mont(Mont(X, Y), r) the model runs gives 1 there; the other order, Mont(X, Mont(Y, r)), also gives 1, so the order is not settled by this capture (UNVERIFIED), and an exponentiation with a wrong M' or r is not observed (UNVERIFIED)"
+
+[[overrides]]
+register = "RSA_LENGTH"
+offsets = [0x804]
+value = "bits 6 to 0: operand words minus one for MODEXP and MOD_MULT, result words minus one for MULT"
+class = "A"
+provenance = "TRM 20.3.1 step 2a, 20.3.3 step 2 and register 20.2 (RSA_MODE_REG); IDF mpi_ll.h mpi_ll_set_mode, bignum_alt.c (num_words - 1, num_words x 2 - 1). Tests: periph::rsa::tests::known_answers_at_several_lengths, ::the_registers_reset_to_the_trm_values_and_keep_their_widths. Class A: tests/milestones/m8.rs t1_m8_probe_crypto_matches_the_device_capture compares the probe_crypto lines with both runs of the device capture device-probe_crypto-20260923T192126Z, and its PROBE_CRYPTO_TRAFFIC table, read from the MMIO trace of the same run, shows 3 (MULT_START, n = 2, in rsa_pub2048 (fnv=658ee505072456a9)), 63 (MULT_START, n = 32, mpi_mul1024 fnv=b74707623b692cd1; MODEXP_START over 64 words, mpi_exp2048 fnv=1ec85460676e2f52), 65 (MOD_MULT_START over 66 words, rsa_pub2048) and 95 (MULT_START, n = 48, mpi_mul1536 fnv=1b768b880f94eb80; MOD_MULT_START over 96 words, mpi_mul2048x1024 fnv=78149654ffed5f58)"
+
+[[overrides]]
+register = "RSA_QUERY_CLEAN"
+offsets = [0x808]
+value = "reads 1: the operand memory of this model is always initialized"
+class = "B"
+provenance = "TRM 20.3 and register 20.3 (RSA_CLEAN_REG); the rsa.query_clean wait row above. Test: periph::rsa::tests::the_two_seed_poll_bits_never_read_zero_when_idle. Stays B: probe_crypto polls it before every operation and reads 1, but no printed value depends on it"
+
+[[overrides]]
+register = "RSA_MODEXP_START"
+offsets = [0x80C]
+value = "write-trigger: Z = X ^ Y mod M over LENGTH + 1 words, the Y bits above SEARCH_POS ignored while SEARCH_ENABLE is set; QUERY_INTERRUPT reads 0 until the completion rsa_op_ps later, which latches the interrupt; reads 0"
+class = "A"
+provenance = "TRM 20.3.1, 20.3.4 and register 20.4; IDF bignum_alt.c esp_mpi_exp_mpi_mod_hw_op (search on at bitlen(Y) - 1, constant time off). Tests: periph::rsa::tests::known_answers_at_several_lengths, ::the_search_option_ignores_the_exponent_bits_above_its_position, ::modular_exponentiation_matches_the_arithmetic_for_one_word_operands. Class A: tests/milestones/m8.rs t1_m8_probe_crypto_matches_the_device_capture compares the probe_crypto lines with both runs of the device capture device-probe_crypto-20260923T192126Z, and its PROBE_CRYPTO_TRAFFIC table, read from the MMIO trace of the same run, shows one exponentiation over 64 words with a 256-bit exponent and the search on at 255, mpi_exp2048 (fnv=1ec85460676e2f52, head=2c4c01fa911ac7afb8552e3b5b5ec6f1). rsa_pub2048 does not reach it: mbedTLS 3.6's mbedtls_rsa_public calls mbedtls_mpi_exp_mod_unsafe, which IDF does not accelerate"
+
+[[overrides]]
+register = "RSA_MOD_MULT_START"
+offsets = [0x810]
+value = "write-trigger: Z = X x Y mod M over LENGTH + 1 words; completion and interrupt as RSA_MODEXP_START; reads 0"
+class = "A"
+provenance = "TRM 20.3.2 and register 20.5; IDF bignum_alt.c esp_mpi_mul_mpi_mod_hw_op and esp_mpi_mult_mpi_failover_mod_mult_hw_op. Tests: periph::rsa::tests::known_answers_at_several_lengths, ::modular_multiplication_matches_the_arithmetic_for_one_word_operands. Class A: tests/milestones/m8.rs t1_m8_probe_crypto_matches_the_device_capture compares the probe_crypto lines with both runs of the device capture device-probe_crypto-20260923T192126Z, and its PROBE_CRYPTO_TRAFFIC table, read from the MMIO trace of the same run, shows only the failover's all-ones modulus: one product over 96 words, mpi_mul2048x1024 (fnv=78149654ffed5f58), and 64 over 66 words in rsa_pub2048 (fnv=658ee505072456a9), whose mbedtls_rsa_public runs mbedTLS's software mbedtls_mpi_exp_mod_unsafe and reaches the block only through the reduction that computes R^2 mod N (167 MULT_START at 2 words and 64 MOD_MULT_START at 66). A modular product under any other modulus is not exercised and rests on the unit tests, class B inside the row. mpi_exp2048 runs the same 64 products to compute its r, and the exponentiation computes with that r (RSA_M_PRIME), so its printed line depends on them too"
+
+[[overrides]]
+register = "RSA_MULT_START"
+offsets = [0x814]
+value = "write-trigger: Z = X x Y, X the first n words of X_MEM and Y words n to 2n - 1 of Z_MEM, n = (LENGTH + 1) / 2, the 2n-word product written from Z_MEM word 0; completion and interrupt as RSA_MODEXP_START; reads 0. UNVERIFIED and class C inside the row: an odd LENGTH + 1 takes n rounded up"
+class = "A"
+provenance = "TRM 20.3.3 and register 20.6; IDF bignum_alt.c esp_mpi_mul_mpi_hw_op, mbedtls/port/bignum/esp_bignum.c mbedtls_mpi_mul_mpi (every product of operands up to 2048 bits). Tests: periph::rsa::tests::known_answers_at_several_lengths, ::the_product_of_all_ones_has_its_closed_form_at_every_length, ::the_multiplication_reads_only_its_operand_words. Class A: tests/milestones/m8.rs t1_m8_probe_crypto_matches_the_device_capture compares the probe_crypto lines with both runs of the device capture device-probe_crypto-20260923T192126Z, and its PROBE_CRYPTO_TRAFFIC table, read from the MMIO trace of the same run, shows n = 32, mpi_mul1024 (fnv=b74707623b692cd1), n = 48, mpi_mul1536 (fnv=1b768b880f94eb80), and n = 2, 167 times in rsa_pub2048 (fnv=658ee505072456a9), whose mbedtls_rsa_public runs mbedTLS's software mbedtls_mpi_exp_mod_unsafe and reaches the block only through the reduction that computes R^2 mod N (167 MULT_START at 2 words and 64 MOD_MULT_START at 66). Every LENGTH + 1 is even, so the odd case stays UNVERIFIED"
+
+[[overrides]]
+register = "RSA_QUERY_INTERRUPT"
+offsets = [0x818]
+value = "reads 0 from a start until its completion and 1 otherwise, whatever the interrupt latch holds"
+class = "B"
+provenance = "TRM 20.3.1 step 5 and register 20.7 (RSA_IDLE_REG); IDF hal/mpi_hal.c mpi_hal_wait_op_complete, which polls it after esp_mpi_complete_isr has cleared the interrupt. Tests: periph::rsa::tests::the_completion_interrupt_latches_until_clear_interrupt, ::the_completion_waits_for_the_profile_duration. Stays B: probe_crypto polls it after every operation and reads 1, but no printed value depends on it"
+
+[[overrides]]
+register = "RSA_CLEAR_INTERRUPT"
+offsets = [0x81C]
+value = "write-trigger: a write of 1 clears the latched completion interrupt (source 47); reads 0"
+class = "B"
+provenance = "TRM 20.3.1 step 7 and register 20.8; IDF mpi_ll.h mpi_ll_clear_interrupt, mpi_hal.c mpi_hal_start_op and mpi_hal_wait_op_complete, esp_bignum.c esp_mpi_complete_isr. Test: periph::rsa::tests::the_completion_interrupt_latches_until_clear_interrupt. Stays B: probe_crypto writes it around every operation, but no printed value depends on it"
+
+[[overrides]]
+register = "RSA_CONSTANT_TIME"
+offsets = [0x820]
+value = "bit 0, reset 1; it changes the exponentiation's time only: 1 squares and multiplies at every exponent bit, 0 skips the leading zero bits and the multiplications at zero bits (periph/rsa.rs, Time)"
+class = "A"
+provenance = "device-probe_campaign_timing-20260924T155139Z run1 and run2 lines 64 to 66 (probe_campaign_timing TIME rsa_modexp_sparse_ct1, sparse_ct0, dense_ct0): one 2048-bit exponentiation of 2^2047 + 1 takes 35173669 cycles with CONSTANT_TIME 1 and 17597366 with 0, and of the all-ones exponent 35156148 with 0, the same results (FNV) either way; the emulator reads 35173648, 17595266 and 35156170 under the device profile (rsa_op_ps; tests/fw/campaign/probe_campaign_timing.emu.txt). TRM 20.3.4 and register 20.9; IDF mpi_ll.h mpi_ll_enable_constant_time and mpi_ll_disable_constant_time. Tests: periph::rsa::tests::{a_2048_bit_exponentiation_takes_the_device_time, the_acceleration_options_change_the_count, the_registers_reset_to_the_trm_values_and_keep_their_widths}"
+
+[[overrides]]
+register = "RSA_SEARCH_ENABLE"
+offsets = [0x824]
+value = "bit 0: while set, a modular exponentiation ignores the exponent bits above RSA_SEARCH_POS"
+class = "B"
+provenance = "TRM 20.3.4 and register 20.10; IDF bignum_alt.c esp_mpi_exp_mpi_mod_hw_op. Test: periph::rsa::tests::the_search_option_ignores_the_exponent_bits_above_its_position. Stays B: probe_crypto sets it for mpi_exp2048's MODEXP_START with SEARCH_POS 255, the exponent's top bit, so the bits it drops are zero and the printed line is the same with the search off"
+
+[[overrides]]
+register = "RSA_SEARCH_POS"
+offsets = [0x828]
+value = "bits 11 to 0: the highest exponent bit a searched exponentiation uses"
+class = "B"
+provenance = "TRM 20.3.4 and register 20.11; IDF mpi_ll.h mpi_ll_set_search_position (bitlen(Y) - 1). Test: periph::rsa::tests::the_search_option_ignores_the_exponent_bits_above_its_position. Stays B: probe_crypto writes 255 once, the exponent's top bit, so the printed line does not depend on it (see RSA_SEARCH_ENABLE)"
+
+[[overrides]]
+register = "RSA_INT_ENA"
+offsets = [0x82C]
+value = "bit 0, reset 1, gates the level of source 47; the completion latches whether or not it is set (UNVERIFIED)"
+class = "B"
+provenance = "TRM 20.3 and register 20.12 (RSA_INTERRUPT_ENA_REG, enabled by default); IDF mpi_ll.h mpi_ll_enable_interrupt and mpi_ll_disable_interrupt (RSA_INTERRUPT_REG), esp_bignum.c esp_mpi_isr_initialise. Test: periph::rsa::tests::the_completion_interrupt_latches_until_clear_interrupt. Stays B: probe_crypto writes 0 before every operation and 1 once, but no printed value depends on it"
+
+[[overrides]]
+register = "RSA_DATE"
+offsets = [0x830]
+value = "reset 0x20200618, read-write"
+class = "B"
+provenance = "TRM register 20.13. IDF soc/esp32c3/include/soc/hwcrypto_reg.h puts RSA_DATE_REG at 0x82C, the same offset as RSA_INTERRUPT_REG, which the TRM contradicts; the TRM offset is used. Test: periph::rsa::tests::the_registers_reset_to_the_trm_values_and_keep_their_widths. Stays B: probe_crypto never touches it"

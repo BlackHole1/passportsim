@@ -1,0 +1,17 @@
+# probe_crypto overrides on top of probes/common/sdkconfig.defaults.
+#
+# 1. **The partition table.** `partitions.csv` beside this file is the Passport's own layout, as
+#    for probe_wifi_conn, so the identity guard accepts a flash of this image on the device.
+#
+# 2. **The accelerator paths are pinned on**, although each is already ESP-IDF v5.5.3's default for
+#    the C3, so a change of default cannot quietly move the probe onto software crypto: hardware
+#    AES (every mode through the DMA mode, esp_aes_process_dma) with its completion interrupt for
+#    runs over 2000 bytes, and the hardware MPI with its completion interrupt. The probe exists to
+#    exercise exactly those paths.
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_MBEDTLS_HARDWARE_AES=y
+CONFIG_MBEDTLS_AES_USE_INTERRUPT=y
+CONFIG_MBEDTLS_HARDWARE_MPI=y
+CONFIG_MBEDTLS_MPI_USE_INTERRUPT=y
+CONFIG_MBEDTLS_GCM_C=y

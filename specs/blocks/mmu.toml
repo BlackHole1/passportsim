@@ -1,0 +1,32 @@
+# Block spec of the `mmu` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/mmu.rs.
+schema = 1
+block = "mmu"
+base = 0x600C_5000
+size = 0x1000
+class = "B"
+milestone = "M2"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h (DR_REG_MMU_TABLE); size 0x1000 UNVERIFIED"
+
+# 128 entries, one 32-bit word each, with a shared IBUS/DBUS index and bit 8 as the invalid flag.
+# The index formula and the invalid bit are checked structurally by codegen, not by a row here.
+# The block has no register field rows in specs/c3-registers.csv: it is a flat table, not a set of
+# named registers.
+# No busy-wait row: nothing polls the MMU.
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: the MMU table is in the digital domain, which every reset scope restores. The entry reset value is UNVERIFIED (no public source gives one); the bootloader writes every entry it uses"
+
+# The class of the 128 entries. The block has no rows in specs/c3-registers.csv and therefore no
+# generated RegSpec table for a class column, so this row carries the offsets instead and codegen
+# renders them into crates/pemu-soc-c3/src/gen/classes.rs, which crates/pemu-soc-c3/src/mmu.rs
+# answers Peripheral::fidelity from. One row for the whole array, because every entry behaves the
+# same way.
+[[overrides]]
+register = "MMU entry table"
+offsets = { first = 0x000, last = 0x1FC, stride = 4 }
+value = "one 64 KB page mapping per entry, shared by the DROM and IROM windows: bits 7:0 are the physical flash page, bit 8 invalidates the entry, the value reads back exactly as written, and a write remaps both windows and invalidates the translated blocks of the engine"
+class = "B"
+provenance = "IDF soc/esp32c3/include/soc/ext_mem_defs.h and hal/esp32c3/include/hal/mmu_ll.h: the index formula (va & 0x7FFFFF) >> 16 shared by IBUS and DBUS, SOC_MMU_VALID as bit 8 clear, SOC_MMU_VALID_VAL_MASK 0xFF, the fixed 64 KB page, the readback esp_mmu_map_init scans, and the reset value the ROM's Cache_MMU_Init writes; the codegen structural cross-check pins the index formula and the invalid bit. Tests: crate::mmu::tests::{the_index_formula_is_shared_by_both_windows, bit_8_is_the_invalid_flag_and_bits_7_to_0_are_the_page, entries_read_back_exactly_as_written_and_mark_themselves_dirty, a_reset_unmaps_every_entry_and_a_cpu_reset_keeps_them}; crate::wiring::mmu::tests::{an_entry_write_maps_both_windows_onto_the_same_flash_page, a_remap_invalidates_the_ibus_range_the_engine_translated, a_narrow_write_that_straddles_two_entries_applies_both, an_entry_above_the_part_maps_nothing}; end to end tests/milestones/m1.rs, test t1_m1_loader_reads_flash_through_the_cache and tests/milestones/m2.rs, test t1_m2_mmu_handoff_matches_image_info, which compares the live table against the app's segment mapping"

@@ -1,0 +1,53 @@
+{
+  "additionalProperties": false,
+  "description": "`ui` arguments.",
+  "properties": {
+    "diff": {
+      "description": "Only lines changed since this ui_rev.",
+      "minimum": 1,
+      "type": "integer"
+    },
+    "include_style": {
+      "description": "Show local style colours (false).",
+      "type": "boolean"
+    },
+    "instance": {
+      "description": "Instance id.",
+      "pattern": "^[pb][0-9]+$",
+      "type": "string"
+    },
+    "max_nodes": {
+      "description": "Lines to show (300).",
+      "maximum": 2000,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "prune": {
+      "description": "Pruning (semantic).",
+      "enum": [
+        "semantic",
+        "none"
+      ],
+      "type": "string"
+    },
+    "resolve": {
+      "description": "Resolve a ref from an earlier revision.",
+      "pattern": "^e[0-9]+$",
+      "type": "string"
+    },
+    "timeout": {
+      "description": "Run to a safe point first, 1s.",
+      "oneOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "pattern": "^[0-9]+(\\.[0-9]+)?(us|ms|s|m)$",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "type": "object"
+}

@@ -1,0 +1,5 @@
+# hle_probe overrides on top of probes/common/sdkconfig.defaults.
+#
+# Nothing beyond the shared defaults. The default event loop, the default task watchdog (which
+# must not trip while a hooked call is outstanding) and the
+# default FreeRTOS tick are exactly what the HLE guards run against.

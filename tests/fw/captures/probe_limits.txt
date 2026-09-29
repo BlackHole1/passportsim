@@ -1,0 +1,87 @@
+ESP-ROM:esp32c3-eco7-20230720
+Build:Jul 20 2023
+rst:0x1 (POWERON),boot:0xa (SPI_FAST_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5830,len:0x1564
+load:0x403cbf10,len:0xc20
+load:0x403ce710,len:0x2ff8
+entry 0x403cbf1a
+I (0) boot: ESP-IDF v5.5.3 2nd stage bootloader
+I (0) boot: chip revision: v1.1
+I (0) boot: efuse block revision: v1.3
+I (0) boot.esp32c3: SPI Speed      : 80MHz
+I (0) boot.esp32c3: SPI Mode       : SLOW READ
+I (0) boot.esp32c3: SPI Flash Size : 8MB
+I (0) boot: Enabling RNG early entropy source...
+I (0) boot: Partition Table:
+I (0) boot: ## Label            Usage          Type ST Offset   Length
+I (0) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+I (0) boot:  1 phy_init         RF data          01 01 0000f000 00001000
+I (0) boot:  2 factory          factory app      00 00 00010000 00177000
+I (0) boot: End of partition table
+I (0) esp_image: segment 0: paddr=00010020 vaddr=3c020020 size=08178h ( 33144) map
+I (1) esp_image: segment 1: paddr=000181a0 vaddr=3fc8b400 size=016a8h (  5800) load
+I (1) esp_image: segment 2: paddr=00019850 vaddr=40380000 size=067c8h ( 26568) load
+I (1) esp_image: segment 3: paddr=00020020 vaddr=42000020 size=115f8h ( 71160) map
+I (2) esp_image: segment 4: paddr=00031620 vaddr=403867c8 size=04bfch ( 19452) load
+I (2) esp_image: segment 5: paddr=00036224 vaddr=50000000 size=00020h (    32) load
+I (2) boot: Loaded app from partition at offset 0x10000
+I (2) boot: Disabling RNG early entropy source...
+I (2) cpu_start: Unicore app
+I (10) cpu_start: Pro cpu start user code
+I (10) cpu_start: cpu freq: 160000000 Hz
+I (10) app_init: Application information:
+I (10) app_init: Project name:     probe_limits
+I (10) app_init: App version:      probe
+I (10) app_init: ELF file SHA256:  e25c1ad17...
+I (10) app_init: ESP-IDF:          v5.5.3
+I (10) efuse_init: Min chip rev:     v0.3
+I (10) efuse_init: Max chip rev:     v1.99 
+I (10) efuse_init: Chip rev:         v1.1
+I (10) heap_init: Initializing. RAM available for dynamic allocation:
+I (10) heap_init: At 3FC8DAF0 len 00032510 (201 KiB): RAM
+I (10) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM
+I (10) heap_init: At 3FCDC710 len 0000294C (10 KiB): Retention RAM
+I (10) heap_init: At 50000020 len 00001FC8 (7 KiB): RTCRAM
+I (10) spi_flash: detected chip: gd
+I (11) spi_flash: flash io: dio
+I (11) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (11) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (11) main_task: Started on CPU0
+I (11) main_task: Calling app_main()
+PROBE|name=probe_limits|schema=passport-emu/probe-line/1
+IMAGE|elf_sha256=e25c1ad17746a8e7b581fed799a9ea48edb879c6b10326965e1b92460b3b2cef
+HEAPREG|index=0|start=0x50000020|end=0x50001fe8|size=8136
+HEAPREG|index=1|start=0x3fcdc710|end=0x3fcdf05c|size=10572
+HEAPREG|index=2|start=0x3fcc0000|end=0x3fcdc710|size=116496
+HEAPREG|index=3|start=0x3fc8daf0|end=0x3fcc0000|size=206096
+LIMIT|default|free=330288|largest=196608|allocs=10|requested=330228|usable=330232|exhausted=1|free_after=330288|restored=1
+LIMREG|default|index=0|start=0x50000020|end=0x50001fe8|size=8136|used_before=0|used_drained=7744|drained=7744|shrunk=0
+LIMREG|default|index=1|start=0x3fcdc710|end=0x3fcdf05c|size=10572|used_before=0|used_drained=10140|drained=10140|shrunk=0
+LIMREG|default|index=2|start=0x3fcc0000|end=0x3fcdc710|size=116496|used_before=0|used_drained=115608|drained=115608|shrunk=0
+LIMREG|default|index=3|start=0x3fc8daf0|end=0x3fcc0000|size=206096|used_before=8268|used_drained=205008|drained=196740|shrunk=0
+LIMIT|internal_8bit|free=330288|largest=196608|allocs=10|requested=330228|usable=330232|exhausted=1|free_after=330288|restored=1
+LIMREG|internal_8bit|index=0|start=0x50000020|end=0x50001fe8|size=8136|used_before=0|used_drained=7744|drained=7744|shrunk=0
+LIMREG|internal_8bit|index=1|start=0x3fcdc710|end=0x3fcdf05c|size=10572|used_before=0|used_drained=10140|drained=10140|shrunk=0
+LIMREG|internal_8bit|index=2|start=0x3fcc0000|end=0x3fcdc710|size=116496|used_before=0|used_drained=115608|drained=115608|shrunk=0
+LIMREG|internal_8bit|index=3|start=0x3fc8daf0|end=0x3fcc0000|size=206096|used_before=8268|used_drained=205008|drained=196740|shrunk=0
+LIMIT|dma|free=322532|largest=196608|allocs=8|requested=322484|usable=322488|exhausted=1|free_after=322532|restored=1
+LIMREG|dma|index=0|start=0x50000020|end=0x50001fe8|size=8136|used_before=0|used_drained=0|drained=0|shrunk=0
+LIMREG|dma|index=1|start=0x3fcdc710|end=0x3fcdf05c|size=10572|used_before=0|used_drained=10140|drained=10140|shrunk=0
+LIMREG|dma|index=2|start=0x3fcc0000|end=0x3fcdc710|size=116496|used_before=0|used_drained=115608|drained=115608|shrunk=0
+LIMREG|dma|index=3|start=0x3fc8daf0|end=0x3fcc0000|size=206096|used_before=8268|used_drained=205008|drained=196740|shrunk=0
+LIMIT|exec|free=0|largest=0|allocs=0|requested=0|usable=0|exhausted=1|free_after=0|restored=1
+LIMREG|exec|index=0|start=0x50000020|end=0x50001fe8|size=8136|used_before=0|used_drained=0|drained=0|shrunk=0
+LIMREG|exec|index=1|start=0x3fcdc710|end=0x3fcdf05c|size=10572|used_before=0|used_drained=0|drained=0|shrunk=0
+LIMREG|exec|index=2|start=0x3fcc0000|end=0x3fcdc710|size=116496|used_before=0|used_drained=0|drained=0|shrunk=0
+LIMREG|exec|index=3|start=0x3fc8daf0|end=0x3fcc0000|size=206096|used_before=8268|used_drained=8268|drained=0|shrunk=0
+LIMIT|rtcram|free=7756|largest=7680|allocs=2|requested=7744|usable=7744|exhausted=1|free_after=7756|restored=1
+LIMREG|rtcram|index=0|start=0x50000020|end=0x50001fe8|size=8136|used_before=0|used_drained=7744|drained=7744|shrunk=0
+LIMREG|rtcram|index=1|start=0x3fcdc710|end=0x3fcdf05c|size=10572|used_before=0|used_drained=0|drained=0|shrunk=0
+LIMREG|rtcram|index=2|start=0x3fcc0000|end=0x3fcdc710|size=116496|used_before=0|used_drained=0|drained=0|shrunk=0
+LIMREG|rtcram|index=3|start=0x3fc8daf0|end=0x3fcc0000|size=206096|used_before=8268|used_drained=8268|drained=0|shrunk=0
+AUDIO|size=96000|largest=196608|ok=1
+ABOVE|largest=196608|at=1|above=0
+DONE|name=probe_limits|status=ok
+I (11) main_task: Returned from app_main()

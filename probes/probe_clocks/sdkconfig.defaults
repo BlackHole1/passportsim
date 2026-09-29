@@ -1,0 +1,4 @@
+# probe_clocks overrides on top of probes/common/sdkconfig.defaults.
+# A 1000 Hz tick makes the FreeRTOS tick delta of a 20 ms phase 20 rather than 2, so the
+# "agree within one tick" rule is a 1 ms rule rather than a 10 ms one.
+CONFIG_FREERTOS_HZ=1000

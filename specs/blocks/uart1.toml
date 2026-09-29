@@ -1,0 +1,33 @@
+# Block spec of the `uart1` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/uart1.rs.
+schema = 1
+block = "uart1"
+base = 0x6001_0000
+size = 0x1000
+class = "U"
+milestone = "LATER"
+provenance = "no corpus image touches the block; base IDF soc/esp32c3/register/soc/reg_base.h; window size 0x1000 UNVERIFIED"
+
+# The block stays LATER and class U: no line is driven, no FIFO moves a byte, no interrupt is
+# raised and no console is attached, so a register no row below names claims nothing, and the
+# coverage gate reopens the block if an image starts using it.
+#
+# The model applies the field table of specs/c3-registers.csv rather than a StoreOnly RegBank:
+# goldminer writes UART_INT_CLR during boot, and under StoreOnly that register read back the
+# written value while every field is WT and the device reads back 0. The other registers get the
+# same read-back, but none is claimed here: no boot path touches them, and a class is a claim.
+#
+# So the block is modeled, LATER and class U at once, on purpose: its field table is right and its
+# behavior is absent. What earns a class is modeled behavior, never the presence of a periph file.
+
+# The one register a boot path writes.
+[[overrides]]
+register = "UART_INT_CLR"
+value = "every field is WT: a write triggers the clear of the matching UART_INT_RAW bit and the register reads back 0, as the device does. The raw bits it clears are never set, because no event of this block raises one"
+class = "C"
+provenance = "the WT access column of the five UART_INT_CLR fields in specs/c3-registers.csv, from IDF v5.5.3 soc/esp32c3/register/soc/uart_reg.h (R/W/WT), where WT reads 0; periph::uart1::tests::the_write_trigger_registers_read_zero_like_the_device and ::the_ledger_and_the_class_come_from_the_generated_table cover the read-back and the class. Class C and not B because the interrupt path behind the register is absent rather than approximated: uart1 is a LATER row, so clearing a bit that nothing ever sets is a declared class C approximation. It returns to U, or is promoted to B with an interrupt model, if an image ever makes uart1 raise an interrupt"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: only the RTC domain survives a core reset, and this block is not in it"

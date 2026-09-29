@@ -1,0 +1,17 @@
+ESP32-C3 mask ROM ELF files
+
+The files esp32c3_rev101_rom.elf and esp32c3_rev3_rom.elf in this directory are
+Copyright (c) Espressif Systems (Shanghai) Co., Ltd.
+
+They are licensed under the Apache License, Version 2.0; the full license text is
+in the file LICENSE in this directory, copied verbatim from the upstream repository.
+
+Source repository: https://github.com/espressif/esp-rom-elfs
+Release tag:       20241011
+The files are redistributed unmodified; their SHA-256 digests are listed in pins.toml.
+
+The mask ROM binaries include code compiled from portions of third-party software.
+The list of those components and their copyright notices is the "ROM Source Code
+Copyrights" section of the ESP-IDF "Copyrights and Licenses" page:
+https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32c3/COPYRIGHT.html
+(source: docs/en/COPYRIGHT.rst in the ESP-IDF repository).

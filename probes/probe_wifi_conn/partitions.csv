@@ -1,0 +1,34 @@
+# probe_wifi_conn partition table: **the Passport's own layout**.
+#
+# Every other probe uses the IDF "single app large" table, which has no `cardid` row and puts
+# `factory` somewhere else. Flashing such an image at a Passport is refused by the project's own
+# identity guard, and correctly so: `plan_flash` on `corpus/probe2/probe2-merged.bin` returns
+# `refused ImageMovesCardid: image partition table: no `cardid` entry`, `refused VerifyFirmware:
+# `cardid` is not data/nvs at 0x356000 size 0x4000` and `refused VerifyFirmware: `factory` is not
+# app/factory at 0x10000 size 0x300000`. This table is the device's, so the flash preserves the
+# identity region instead of moving it.
+#
+# The four rows are the four the attached Passport prints from its own second-stage bootloader
+# (`$ROOT/device/boot_log.bin`, class A):
+#
+#     boot:  0 nvs              WiFi data        01 02 00009000 00006000
+#     boot:  1 phy_init         RF data          01 01 0000f000 00001000
+#     boot:  2 factory          factory app      00 00 00010000 00300000
+#     boot:  3 cardid           WiFi data        01 02 00356000 00004000
+#
+# and the same four are `official.pt` and `tests/fixtures/device-facts.toml`. The older factory
+# dump decodes a **fifth** row, `recovery` app/test at 0x700000; upstream removed that partition
+# (`52168b5`, "fix(flash): remove recovery partition") and the attached device no longer has it,
+# so it is not here either. It would change nothing for the guard in any case: `recovery` is an app partition,
+# and the planner's `DataLayoutMismatch` rule compares only the non-app rows.
+#
+# **`cardid` is declared and carries no data.** No file is assigned to it, so the build's
+# `flash_args` holds only the bootloader, the partition table and the app, and no segment of the
+# merged image falls in [0x356000, 0x35A000). Declaring it is what keeps the region reserved and
+# what makes the image's table equal the device's; writing it is never done, in any form.
+#
+# Name,   Type, SubType, Offset,   Size,     Flags
+nvs,      data, nvs,     0x9000,   0x6000,
+phy_init, data, phy,     0xf000,   0x1000,
+factory,  app,  factory, 0x10000,  0x300000,
+cardid,   data, nvs,     0x356000, 0x4000,

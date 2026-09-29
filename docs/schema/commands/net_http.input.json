@@ -1,0 +1,55 @@
+{
+  "additionalProperties": false,
+  "description": "`net_http` arguments.",
+  "properties": {
+    "host_port": {
+      "description": "bridge: the 127.0.0.1 port it reaches (default: port).",
+      "maximum": 65535,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "instance": {
+      "description": "Instance id.",
+      "pattern": "^[pb][0-9]+$",
+      "type": "string"
+    },
+    "op": {
+      "description": "Default status.",
+      "enum": [
+        "status",
+        "bridge",
+        "unbridge"
+      ]
+    },
+    "port": {
+      "description": "bridge: the guest port on host.emu.internal.",
+      "maximum": 65535,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "routes": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "host_port": {
+            "maximum": 65535,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "port": {
+            "maximum": 65535,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "port"
+        ],
+        "type": "object"
+      },
+      "maxItems": 16,
+      "type": "array"
+    }
+  },
+  "type": "object"
+}

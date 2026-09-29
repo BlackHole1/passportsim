@@ -1,0 +1,37 @@
+# probe_wifi_http settings.
+#
+# Every default here is a placeholder for the emulator's virtual LAN, never a real network. The
+# SSID names no real access point and the password is empty because the probe connects to a scripted
+# OPEN access point. Nobody commits a real SSID or password to this file or to sdkconfig.defaults
+# (docs/secrets.md); a run against a real network sets them in a local, uncommitted sdkconfig.
+menu "probe_wifi_http"
+
+    config PROBE_WIFI_SSID
+        string "Access point SSID (placeholder)"
+        default "passport-emu-virtual-ap"
+        help
+            The SSID of the scripted open access point of the virtual LAN. A placeholder, not a
+            real network.
+
+    config PROBE_WIFI_PASSWORD
+        string "Access point password (empty: open network)"
+        default ""
+        help
+            Empty for the scripted open access point of the virtual LAN.
+
+    config PROBE_HTTP_HOST
+        string "HTTP host (empty: the DHCP gateway)"
+        default ""
+        help
+            Host of the scripted HTTP service. Empty means the gateway address the DHCP lease
+            names, which is where the virtual LAN serves it.
+
+    config PROBE_HTTP_PORT
+        int "HTTP port"
+        default 80
+
+    config PROBE_HTTP_PATH
+        string "HTTP path"
+        default "/probe"
+
+endmenu

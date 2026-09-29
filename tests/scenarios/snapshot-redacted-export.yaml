@@ -1,0 +1,27 @@
+# A snapshot export carries no secret. The scenario saves a named snapshot of the settled machine,
+# exports it redacted, and imports the export back, which `xtask secrets-check` is then run
+# against. The byte-level proof is a unit test beside the exporter (`commands/snapshot.rs`).
+schema: passportsim/scenario@1
+name: snapshot-redacted-export
+description: Save, export redacted and import a snapshot of the settled menu
+image: official
+tags: [t1, m7, snapshot]
+setup: {power: on}
+defaults: {timeout: 5s}
+steps:
+  # Read from the tree rather than the console: the official firmware prints no "menu ready"
+  # line, and an instance restored from the boot cache or forked from one starts with an empty
+  # console, so a serial wait from the start of the run has nothing to find.
+  - name: the menu is on screen
+    ui.expect:
+      contains: [{text: FoloToy}]
+  - name: keep the settled state under a name
+    snapshot: {op: save, name: menu}
+  - name: it is the only one kept
+    snapshot: {op: list}
+  - name: export it redacted, which is the default
+    snapshot: {op: export, name: menu}
+  - name: read the export back
+    snapshot: {op: import, name: menu}
+  - name: go back to the settled menu
+    snapshot: {op: restore, name: menu}

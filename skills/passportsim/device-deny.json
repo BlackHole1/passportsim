@@ -1,0 +1,35 @@
+{
+  "_note": [
+    "Shipped device-safety guardrail. Merge the `permissions.deny` list below into the agent",
+    "harness settings (for Claude Code, `.claude/settings.json`). It is a deny list of spellings",
+    "and is best effort: it covers only what it enumerates, because a pattern list cannot express",
+    "'everything except two URL forms' across every shell and quoting style. The enforceable allow",
+    "list lives where the argument is parsed: the flash planner accepts only socket://127.0.0.1:*",
+    "and rfc2217://127.0.0.1:* as a port before any process is spawned.",
+    "Spellings that appear in argument position rather than at the head of the command line - a",
+    "virtual-environment python.exe path, a \\\\.\\COM* device path, a /dev/cu.* path - cannot be",
+    "written as command-prefix matchers at all; the planner's allow list is what stops those."
+  ],
+  "permissions": {
+    "deny": [
+      "Bash(esptool:*)",
+      "Bash(esptool.py:*)",
+      "Bash(esptool.exe:*)",
+      "Bash(espefuse:*)",
+      "Bash(espefuse.py:*)",
+      "Bash(espefuse.exe:*)",
+      "Bash(python -m esptool:*)",
+      "Bash(python3 -m esptool:*)",
+      "Bash(py -m esptool:*)",
+      "Bash(python -m espefuse:*)",
+      "Bash(python3 -m espefuse:*)",
+      "Bash(py -m espefuse:*)",
+      "Bash(idf.py flash:*)",
+      "Bash(idf.py erase-flash:*)",
+      "Bash(idf.py erase_flash:*)",
+      "Bash(idf.py monitor:*)",
+      "Bash(idf.py -p:*)",
+      "Bash(idf.py --port:*)"
+    ]
+  }
+}

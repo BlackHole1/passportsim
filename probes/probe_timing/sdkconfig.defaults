@@ -1,0 +1,6 @@
+# probe_timing overrides on top of probes/common/sdkconfig.defaults.
+#
+# A custom table that adds the `scratch` data partition the 4 KB erase runs in (partitions.csv
+# beside this file, the same layout as flash_stress).
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"

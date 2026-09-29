@@ -1,0 +1,18 @@
+# Bundled ESP32-C3 mask ROM ELFs. pemu-loader embeds these files
+# with include_bytes! behind the default feature `bundled-rom` and checks each SHA-256 below.
+# Verified 2026-09-11: release 20241011 (the version ESP-IDF v5.5.3 pins, tarball SHA-256
+# 921f000164a421c7628fbfee55b173384aafaa51883adc65cd27bf9b0af9e9a9) contains both files with
+# these hashes; release 20260528 contains byte-identical copies.
+
+upstream = "https://github.com/espressif/esp-rom-elfs"
+release = "20241011"
+
+[[rom]]
+file = "esp32c3_rev101_rom.elf"
+sha256 = "9495e1453f36f7eec4112714ea1dca22d77808776adffa93dda7dda4393e8336"
+chip_revisions = ["v1.x"]
+
+[[rom]]
+file = "esp32c3_rev3_rom.elf"
+sha256 = "19ac22e08707df926fb0cf4c54795d4067b983fae8635f396ded173a6d78fc3c"
+chip_revisions = ["v0.3", "v0.4"]

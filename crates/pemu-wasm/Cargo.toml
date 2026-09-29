@@ -1,0 +1,35 @@
+[package]
+name = "pemu-wasm"
+description = "Raw C ABI of PassportSim for wasm32."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+# `cargo xtask wasm` runs this to read the layout constants without a dependency edge from xtask
+# to pemu-wasm.
+name = "pemu-layout-ts"
+path = "src/bin/pemu-layout-ts.rs"
+
+[dependencies]
+pemu-api.workspace = true
+# The published ring layout describes `pemu_core::hostio` channels, and the generated TypeScript
+# numbers `EventKind` and `SerialStream`.
+pemu-core.workspace = true
+# pemu-loader is reached through pemu-machine; the direct line names the `pemu_load` parsers.
+pemu-machine.workspace = true
+pemu-loader.workspace = true
+# `pemu_new`, `pemu_input` and `pemu_call` take JSON.
+serde_json.workspace = true
+
+# Every large fixed-size buffer is heap-built, because a Windows .exe gets a 1 MiB stack from its
+# PE header where macOS gives 8 MiB. The size the lints treat as large is `array-size-threshold`
+# of this crate's clippy.toml.
+[lints.clippy]
+large_stack_arrays = "deny"
+large_stack_frames = "deny"

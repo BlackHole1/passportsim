@@ -1,0 +1,118 @@
+# Block spec of the `sensitive` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/sensitive.rs.
+schema = 1
+block = "sensitive"
+base = 0x600C_1000
+size = 0x1000
+class = "B"
+milestone = "M3"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h (SENSITIVE, PMS); size 0x1000 matches the DATE register at offset 0xFFC (IDF soc/esp32c3/register/soc/sensitive_reg.h)"
+
+# PMS memory protection, enabled and locked by default in this build
+# (CONFIG_ESP_SYSTEM_MEMPROT_FEATURE and _LOCK are both y). Only 42 writes in the reference trace,
+# but getting the reset domain wrong turns a restart into an infinite reboot loop.
+
+# The reset domain: every SENSITIVE register, lock bits included, is restored by every reset scope,
+# including the CPU reset that esp_restart uses. If a lock bit survived,
+# esp_mprot_is_conf_locked_any would see it, the app would log "Memprot feature locked after the
+# system reset!" and call esp_restart_noos, and the device would reboot-loop. Real hardware must behave equivalently or shipped devices would do the same.
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "Store every SENSITIVE register with its reset value and reset all of them, lock bits included, on every reset type including the CPU reset used by esp_restart. Derived from IDF esp_system/port/cpu_start.c:816-849 and esp_hw_support/port/esp32c3/esp_memprot.c:458-481. The exact hardware reset domain is UNVERIFIED: the behavior is inferred from the fact that devices do not reboot-loop"
+
+[[stable_read]]
+register = "SENSITIVE_CORE_X_IRAM0_DRAM0_DMA_SPLIT_LINE_CONSTRAIN_0"
+provenance = "IDF soc/esp32c3/register/soc/sensitive_reg.h lock bit (0x600C_1090 bit 0): esp_mprot_is_conf_locked_any reads it on every boot and the value decides whether the app restarts, so it is a read an oracle diff must check"
+
+[[stable_read]]
+register = "SENSITIVE_CORE_X_IRAM0_PMS_CONSTRAIN_0"
+provenance = "IDF soc/esp32c3/register/soc/sensitive_reg.h lock bit (0x600C_10A8 bit 0): read by esp_mprot_is_conf_locked_any"
+
+[[stable_read]]
+register = "SENSITIVE_CORE_0_IRAM0_PMS_MONITOR_0"
+provenance = "IDF soc/esp32c3/register/soc/sensitive_reg.h lock bit (0x600C_10B4 bit 0): read by esp_mprot_is_conf_locked_any"
+
+[[stable_read]]
+register = "SENSITIVE_CORE_X_DRAM0_PMS_CONSTRAIN_0"
+provenance = "IDF soc/esp32c3/register/soc/sensitive_reg.h lock bit (0x600C_10C0 bit 0): read by esp_mprot_is_conf_locked_any"
+
+[[stable_read]]
+register = "SENSITIVE_CORE_0_DRAM0_PMS_MONITOR_0"
+provenance = "IDF soc/esp32c3/register/soc/sensitive_reg.h lock bit (0x600C_10C8 bit 0): read by esp_mprot_is_conf_locked_any"
+
+[[stable_read]]
+register = "SENSITIVE_CORE_0_PIF_PMS_CONSTRAIN_0"
+provenance = "IDF soc/esp32c3/register/soc/sensitive_reg.h lock bit (0x600C_10D8 bit 0): read by esp_mprot_is_conf_locked_any"
+
+[[stable_read]]
+register = "SENSITIVE_CORE_0_PIF_PMS_MONITOR_0"
+provenance = "IDF soc/esp32c3/register/soc/sensitive_reg.h lock bit (0x600C_1130 bit 0, used for the RTC FAST monitor): read by esp_mprot_is_conf_locked_any"
+
+[[overrides]]
+register = "*"
+field = "lock bits"
+value = "once a lock bit is 1, writes to its register group are ignored until the next reset"
+class = "B"
+provenance = "IDF esp_hw_support/port/esp32c3/esp_memprot.c esp_mprot_set_prot programs the split lines, areas and monitors and only then sets the locks, so the app never needs a write after the lock. Reads must keep returning the programmed values (exact storage)"
+
+[[overrides]]
+register = "SENSITIVE_ROM_TABLE_LOCK"
+value = "lock of the ROM_TABLE group (+0x004): once bit 0 is 1, writes to the group are ignored until the next reset, and every reset clears it"
+class = "B"
+provenance = "Lock semantics and reset domain as the lock-bits row above states for every group; the register at offset 0 is named here so its class is B like the model it belongs to rather than the inherited U. periph::sensitive::tests::{the_lock_registers_are_the_ones_the_spec_names, each_group_runs_from_its_lock_register_to_the_next_family, a_locked_group_ignores_writes_and_still_reads_back, the_lock_bits_clear_after_the_esp_restart_reset_kind}"
+
+# The programmed constraints, monitors and the internal SRAM split, one rule per family. The seven
+# lock registers keep the class B of their stable_read rows above: the lock semantics are modeled
+# and tested. The registers behind a lock are storage that the lock gates and that nothing else
+# reads: the emulator programs no split line and enforces no permission, so a guest access that
+# the device would refuse succeeds here and sources 55 to 60 never fire. That is deliberate and
+# declared (periph/sensitive.rs "What is deliberately not here: Enforcement"), so each family is
+# class C rather than the block class B.
+[[overrides]]
+registers = "SENSITIVE_INTERNAL_SRAM_USAGE_*"
+value = "stored behind the group lock; the IRAM and DRAM split of the internal SRAM is not re-folded, because the emulated address map is fixed"
+class = "C"
+provenance = "The SENSITIVE registers are stored with their reset values and reset on every reset type, and only the lock bits have an emulated effect (the lock-bits row above); the emulated address map is built once and does not move with this register. Declared class C rationale"
+
+[[overrides]]
+registers = "SENSITIVE_CORE_X_IRAM0_DRAM0_DMA_SPLIT_LINE_CONSTRAIN_*"
+value = "stored behind the group lock; the split lines are not decoded into the permission fold"
+class = "C"
+provenance = "Exact storage with read-back (IDF esp_hw_support/port/esp32c3/esp_memprot.c reads the programmed values back), which is what the model provides; crates/pemu-soc-c3/src/lib.rs keeps the permission state at Pms::OPEN until a SENSITIVE model decodes the split lines, and crate::wiring::protection records the same. Declared class C rationale"
+
+[[overrides]]
+registers = "SENSITIVE_CORE_X_IRAM0_PMS_CONSTRAIN_*"
+value = "stored behind the group lock; the IRAM0 permission areas are not enforced"
+class = "C"
+provenance = "The Pms::OPEN note of crates/pemu-soc-c3/src/lib.rs, the same rule as the split-line family. Declared class C rationale"
+
+[[overrides]]
+registers = "SENSITIVE_CORE_0_IRAM0_PMS_MONITOR_*"
+value = "stored behind the group lock; no IRAM0 violation is ever latched, because none is detected"
+class = "C"
+provenance = "specs/irq-sources.toml lists sources 55 to 60 for this block, but no permission check runs (crate::wiring::protection; enforcement is not modeled), so the monitor registers stay at their reset value. Declared class C rationale"
+
+[[overrides]]
+registers = "SENSITIVE_CORE_X_DRAM0_PMS_CONSTRAIN_*"
+value = "stored behind the group lock; the DRAM0 permission areas are not enforced"
+class = "C"
+provenance = "The Pms::OPEN note of crates/pemu-soc-c3/src/lib.rs. Declared class C rationale"
+
+[[overrides]]
+registers = "SENSITIVE_CORE_0_DRAM0_PMS_MONITOR_*"
+value = "stored behind the group lock; no DRAM0 violation is ever latched"
+class = "C"
+provenance = "the same rule as SENSITIVE_CORE_0_IRAM0_PMS_MONITOR_*. Declared class C rationale"
+
+[[overrides]]
+registers = "SENSITIVE_CORE_0_PIF_PMS_CONSTRAIN_*"
+value = "stored behind the group lock; the peripheral-bus permission areas are not enforced"
+class = "C"
+provenance = "The Pms::OPEN note of crates/pemu-soc-c3/src/lib.rs. Declared class C rationale"
+
+[[overrides]]
+registers = "SENSITIVE_CORE_0_PIF_PMS_MONITOR_*"
+value = "stored behind the group lock; no peripheral-bus violation is ever latched"
+class = "C"
+provenance = "the same rule as SENSITIVE_CORE_0_IRAM0_PMS_MONITOR_*. Declared class C rationale"

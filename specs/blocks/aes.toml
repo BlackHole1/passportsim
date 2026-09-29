@@ -1,0 +1,146 @@
+# Block spec of the `aes` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/aes.rs.
+schema = 1
+block = "aes"
+base = 0x6003_A000
+size = 0x1000
+class = "B"
+milestone = "M8"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h; size 0x1000 UNVERIFIED. No rows in specs/c3-registers.csv (hwcrypto_reg.h defines addresses only), so register names come from IDF soc/esp32c3/include/soc/hwcrypto_reg.h and the TRM chapter 18 register summary"
+
+# Nothing on the boot path uses hardware AES. mbedTLS on the C3 runs every AES operation in the
+# DMA-AES working mode (IDF mbedtls/port/aes/dma/esp_aes.c, esp_aes_dma_core.c
+# esp_aes_process_dma), so TLS through the Wi-Fi bridge reaches the block that way.
+
+[[wait]]
+id = "aes.state"
+kind = "wait"
+seed = false
+register = "AES_STATE"
+field = "*"
+trigger = "write AES_TRIGGER = 1 in the typical mode (AES_DMA_ENABLE 0), or in the DMA-AES mode (AES_DMA_ENABLE 1)"
+expect = "read AES_STATE == 0 (idle) once the typical-mode block is computed; read AES_STATE == 2 (done) once the DMA run's blocks have gone through the GDMA channels bound to AES"
+within = "same_access"
+polled_at = ["aes_hal_transform_block", "aes_hal_wait_done"]
+images = []
+milestone = "M8"
+provenance = "TRM 18.4.3 step 4 (typical: wait for 0) and 18.5.6 step 4 (DMA: wait for 2), tables 18.4-1 and 18.5-2; IDF hal/aes_hal.c aes_hal_wait_idle and aes_hal_wait_done. Not a seed row: no corpus image is known to reach it, so images is empty"
+
+[[stable_read]]
+register = "AES_STATE"
+provenance = "TRM 18.5.6: STATE is moved by the completion of an operation and by the guest's own DMA_EXIT write, so a poll can be fast-forwarded to the next event"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: AES is in the digital domain, which every reset scope restores"
+
+# The classes of the registers this block implements (TRM chapter 18). The block has no rows in
+# specs/c3-registers.csv, so the rows below carry offsets from IDF
+# soc/esp32c3/include/soc/hwcrypto_reg.h and the TRM 18.6 and 18.7 summaries, and codegen renders
+# them into crates/pemu-soc-c3/src/gen/classes.rs, which periph/aes.rs answers
+# Peripheral::fidelity from. Class A: KEY, MODE, TRIGGER, IV_MEM, DMA_ENABLE,
+# BLOCK_MODE and BLOCK_NUM, each for the values and modes the probe_crypto device capture
+# device-probe_crypto-20260923T192126Z exercises (the rest of such a row is class B inside it, as
+# its provenance says); the other seven rows stay B, because the capture either does not reach them
+# (TEXT_IN, TEXT_OUT) or prints nothing that depends on them. The GCM registers of
+# IDF hwcrypto_reg.h (0x60 to 0x8F, 0xA0 to 0xA8) and ENDIAN (0x44) and DATE (0xB4) have no row:
+# TRM chapter 18 lists none of them for the C3, soc_caps.h sets no SOC_AES_SUPPORT_GCM, so they
+# store and stay U.
+[[overrides]]
+register = "AES_KEY"
+offsets = { first = 0x000, last = 0x01C, stride = 4 }
+value = "the key, eight words, byte 0 of the key in bits 7 to 0 of AES_KEY_0: the bytes in stream order, little-endian inside each word; AES-128 uses the first four words"
+class = "A"
+provenance = "TRM 18.4.1 and tables 18.4-3 and 18.4-4 (key endianness), register 18.1; IDF hal/esp32c3/include/hal/aes_ll.h aes_ll_write_key (memcpy of the key bytes into each word). Tests: periph::aes::tests::the_fips_197_vectors_come_out_of_the_text_out_window, wiring::aes::tests::sp_800_38a_vectors_for_every_block_mode_both_directions_and_both_key_sizes. Class A: tests/milestones/m8.rs t1_m8_probe_crypto_matches_the_device_capture compares the probe_crypto lines with both runs of the device capture device-probe_crypto-20260923T192126Z, and its PROBE_CRYPTO_TRAFFIC table, read from the MMIO trace of the same run, shows the key size of each of the 12 DMA runs by its MODE: 128 bits (MODE 0 or 4, four key words) for aes_cbc128 (fnv=548ad1731c134884, dec_ok=1), aes_ctr128 (fnv=3b03c716f86270c1), aes_ctr128_split (same=1) and aes_gcm128 (fnv=00fc7371a4edf4ba, tag=82d72d88d22d9f40b5540d1fb53146f0), 256 bits (MODE 2 and 6, eight words) for aes_cbc256 (fnv=e57ac4552f7a5686, dec_ok=1); every printed ciphertext depends on the key"
+
+[[overrides]]
+register = "AES_TEXT_IN"
+offsets = { first = 0x020, last = 0x02C, stride = 4 }
+value = "the typical-mode input block, the bytes in stream order, little-endian inside each word"
+class = "B"
+provenance = "TRM 18.4.1, table 18.4-2 (text endianness) and register 18.2; IDF aes_ll.h aes_ll_write_block. Tests: periph::aes::tests::the_fips_197_vectors_come_out_of_the_text_out_window and ::narrow_accesses_reach_only_the_bytes_they_address. Stays B: probe_crypto never touches it (every AES operation of the run is a DMA run, no typical block), so the device capture does not reach it"
+
+[[overrides]]
+register = "AES_TEXT_OUT"
+offsets = { first = 0x030, last = 0x03C, stride = 4 }
+value = "the typical-mode result block, in the order of AES_TEXT_IN; read-only, a write changes nothing"
+class = "B"
+provenance = "TRM table 18.4-2 and register 18.3 (RO); IDF aes_ll.h aes_ll_read_block. Tests: periph::aes::tests::the_fips_197_vectors_come_out_of_the_text_out_window and ::the_registers_keep_their_documented_widths_and_text_out_is_read_only. Stays B: probe_crypto never touches it, as AES_TEXT_IN"
+
+[[overrides]]
+register = "AES_MODE"
+offsets = [0x040]
+value = "bits 2 to 0: 0 AES-128 encrypt, 2 AES-256 encrypt, 4 AES-128 decrypt, 6 AES-256 decrypt; odd values are reserved and transform nothing (UNVERIFIED which output silicon gives them). In the DMA mode the direction selects the inverse cipher for ECB and CBC and the feedback for CFB8 and CFB128, and OFB and CTR use the forward cipher whatever it says"
+class = "A"
+provenance = "TRM table 18.3-2 and register 18.4; IDF aes_ll.h aes_ll_set_mode (mode_reg_base + key_bytes / 8 - 2) and mbedtls/port/aes/dma/esp_aes.c, which programs OFB and CTR with ESP_AES_DECRYPT; NIST SP 800-38A 6.3 to 6.5 (CFB, OFB and CTR use only the forward cipher). Tests: periph::aes::tests::a_mode_the_map_does_not_name_leaves_the_output_alone, wiring::aes::tests::ofb_and_ctr_ignore_the_direction_as_idf_programs_them. Class A: tests/milestones/m8.rs t1_m8_probe_crypto_matches_the_device_capture compares the probe_crypto lines with both runs of the device capture device-probe_crypto-20260923T192126Z, and its PROBE_CRYPTO_TRAFFIC table, read from the MMIO trace of the same run, shows values 0, 2, 4 and 6: aes_cbc128 encrypts under 0 and decrypts under 4 (fnv=548ad1731c134884, dec_ok=1), aes_cbc256 under 2 and 6 (fnv=e57ac4552f7a5686, dec_ok=1), every CTR run (aes_ctr128, aes_ctr128_split, aes_gcm128's payload and tag) runs under 4, the decrypt bit IDF programs, with the forward cipher's key stream (fnv=3b03c716f86270c1), and GCM's hash-key ECB block runs under 0 (aes_gcm128 tag=82d72d88d22d9f40b5540d1fb53146f0). The odd reserved values are not exercised and stay UNVERIFIED"
+
+[[overrides]]
+register = "AES_TRIGGER"
+offsets = [0x048]
+value = "write-trigger: with AES_DMA_ENABLE 0 one typical-mode block, STATE 1 until the completion; with AES_DMA_ENABLE 1 a DMA run of AES_BLOCK_NUM blocks (Wiring::AesDma), STATE 1 until it completes; reads 0. UNVERIFIED and class C inside the row: a trigger while STATE is 1 is ignored"
+class = "A"
+provenance = "TRM 18.4.3 step 3, 18.5.6 step 3, register 18.9; IDF aes_ll.h aes_ll_start_transform, hal/aes_hal.c aes_hal_transform_block and aes_hal_transform_dma_start. Tests: periph::aes::tests::the_state_poll_waits_for_the_profile_duration and ::a_dma_trigger_records_a_run_and_dma_exit_releases_the_done_state, wiring::aes::tests. Class A: tests/milestones/m8.rs t1_m8_probe_crypto_matches_the_device_capture compares the probe_crypto lines with both runs of the device capture device-probe_crypto-20260923T192126Z, and its PROBE_CRYPTO_TRAFFIC table, read from the MMIO trace of the same run, shows 12 DMA-mode triggers, which produce every AES line of the capture (aes_cbc128, aes_cbc256, aes_ctr128, aes_ctr128_split, aes_gcm128). The typical-mode trigger is not exercised (no TEXT_IN or TEXT_OUT access in the run) and rests on the TRM and the FIPS-197 unit test, class B inside the row"
+
+[[overrides]]
+register = "AES_STATE"
+offsets = [0x04C]
+value = "0 idle, 1 while an operation runs, 2 once a DMA run has completed and until AES_DMA_EXIT; the typical mode returns to 0 at its completion. UNVERIFIED and class C inside the row: a DMA run whose TX or RX chain runs out stays at 1 with no completion"
+class = "B"
+provenance = "TRM tables 18.4-1 and 18.5-2, register 18.10; IDF hal/aes_hal.c aes_hal_wait_idle and aes_hal_wait_done. Tests: periph::aes::tests::the_state_poll_waits_for_the_profile_duration, ::a_dma_trigger_records_a_run_and_dma_exit_releases_the_done_state, wiring::aes::tests::a_starved_run_stays_busy. Stays B: probe_crypto reads it (2 after each run the completion interrupt ends, 1 then 2 polled after the four runs under 2000 bytes), but no printed value depends on what it reads"
+
+[[overrides]]
+register = "AES_IV_MEM"
+offsets = { first = 0x050, last = 0x05C, stride = 4 }
+value = "the IV (CBC, OFB, CFB8, CFB128) or initial counter block (CTR) in stream order, Byte0 at the lowest address; after a DMA run the chaining value the next call continues from: the last ciphertext block for CBC and CFB128, the last forward-cipher output for OFB, the next counter block for CTR, the last 16 ciphertext bytes for CFB8; ECB leaves it"
+class = "A"
+provenance = "TRM 18.5.5 (IV_MEM and its byte order) and 18.6; IDF aes_ll.h aes_ll_set_iv and aes_ll_read_iv, and mbedtls/port/aes/dma/esp_aes.c, which reads IV_MEM back after every CBC, CFB8, CFB128 (whole blocks), OFB and CTR run as the mbedTLS iv or nonce_counter; NIST SP 800-38A section 6. Tests: wiring::aes::tests::the_iv_after_a_run_continues_the_next_run_for_every_mode. Class A: tests/milestones/m8.rs t1_m8_probe_crypto_matches_the_device_capture compares the probe_crypto lines with both runs of the device capture device-probe_crypto-20260923T192126Z, and its PROBE_CRYPTO_TRAFFIC table, read from the MMIO trace of the same run, shows the CBC IV written and the chaining value read back (aes_cbc128 iv=3781eb373045aadc5b01078b714b80c9, aes_cbc256 iv=65749169ba3f026d4d099ba2866d027b), the CTR counter block written and read back (aes_ctr128 nonce=8f2da901e32f03a71cfd1a9d40949b96; aes_ctr128_split's second call continues from the counter its first read back, same=1) and aes_gcm128's counter blocks. The OFB, CFB8 and CFB128 chaining values are not exercised and rest on the SP 800-38A unit vectors, class B inside the row"
+
+[[overrides]]
+register = "AES_DMA_ENABLE"
+offsets = [0x090]
+value = "bit 0: 0 the typical working mode, 1 the DMA-AES working mode"
+class = "A"
+provenance = "TRM table 18.3-1 and register 18.5; IDF aes_ll.h aes_ll_dma_enable, hal/aes_hal.c aes_hal_transform_dma_start and aes_hal_transform_dma_finish. Tests: periph::aes::tests::a_dma_trigger_records_a_run_and_dma_exit_releases_the_done_state. Class A: tests/milestones/m8.rs t1_m8_probe_crypto_matches_the_device_capture compares the probe_crypto lines with both runs of the device capture device-probe_crypto-20260923T192126Z, and its PROBE_CRYPTO_TRAFFIC table, read from the MMIO trace of the same run, shows bit 0 set at all 12 triggers (the DMA-AES mode of every AES line). The 0 setting is written only at the end of each run and never followed by a typical-mode trigger, so the typical mode rests on the TRM, class B inside the row"
+
+[[overrides]]
+register = "AES_BLOCK_MODE"
+offsets = [0x094]
+value = "bits 2 to 0: 0 ECB, 1 CBC, 2 OFB, 3 CTR, 4 CFB8, 5 CFB128, computed as NIST SP 800-38A defines them over the stream in memory order; 6 and 7 are reserved and transform nothing (UNVERIFIED which output silicon gives them)"
+class = "A"
+provenance = "TRM table 18.5-1, 18.5.2 (DMA text endianness) and register 18.6; IDF soc/esp32c3/include/soc/hwcrypto_reg.h AES_BLOCK_MODE_*, hal/aes_hal.c aes_hal_mode_init; NIST SP 800-38A section 6 and appendix F. Tests: wiring::aes::tests::sp_800_38a_vectors_for_every_block_mode_both_directions_and_both_key_sizes. Class A: tests/milestones/m8.rs t1_m8_probe_crypto_matches_the_device_capture compares the probe_crypto lines with both runs of the device capture device-probe_crypto-20260923T192126Z, and its PROBE_CRYPTO_TRAFFIC table, read from the MMIO trace of the same run, shows 0 ECB (aes_gcm128's hash-key block, on which tag=82d72d88d22d9f40b5540d1fb53146f0 and dec_ok=1 depend), 1 CBC (aes_cbc128, aes_cbc256) and 3 CTR (aes_ctr128, aes_ctr128_split, aes_gcm128's payload and tag runs). OFB (2), CFB8 (4) and CFB128 (5) are not run by the probe and rest on the SP 800-38A unit vectors, class B inside the row; 6 and 7 stay UNVERIFIED"
+
+[[overrides]]
+register = "AES_BLOCK_NUM"
+offsets = [0x098]
+value = "the block count of the next DMA run, all 32 bits; a source not a whole number of blocks is padded with zero bytes to the block. UNVERIFIED and class C inside the row: BLOCK_NUM 0 completes at once"
+class = "A"
+provenance = "TRM 18.5.4, 18.5.1 table 18.5-3 (TEXT-PADDING) and register 18.7; IDF aes_ll.h aes_ll_set_num_blocks, mbedtls/port/aes/dma/esp_aes_dma_core.c esp_aes_process_dma (blocks = whole blocks plus one for a partial tail, input padded to the block). Tests: wiring::aes::tests::a_run_reads_block_num_blocks_across_a_descriptor_chain_boundary and ::a_partial_last_block_is_padded_with_zeros. Class A: tests/milestones/m8.rs t1_m8_probe_crypto_matches_the_device_capture compares the probe_crypto lines with both runs of the device capture device-probe_crypto-20260923T192126Z, and its PROBE_CRYPTO_TRAFFIC table, read from the MMIO trace of the same run, shows 256 (aes_cbc128, aes_cbc256, aes_gcm128's payload), 257 (aes_ctr128, whose last block is partial), 63 and 194 (aes_ctr128_split's two calls) and 1 (aes_gcm128's hash-key and tag blocks). IDF pads a partial source itself, so the model's zero padding is not exercised (a padding mutant survives the probe), class B inside the row; BLOCK_NUM 0 stays UNVERIFIED"
+
+[[overrides]]
+register = "AES_INC_SEL"
+offsets = [0x09C]
+value = "bit 0: the CTR increment, 0 INC32 (the low 32 bits of the counter block, big-endian, modulo 2^32), 1 INC128 (the whole block modulo 2^128)"
+class = "B"
+provenance = "TRM 18.5.3 and register 18.8; NIST SP 800-38A appendix B.1; IDF aes_ll.h aes_ll_set_inc writes 0 (INC32) for every CTR run, so INC128 rests on the TRM alone. Tests: periph::aes::tests::the_ctr_increment_is_32_or_128_bits_wide, wiring::aes::tests::the_iv_after_a_run_continues_the_next_run_for_every_mode. Stays B: probe_crypto writes only 0 (PROBE_CRYPTO_TRAFFIC), and no CTR run carries out of its counter block's low word (aes_ctr128 ends at ...40949b96, aes_gcm128's payload counters run from 2 to 257), so INC32 and INC128 print the same lines; a mutant that reads the bit backwards survives the probe"
+
+[[overrides]]
+register = "AES_INT_CLEAR"
+offsets = [0x0AC]
+value = "write-trigger: a write of 1 clears the latched DMA completion interrupt (source 48); reads 0"
+class = "B"
+provenance = "TRM 18.5, 18.5.6 step 6 and register 18.12; IDF aes_ll.h aes_ll_interrupt_clear, mbedtls/port/aes/dma/esp_aes_dma_core.c esp_aes_complete_isr and esp_aes_isr_initialise (runs over AES_DMA_INTR_TRIG_LEN 2000 bytes under CONFIG_MBEDTLS_AES_USE_INTERRUPT). Test: periph::aes::tests::the_completion_interrupt_latches_and_int_clear_clears_it. Stays B: probe_crypto's completion interrupt path writes it, but no printed value depends on it"
+
+[[overrides]]
+register = "AES_INT_ENA"
+offsets = [0x0B0]
+value = "bit 0 gates the level of source 48; the DMA completion latches whether or not it is set (UNVERIFIED), and the typical mode never raises it"
+class = "B"
+provenance = "TRM 18.5 and register 18.13 (reset 0); IDF aes_ll.h aes_ll_interrupt_enable, esp_aes_dma_core.c esp_aes_isr_initialise. Test: periph::aes::tests::the_completion_interrupt_latches_and_int_clear_clears_it. Stays B: probe_crypto writes 1 for the runs over 2000 bytes and 0 for the others, but no printed value depends on it"
+
+[[overrides]]
+register = "AES_DMA_EXIT"
+offsets = [0x0B8]
+value = "write-trigger: any write returns STATE from 2 (done) to 0; reads 0. UNVERIFIED and class C inside the row: a write while STATE is 1 changes nothing"
+class = "B"
+provenance = "TRM 18.5.6 step 7 (write 0 to AES_DMA_EXIT, then STATE becomes 0) and register 18.11; IDF aes_ll.h aes_ll_dma_exit (REG_WRITE of 0), hal/aes_hal.c aes_hal_transform_dma_finish. Test: periph::aes::tests::a_dma_trigger_records_a_run_and_dma_exit_releases_the_done_state. Stays B: probe_crypto writes it after every run, but no printed value depends on it (IDF never polls for idle before the next trigger; a DMA_EXIT mutant survives the probe)"

@@ -1,0 +1,167 @@
+name: Deploy web
+
+# Builds the web bundle on macOS (the packaging host of the web target) and deploys it to
+# Cloudflare Workers as an assets-only Worker. The release workflow calls it with the web bundle it
+# already built, so the site serves the released bytes. docs/deploy-cloudflare.md lists the secrets
+# and variables.
+
+on:
+  workflow_dispatch:
+    inputs:
+      custom_domain:
+        description: Custom domain to attach (overrides the CF_CUSTOM_DOMAIN variable; empty keeps the dashboard's)
+        type: string
+        default: ""
+  workflow_call:
+    inputs:
+      web_bundle_artifact:
+        description: Artifact holding a passportsim-<version>-web.tar.gz to deploy instead of building one.
+        type: string
+        default: ""
+      custom_domain:
+        description: Custom domain to attach (overrides the CF_CUSTOM_DOMAIN variable).
+        type: string
+        default: ""
+    secrets:
+      CLOUDFLARE_API_TOKEN:
+        required: false
+      CLOUDFLARE_ACCOUNT_ID:
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-web
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build the web bundle
+    if: inputs.web_bundle_artifact == ''
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: package
+          save-cache: "false"
+
+      - id: demo
+        uses: ./.github/actions/fetch-demo
+        with:
+          url: ${{ vars.DEMO_SITE_URL }}
+          sha256: ${{ vars.DEMO_BUNDLE_SHA256 }}
+
+      - name: cargo xtask package
+        env:
+          DEMO_DIR: ${{ steps.demo.outputs.dir }}
+          OUT: ${{ runner.temp }}/package
+        run: |
+          args=(--target aarch64-apple-darwin --out "$OUT")
+          if [ -n "$DEMO_DIR" ]; then args+=(--demo "$DEMO_DIR"); fi
+          cargo xtask package "${args[@]}"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: web-bundle
+          path: ${{ runner.temp }}/package/passportsim-*-web.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    name: Deploy to Cloudflare Workers
+    needs: build
+    if: ${{ !cancelled() && (needs.build.result == 'success' || needs.build.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.web_bundle_artifact || 'web-bundle' }}
+          path: ${{ runner.temp }}/artifact
+
+      - name: Unpack the web bundle
+        id: bundle
+        env:
+          ARTIFACT: ${{ runner.temp }}/artifact
+          SITE: ${{ runner.temp }}/site
+        run: |
+          shopt -s nullglob
+          archives=("$ARTIFACT"/passportsim-*-web.tar.gz)
+          if [ "${#archives[@]}" -ne 1 ]; then
+            echo "::error::expected one passportsim-*-web.tar.gz in the artifact, found ${#archives[@]}"
+            exit 1
+          fi
+          mkdir -p "$SITE"
+          tar -xzf "${archives[0]}" -C "$SITE"
+          dirs=("$SITE"/passportsim-*-web)
+          echo "dir=${dirs[0]}" >> "$GITHUB_OUTPUT"
+          if [ ! -f "${dirs[0]}/official.pebundle" ]; then
+            echo "::warning title=No demo firmware::this web bundle carries no official.pebundle; the deployed page opens with no machine"
+            echo "### Deployed without the demo firmware" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: wrangler deploy
+        id: deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CUSTOM_DOMAIN: ${{ inputs.custom_domain || vars.CF_CUSTOM_DOMAIN }}
+          WORKER_NAME: ${{ vars.CF_WORKER_NAME }}
+          DIR: ${{ steps.bundle.outputs.dir }}
+          LOG: ${{ runner.temp }}/wrangler.log
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::the secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are required to deploy"
+            exit 1
+          fi
+          args=(--config "$DIR/wrangler.jsonc" --message "${GITHUB_SHA::12} by ${GITHUB_WORKFLOW} run ${GITHUB_RUN_ID}")
+          if [ -n "$WORKER_NAME" ]; then args+=(--name "$WORKER_NAME"); fi
+          # A custom domain given here is declared on every deploy (and created if it is missing).
+          # Without one, wrangler leaves the Worker's domains as the dashboard set them.
+          if [ -n "$CUSTOM_DOMAIN" ]; then args+=(--domain "$CUSTOM_DOMAIN"); fi
+          npx --yes wrangler@4 deploy "${args[@]}" 2>&1 | tee "$LOG"
+          # The targets follow wrangler's "Deployed <name> triggers" line (warnings before it can
+          # name preview hosts); Wrangler 4 prints the workers.dev one with its scheme.
+          workers_dev=$(sed -n '/Deployed .* triggers/,$p' "$LOG" |
+            grep -Eo '(https://)?[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.workers\.dev' | head -n 1 || true)
+          if [ -n "$workers_dev" ]; then workers_dev="https://${workers_dev#https://}"; fi
+          if [ -n "$CUSTOM_DOMAIN" ]; then url="https://$CUSTOM_DOMAIN/"; else url="${workers_dev:+$workers_dev/}"; fi
+          if [ -z "$url" ]; then
+            echo "::error::wrangler printed no workers.dev URL and no custom domain is set, so there is nothing to check"
+            exit 1
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "workers_dev=${workers_dev:+$workers_dev/}" >> "$GITHUB_OUTPUT"
+          echo "Deployed to $url" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Smoke check
+        env:
+          DIR: ${{ steps.bundle.outputs.dir }}
+          URL: ${{ steps.deploy.outputs.url }}
+          WORKERS_DEV: ${{ steps.deploy.outputs.workers_dev }}
+        run: |
+          .github/scripts/smoke-check.sh "$DIR" "$URL"
+          if [ -n "$WORKERS_DEV" ] && [ "$WORKERS_DEV" != "$URL" ]; then
+            .github/scripts/smoke-check.sh "$DIR" "$WORKERS_DEV"
+          fi

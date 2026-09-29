@@ -1,0 +1,30 @@
+# Block spec of the `iomux` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/iomux.rs.
+schema = 1
+block = "iomux"
+base = 0x6000_9000
+size = 0x1000
+class = "B"
+milestone = "M1"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h (IO_MUX); size 0x1000 UNVERIFIED. No rows in specs/c3-registers.csv: IDF gives the IO_MUX pin registers as one indexed macro family (IO_MUX_GPIOn_REG = 0x6000_9004 + 4n) rather than named registers the importer can read"
+
+# Store with read-back. IO_MUX selects the pad function (MCU_SEL, PIN_FUNC_GPIO = 1), the pulls
+# and the drive strength; the emulator needs the stored value for read-back and for the pin
+# configuration the board models check, not a pad-level model.
+
+[[stable_read]]
+register = "IO_MUX_GPIO"
+provenance = "IDF soc/esp32c3/register/soc/io_mux_reg.h and hal/esp32c3/include/hal/gpio_ll.h: the guest programs MCU_SEL, FUN_IE, FUN_PU, FUN_PD and FUN_DRV per pad and the drivers read them back, so the value is a function of modeled state. Indexed register family IO_MUX_GPIOn_REG = 0x6000_9004 + 4n; one row covers every n. Because the row is stable_read, the model stores every field of the low half-word and not only the five named here: IDF soc/esp32c3/register/soc/io_mux_reg.h:13-41 also defines SLP_OE b0, SLP_SEL b1, SLP_PD b2, SLP_PU b3, SLP_IE b4 and SLP_DRV [6:5], and PIN_SLP_PULLUP_ENABLE (io_mux_reg.h:77) sets BIT(3) and reads it back, so a dropped field would mismatch an oracle read comparison"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: IO_MUX is in the digital domain, which every reset scope restores. The per-pad reset values are the override row IO_MUX_GPIOn reset values below (from a device capture); PIN_CTRL and the words past GPIO21 still reset to 0, UNVERIFIED"
+
+# The pad reset values (specs/notes/silicon-campaign.md row iomux.reset_values). The block has no
+# CSV rows, so periph/iomux.rs RESET_WORDS holds them and this row states them with their evidence.
+[[overrides]]
+register = "IO_MUX_GPIOn reset values"
+value = "FUN_DRV 2 on every pad but GPIO18 and GPIO19 (3); FUN_IE on GPIO2 to GPIO10, GPIO12 to GPIO17, GPIO20 and GPIO21; FUN_WPU on GPIO9, GPIO12 to GPIO17, GPIO20 and GPIO21; every other field 0: GPIO0 to GPIO21 reset to 0x800 0x800 0xA00 0xA00 0xA00 0xA00 0xA00 0xA00 0xA00 0xB00 0xA00 0x800 0xB00 0xB00 0xB00 0xB00 0xB00 0xB00 0xC00 0xC00 0xB00 0xB00"
+class = "A"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log lines 358 to 379 (REG|iomux.IO_MUX_GPIO0 to GPIO21: 0x802 0x802 0xa02 0xa02 0xa02 0xa02 0xa02 0xa02 0xa02 0xb02 0xa02 0x802 0x1702 0x1702 0x700 0x702 0x702 0x702 0xc02 0xc02 0xb02 0x1b02), read after a boot whose writes to these words are read-modify-writes of named fields only, as an MMIO trace of the emulator's run of the same image shows: ROM gpio_pad_select_gpio (MCU_SEL 1 on GPIO12, GPIO13), gpio_pad_pullup (FUN_WPD clear, FUN_WPU set on GPIO12 to GPIO17, GPIO20, GPIO21), SelectSpiFunction, gpio_pad_set_drv (FUN_DRV 1 on GPIO12 to GPIO17) and the FUN_IE set on GPIO16 and GPIO17; bootloader gpio_ll_func_sel (MCU_SEL 1 on GPIO21); IDF's sleep-configuration sweep (gpio_sleep_* on every pad: SLP_SEL set, the other SLP_* fields cleared; GPIO14 keeps SLP_SEL clear). Every FUN_* bit those writes leave alone is therefore the reset value. TRM table 5.12-1 (DRV and Reset columns) agrees on every pad but GPIO21, where it gives OE = 1, WPU = 1 and the device reads FUN_IE set as well; the capture wins. FUN_WPU on GPIO12 to GPIO17, GPIO20 and GPIO21 is the TRM's Reset column only, because the boot sets it anyway. Tests: periph::iomux::tests::the_pads_reset_to_the_device_values, tests/milestones/campaign.rs t1_campaign_regs_rows_match_the_device_capture"

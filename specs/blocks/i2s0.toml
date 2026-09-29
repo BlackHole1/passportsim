@@ -1,0 +1,192 @@
+# Block spec of the `i2s0` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/i2s0.rs.
+schema = 1
+block = "i2s0"
+base = 0x6002_D000
+size = 0x1000
+class = "B"
+milestone = "M5"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h; size 0x1000 UNVERIFIED"
+
+# Audio in and out. Without the two update self-clears, bsp_audio_init hangs. The two I2S EOF
+# seed rows belong to GDMA and live in specs/blocks/gdma.toml.
+
+[[wait]]
+id = "i2s0.tx_update"
+kind = "wait"
+seed = true
+register = "I2S_TX_CONF"
+field = "I2S_TX_UPDATE"
+trigger = "write I2S_TX_UPDATE = 1"
+expect = "read I2S_TX_UPDATE == 0, and the TX configuration written before it has taken effect"
+within = "same_access"
+polled_at = ["i2s_ll_tx_update"]
+images = ["official", "pk"]
+milestone = "M5"
+provenance = "IDF hal/esp32c3/include/hal/i2s_ll.h:398 (busy-waited; without the self-clear i2s_ll_tx_update hangs bsp_audio_init); board-path seed row"
+
+[[wait]]
+id = "i2s0.rx_update"
+kind = "wait"
+seed = true
+register = "I2S_RX_CONF"
+field = "I2S_RX_UPDATE"
+trigger = "write I2S_RX_UPDATE = 1"
+expect = "read I2S_RX_UPDATE == 0, and the RX configuration written before it has taken effect"
+within = "same_access"
+polled_at = ["i2s_ll_rx_update"]
+images = ["official", "pk"]
+milestone = "M5"
+provenance = "IDF hal/esp32c3/include/hal/i2s_ll.h:409 (busy-waited); board-path seed row"
+
+[[stable_read]]
+register = "I2S_TX_CONF"
+provenance = "TX_UPDATE clears inside the access, and the rest of the register is configuration the driver reads back"
+
+[[stable_read]]
+register = "I2S_RX_CONF"
+provenance = "RX_UPDATE clears inside the access, and the rest of the register is configuration the driver reads back"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h; TRM Reset and Clock chapter: I2S0 is in the digital domain, which every reset scope restores"
+
+# Class of the registers the model interprets. Each row states the behavior periph/i2s0.rs
+# implements; none of them changes a reset value.
+
+[[overrides]]
+register = "I2S_TX_CONF1"
+field = "I2S_TX_BCK_DIV_NUM"
+value = "bck_div_num, bits_mod and tdm_chan_bits divide the module clock down to the sample rate and fix the sample width"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/i2s_ll.h i2s_ll_tx_set_bck_div_num, i2s_ll_tx_set_sample_bit and i2s_ll_tx_set_chan_num; modeled by periph/i2s0.rs"
+
+[[overrides]]
+register = "I2S_RX_CONF1"
+field = "I2S_RX_BCK_DIV_NUM"
+value = "as TX_CONF1, for the receive direction"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/i2s_ll.h i2s_ll_rx_set_bck_div_num and i2s_ll_rx_set_sample_bit; modeled by periph/i2s0.rs"
+
+[[overrides]]
+register = "I2S_TX_CLKM_CONF"
+field = "I2S_TX_CLKM_DIV_NUM"
+value = "clk_sel picks the source (0 XTAL, 2 PLL_F160M), clk_active gates the module clock, and clkm_div_num is the integer part of the MCLK divider"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/i2s_ll.h i2s_ll_tx_clk_set_src, i2s_ll_tx_enable_clock and i2s_ll_tx_set_mclk (160e6 / 39.0625 = 4096000); modeled by periph/i2s0.rs"
+
+[[overrides]]
+register = "I2S_RX_CLKM_CONF"
+field = "I2S_RX_CLKM_DIV_NUM"
+value = "as TX_CLKM_CONF, for the receive direction"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/i2s_ll.h i2s_ll_rx_clk_set_src and i2s_ll_rx_set_mclk; modeled by periph/i2s0.rs"
+
+[[overrides]]
+register = "I2S_TX_CLKM_DIV_CONF"
+field = "I2S_TX_CLKM_DIV_Z"
+value = "the fractional part of the MCLK divider: denom = (x+1)*z+y, numer = yn1 ? denom-z : z, and z = 0 means an integer divider"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/i2s_ll.h:287 i2s_ll_tx_set_raw_clk_div and :341 i2s_ll_tx_set_mclk (the fractional divider); modeled by periph/i2s0.rs"
+
+[[overrides]]
+register = "I2S_RX_CLKM_DIV_CONF"
+field = "I2S_RX_CLKM_DIV_Z"
+value = "as TX_CLKM_DIV_CONF, for the receive direction"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/i2s_ll.h:316 i2s_ll_rx_set_raw_clk_div; modeled by periph/i2s0.rs"
+
+[[overrides]]
+register = "I2S_TX_TDM_CTRL"
+field = "I2S_TX_TDM_TOT_CHAN_NUM"
+value = "the enabled channels inside tot_chan_num + 1 are the slots of one frame in the DMA buffer"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/i2s_ll.h i2s_ll_tx_set_chan_num and i2s_ll_tx_set_active_chan_mask (stereo is tot_chan_num 1 with chan0 and chan1 enabled); modeled by periph/i2s0.rs"
+
+[[overrides]]
+register = "I2S_RX_TDM_CTRL"
+field = "I2S_RX_TDM_TOT_CHAN_NUM"
+value = "as TX_TDM_CTRL, except that RX_CONF.rx_mono forces one slot per frame"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/i2s_ll.h:1076 i2s_ll_rx_enable_mono_mode (with rx_mono = 1 one slot per frame); modeled by periph/i2s0.rs"
+
+[[overrides]]
+register = "I2S_RXEOF_NUM"
+field = "I2S_RX_EOF_NUM"
+value = "bytes of injected PCM one receive period writes into the current descriptor"
+class = "B"
+provenance = "IDF esp_driver_i2s/i2s_common.c:557 (the driver sets it to the buffer size through i2s_ll_rx_set_eof_num); modeled by periph/i2s0.rs"
+
+[[overrides]]
+register = "I2S_STATE"
+field = "I2S_TX_IDLE"
+value = "reads 0 while TX_CONF.tx_start is set and 1 otherwise"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/i2s_reg.h (STATE.tx_idle, reset 1); modeled by periph/i2s0.rs"
+
+[[overrides]]
+register = "I2S_INT_ENA"
+field = "I2S_TX_DONE_INT_ENA"
+value = "masks INT_RAW into INT_ST"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/i2s_reg.h; modeled by periph/i2s0.rs"
+
+[[overrides]]
+register = "I2S_INT_ST"
+field = "I2S_TX_DONE_INT_ST"
+value = "reads INT_RAW masked by INT_ENA"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/i2s_reg.h; modeled by periph/i2s0.rs"
+
+[[overrides]]
+register = "I2S_INT_CLR"
+field = "I2S_TX_DONE_INT_CLR"
+value = "a written 1 clears the INT_RAW bit behind it; the register itself reads 0"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/i2s_reg.h; modeled by periph/i2s0.rs"
+
+# Registers the model stores and deliberately does not act on (class C: a declared
+# approximation).
+
+[[overrides]]
+register = "I2S_INT_RAW"
+field = "I2S_TX_DONE_INT_RAW"
+value = "never raised: stream completion reaches the driver through the GDMA EOF interrupt, not through I2S source 20"
+class = "C"
+provenance = "IDF esp_driver_i2s/i2s_common.c:840-848 (the driver registers GDMA on_trans_eof callbacks and does not use I2S source 20); periph/i2s0.rs"
+
+[[overrides]]
+register = "I2S_TX_TIMING"
+field = "I2S_TX_SD_OUT_DM"
+value = "stored and read back; pad timing has no effect on a modeled bus"
+class = "C"
+provenance = "declared approximation: pad timing has no effect on a modeled bus; periph/i2s0.rs stores it"
+
+[[overrides]]
+register = "I2S_RX_TIMING"
+field = "I2S_RX_SD_IN_DM"
+value = "stored and read back; pad timing has no effect on a modeled bus"
+class = "C"
+provenance = "declared approximation: pad timing has no effect on a modeled bus; periph/i2s0.rs stores it"
+
+[[overrides]]
+register = "I2S_LC_HUNG_CONF"
+field = "I2S_LC_FIFO_TIMEOUT"
+value = "stored and read back; the hung detector never fires, because a period either moves a whole descriptor or none"
+class = "C"
+provenance = "declared approximation: a receive period moves a whole descriptor or none; periph/i2s0.rs stores it"
+
+[[overrides]]
+register = "I2S_TX_PCM2PDM_CONF"
+field = "I2S_TX_PDM_HP_BYPASS"
+value = "stored and read back; PDM is off on this board"
+class = "C"
+provenance = "IDF hal/esp32c3/include/hal/i2s_ll.h:718-723 i2s_ll_tx_enable_tdm, which standard mode uses, clears tx_pdm_en and pcm2pdm_conv_en; periph/i2s0.rs stores it"
+
+[[overrides]]
+register = "I2S_CONF_SIGLE_DATA"
+field = "I2S_SINGLE_DATA"
+value = "stored and read back; the constant-data path is not used"
+class = "C"
+provenance = "declared approximation: the constant-data path is not used; periph/i2s0.rs stores it"

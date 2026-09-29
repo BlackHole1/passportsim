@@ -1,0 +1,41 @@
+{
+  "properties": {
+    "counter": {
+      "type": "integer"
+    },
+    "dwell_ms": {
+      "type": "integer"
+    },
+    "elapsed_ms": {
+      "type": "integer"
+    },
+    "frames": {
+      "type": "integer"
+    },
+    "instance": {
+      "type": "string"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "ops": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "removed": {
+      "type": "boolean"
+    },
+    "uid": {
+      "type": "string"
+    },
+    "vt_us": {
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}

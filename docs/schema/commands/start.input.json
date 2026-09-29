@@ -1,0 +1,95 @@
+{
+  "additionalProperties": false,
+  "description": "`start` arguments.",
+  "properties": {
+    "allow_tainted": {
+      "description": "Load `fw` even when its cardid window is not erased or its NVS holds credential keys, which is otherwise refused. Taints the instance: CLI only, with `confirm`.",
+      "type": "boolean"
+    },
+    "boot": {
+      "description": "Boot marker (until_ui_settled).",
+      "enum": [
+        "none",
+        "until_app_main",
+        "until_ui_settled"
+      ],
+      "type": "string"
+    },
+    "boot_cache": {
+      "description": "Restore or fill the boot cache.",
+      "enum": [
+        "ui-settled"
+      ],
+      "type": "string"
+    },
+    "boot_timeout": {
+      "description": "Boot budget, 10s.",
+      "oneOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "pattern": "^[0-9]+(\\.[0-9]+)?(us|ms|s|m)$",
+          "type": "string"
+        }
+      ]
+    },
+    "confirm": {
+      "description": "Human confirmation code for a tainted load, `efuse_dump` or `allow_tainted`.",
+      "type": "string"
+    },
+    "efuse_dump": {
+      "description": "Directory of `efuse_blk<N>.bin` files, or one dump file, to import instead of the synthesized eFuse. Taints the instance: CLI only, with `confirm`.",
+      "type": "string"
+    },
+    "fw": {
+      "description": "Corpus id or path; the bundled demo (`official`) when omitted.",
+      "type": "string"
+    },
+    "label": {
+      "description": "Label for `status`.",
+      "type": "string"
+    },
+    "mode": {
+      "description": "Pacing mode (deterministic).",
+      "enum": [
+        "deterministic",
+        "realtime"
+      ],
+      "type": "string"
+    },
+    "power": {
+      "description": "Power rail at start (on).",
+      "enum": [
+        "on",
+        "off"
+      ],
+      "type": "string"
+    },
+    "profile": {
+      "description": "Timing profile (fast).",
+      "enum": [
+        "fast",
+        "device"
+      ],
+      "type": "string"
+    },
+    "seed": {
+      "description": "RNG seed (1).",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "usb": {
+      "description": "Initial USB world (board default).",
+      "enum": [
+        "unplugged",
+        "charger",
+        "host",
+        "open"
+      ],
+      "type": "string"
+    }
+  },
+  "type": "object"
+}

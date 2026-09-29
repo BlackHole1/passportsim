@@ -1,0 +1,16 @@
+# probe_wdt overrides on top of probes/common/sdkconfig.defaults.
+#
+# The task watchdog watches the IDLE task and panics when it starves, which is stage 1. A 2 s
+# timeout instead of the default 5 s keeps the busy spin short in emulated time; the event is the
+# same.
+CONFIG_ESP_TASK_WDT_INIT=y
+CONFIG_ESP_TASK_WDT_PANIC=y
+CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU0=y
+CONFIG_ESP_TASK_WDT_TIMEOUT_S=2
+
+# The interrupt watchdog is stage 2, at the IDF default for this chip.
+CONFIG_ESP_INT_WDT=y
+CONFIG_ESP_INT_WDT_TIMEOUT_MS=300
+
+# Reboot straight after each panic, printing the dump first.
+CONFIG_ESP_SYSTEM_PANIC_PRINT_REBOOT=y

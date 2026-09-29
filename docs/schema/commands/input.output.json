@@ -1,0 +1,23 @@
+{
+  "properties": {
+    "elapsed_vt_us": {
+      "type": "integer"
+    },
+    "input": {
+      "type": "object"
+    },
+    "instance": {
+      "type": "string"
+    },
+    "serial": {
+      "type": "object"
+    },
+    "stream": {
+      "type": "string"
+    },
+    "vt_us": {
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+      The title and a visible badge say "Emulator", so a screenshot of the page cannot be mistaken
+      for a device photo. Both are static so the claim holds before the bundle runs.
+    -->
+    <title>PassportSim</title>
+    <meta name="color-scheme" content="light dark" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script>
+      // The theme is applied before the first paint, so a dark page never flashes white. The same
+      // rule as `prefs.ts`: `?theme=`, then the stored choice, then the system's. Storage may throw.
+      (function () {
+        var choice = null;
+        try {
+          choice = new URLSearchParams(location.search).get("theme");
+        } catch (e) {}
+        if (choice !== "light" && choice !== "dark" && choice !== "system") {
+          try {
+            choice = window.localStorage.getItem("passportsim.theme");
+          } catch (e) {
+            choice = null;
+          }
+        }
+        var dark = choice === "dark";
+        if (choice !== "light" && choice !== "dark") {
+          try {
+            dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+          } catch (e) {}
+        }
+        if (dark) {
+          document.documentElement.classList.add("dark");
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <p class="emulator-badge">Emulator</p>
+    <div id="app">
+      <noscript>The PassportSim web UI needs JavaScript: the emulator core runs in this page.</noscript>
+    </div>
+    <!--
+      The bundle and the wasm core ship together and nothing else is fetched: the ROM is compiled
+      into the core, and opening the page boots the bundled demo with no input.
+    -->
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

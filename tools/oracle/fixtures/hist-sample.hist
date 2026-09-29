@@ -1,0 +1,44 @@
+# pemu-verify oracle hist v1
+# run hist-sample (synthetic trace)
+# touches 41
+efuse 0x00040 R 1 W 0
+efuse 0x00044 R 1 W 0
+efuse 0x00048 R 1 W 0
+efuse 0x0004c R 1 W 0
+extmem 0x00000 R 0 W 1
+extmem 0x00040 R 0 W 1
+extmem 0x00044 R 1 W 0
+intc 0x00040 R 0 W 1
+intc 0x00104 R 1 W 0
+intc 0x00114 R 0 W 1
+rtc_cntl 0x00038 R 1 W 0
+rtc_cntl 0x00090 R 0 W 1
+rtc_cntl 0x000a8 R 0 W 1
+sha 0x00000 R 0 W 1
+sha 0x00010 R 0 W 1
+sha 0x00014 R 0 W 1
+sha 0x00018 R 3 W 0
+sha 0x00040 R 1 W 0
+sha 0x00080 R 0 W 1
+sha 0x00084 R 0 W 1
+sha 0x00088 R 0 W 1
+sha 0x0008c R 0 W 1
+sha 0x00090 R 0 W 1
+sha 0x00094 R 0 W 1
+sha 0x00098 R 0 W 1
+sha 0x0009c R 0 W 1
+spi1 0x00000 R 1 W 1
+spi1 0x00058 R 1 W 0
+spi2 0x0003c R 5 W 0
+systimer 0x00004 R 0 W 1
+systimer 0x00040 R 1 W 0
+systimer 0x00044 R 1 W 0
+systimer 0x00048 R 1 W 0
+timg0 0x00000 R 0 W 1
+timg0 0x00004 R 1 W 0
+timg0 0x0002c R 0 W 1
+uart0 0x00000 R 0 W 3
+uart0 0x0001c R 1 W 0
+usj 0x00000 R 0 W 1
+usj 0x00004 R 0 W 1
+usj 0x00008 R 1 W 0

@@ -1,0 +1,3 @@
+# sleep_timer overrides on top of probes/common/sdkconfig.defaults.
+# Nothing beyond the shared defaults: timer wake from light and deep sleep is the stock
+# configuration, and the probe arms every wake source it uses at runtime.

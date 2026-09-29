@@ -1,0 +1,130 @@
+# Block spec of the `sha` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/sha.rs.
+schema = 1
+block = "sha"
+base = 0x6003_B000
+size = 0x1000
+class = "B"
+milestone = "M2"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h; size 0x1000 UNVERIFIED. The block has no rows in specs/c3-registers.csv (no field layout in the IDF headers: hwcrypto_reg.h defines register addresses only), so register names here come from IDF soc/esp32c3/include/soc/hwcrypto_reg.h"
+
+# The ROM loader and the bootloader hash every image segment through this block, so the digest
+# must be bit-exact or the bootloader rejects the app. In block mode the digest is computed on
+# the START or CONTINUE write and BUSY clears at the completion event of the timing profile.
+# mbedTLS hashes every update longer than 128 bytes in DMA mode (DMA_START and DMA_CONTINUE
+# through the GDMA TX channel bound to SHA), so an application digest is only right when that
+# mode is.
+
+[[wait]]
+id = "sha.busy"
+kind = "wait"
+seed = true
+register = "SHA_BUSY"
+field = "*"
+trigger = "write SHA_START = 1 or SHA_CONTINUE = 1 (block mode), or SHA_DMA_START = 1 or SHA_DMA_CONTINUE = 1 (DMA mode)"
+expect = "read SHA_BUSY == 0"
+within = "same_access"
+polled_at = ["ets_sha_update", "ets_sha_finish", "esp_sha_block", "sha_hal_wait_idle"]
+images = ["official", "pk"]
+milestone = "M2"
+provenance = "IDF soc/esp32c3/include/soc/hwcrypto_reg.h:51 (SHA_BUSY 0x6003_B018, reads 0 once the digest is computed); boot-path seed row. DMA mode: TRM 21.4.2.2 step 5 (wait until SHA_BUSY reads 0) and IDF hal/sha_hal.c sha_hal_wait_idle after sha_hal_hash_dma"
+
+[[stable_read]]
+register = "SHA_BUSY"
+provenance = "The digest is computed inside the START or CONTINUE write, so BUSY reads 0 whenever the guest can observe it"
+
+[[stable_read]]
+register = "SHA_H_MEM"
+provenance = "The digest words are the block's output and the bootloader compares them, so they are the one read an oracle diff must check. Byte order is proven against the device: the probe_timing sha256_1m digest (device-probe_timing-20260923T101040Z) is read out of this window"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: SHA is in the digital domain, which every reset scope restores"
+
+# The classes of the registers this block implements. It has no rows in specs/c3-registers.csv, so
+# the rows below carry offsets from IDF soc/esp32c3/include/soc/hwcrypto_reg.h and codegen renders
+# them into crates/pemu-soc-c3/src/gen/classes.rs, which periph/sha.rs answers
+# Peripheral::fidelity from. A class A row is A for the values the probe_timing sha256_1m digest
+# (device-probe_timing-20260923T101040Z) depends on; the rest of such a row is class B inside it,
+# as its provenance says.
+[[overrides]]
+register = "SHA_MODE"
+offsets = [0x000]
+value = "selects the algorithm of the next START: 0 SHA-1, 1 SHA-224, 2 SHA-256, which picks both the initial state and the compression function"
+class = "A"
+provenance = "IDF soc/esp32c3/include/soc/hwcrypto_reg.h:31 (SHA_MODE_REG 0x6003_B000) and hal/esp32c3/include/hal/sha_ll.h (the mode encoding). Test: periph::sha::tests::the_standard_vectors_come_out_of_the_h_window_byte_for_byte, which drives all three modes against their published vectors. Class A: tests/milestones/m8.rs t1_m8_the_probe_timing_digest_rests_on_this_sha_traffic checks that probe_timing's sha256_1m digest in the emulator is the one all three runs of the device capture device-probe_timing-20260923T101040Z print (841bf361..., the comparison t1_m11_probe_timing_deltas_within_20_percent also makes), and its PROBE_TIMING_SHA_TRAFFIC table, read from the MMIO trace of the time_sha256 step, shows MODE written 2 (SHA-256) 257 times, before each of the 256 updates and before the finish, whose passes the digest comes out of. SHA-1 (0) and SHA-224 (1) are not exercised and rest on the published vectors of the unit test, class B inside the row"
+
+[[overrides]]
+register = "SHA_START"
+offsets = [0x010]
+value = "write-trigger: loads the initial state for SHA_MODE, compresses the message block inside the write, and reads back 0"
+class = "B"
+provenance = "IDF soc/esp32c3/include/soc/hwcrypto_reg.h:43 (SHA_START_REG 0x6003_B010); the digest is computed after the START or CONTINUE write (IDF hal/sha_hal.c sha_hal_hash_block); the bootloader rejects the app on a digest mismatch. Tests: periph::sha::tests::the_standard_vectors_come_out_of_the_h_window_byte_for_byte, ::busy_is_set_until_the_completion_event_of_the_profile and ::one_changed_message_byte_changes_the_digest. Stays B: the sha256_1m step never writes it (its first pass is a DMA_START); its block-mode START runs are the bootloader's"
+
+[[overrides]]
+register = "SHA_CONTINUE"
+offsets = [0x014]
+value = "write-trigger: compresses the message block into the current state inside the write, and reads back 0"
+class = "A"
+provenance = "IDF soc/esp32c3/include/soc/hwcrypto_reg.h:47 (SHA_CONTINUE_REG 0x6003_B014); the same three tests as SHA_START, whose multi-block vector is the one that exercises it. Class A: tests/milestones/m8.rs t1_m8_the_probe_timing_digest_rests_on_this_sha_traffic checks that probe_timing's sha256_1m digest in the emulator is the one all three runs of the device capture device-probe_timing-20260923T101040Z print (841bf361..., the comparison t1_m11_probe_timing_deltas_within_20_percent also makes), and its PROBE_TIMING_SHA_TRAFFIC table, read from the MMIO trace of the time_sha256 step, shows the one block-mode CONTINUE of mbedtls_sha256_finish, which hashes the padding block into the state the 512 DMA runs left; the printed digest is its output"
+
+[[overrides]]
+register = "SHA_BUSY"
+offsets = [0x018]
+value = "reads 1 from the START or CONTINUE write until the completion event of the timing profile, and from the DMA_START or DMA_CONTINUE write until the completion of the whole run (BLOCK_NUM x sha_block_ps after its bytes arrive), and 0 whenever the guest polls after it"
+class = "B"
+provenance = "IDF soc/esp32c3/include/soc/hwcrypto_reg.h:51 (SHA_BUSY 0x6003_B018, reads 0 once the digest is computed); the busy-wait row sha.busy above. Test: periph::sha::tests::busy_is_set_until_the_completion_event_of_the_profile. The offset is named here so the class comes from this file rather than from a constant in periph/sha.rs; it is the class the stable_read row above already implied. Stays B: the sha256_1m step polls it after every pass, but the printed digest does not depend on what it reads"
+
+[[overrides]]
+register = "SHA_H_MEM"
+offsets = { first = 0x040, last = 0x05C, stride = 4 }
+value = "the digest state, eight words, byte-swapped on both read and write so the window reads in the order the bootloader compares"
+class = "A"
+provenance = "IDF soc/esp32c3/include/soc/hwcrypto_reg.h:55 (the H window). Tests: periph::sha::tests::the_standard_vectors_come_out_of_the_h_window_byte_for_byte and ::the_text_and_h_windows_carry_the_documented_byte_order. Class A: tests/milestones/m8.rs t1_m8_the_probe_timing_digest_rests_on_this_sha_traffic checks that probe_timing's sha256_1m digest in the emulator is the one all three runs of the device capture device-probe_timing-20260923T101040Z print (841bf361..., the comparison t1_m11_probe_timing_deltas_within_20_percent also makes), and its PROBE_TIMING_SHA_TRAFFIC table, read from the MMIO trace of the time_sha256 step, shows 257 reads of the eight words, the last of which is the printed digest, so the read byte order is the device's; and 256 writes of the saved state, before each 4 KB update after the first and before the finish, each the value the previous read returned, so the capture proves that such a write leaves the state as it was, not that a different state written there is taken up (class B inside the row)"
+
+[[overrides]]
+register = "SHA_M_MEM"
+offsets = { first = 0x080, last = 0x0BC, stride = 4 }
+value = "the 64-byte message block, sixteen words; every word is byte-swapped into the compression function, and a narrow access reaches only the bytes it addresses"
+class = "A"
+provenance = "IDF soc/esp32c3/include/soc/hwcrypto_reg.h:59 (SHA_TEXT_BASE 0x6003_B080, the M window). Tests: periph::sha::tests::the_standard_vectors_come_out_of_the_h_window_byte_for_byte, ::the_text_and_h_windows_carry_the_documented_byte_order, ::one_changed_message_byte_changes_the_digest and ::narrow_accesses_reach_only_the_bytes_they_address. Class A: tests/milestones/m8.rs t1_m8_the_probe_timing_digest_rests_on_this_sha_traffic checks that probe_timing's sha256_1m digest in the emulator is the one all three runs of the device capture device-probe_timing-20260923T101040Z print (841bf361..., the comparison t1_m11_probe_timing_deltas_within_20_percent also makes), and its PROBE_TIMING_SHA_TRAFFIC table, read from the MMIO trace of the time_sha256 step, shows the finish's padding block (0x80, zeros and the 2^23-bit message length) written as 16 words and hashed by CONTINUE; the printed digest depends on every word's byte order. Narrow accesses are not exercised, class B inside the row"
+
+# DMA mode. mbedTLS hashes every update longer than 128 bytes this
+# way (IDF mbedtls/port/sha/core/include/esp_sha_internal.h SHA_DMA_MODE_THRESHOLD, esp_sha256.c
+# mbedtls_sha256_update). The TRM chapter is 21.4.2.2 (process), 21.4.4 (interrupt) and
+# registers 21.4 to 21.7 and 21.10.
+[[overrides]]
+register = "SHA_DMA_BLOCK_NUM"
+offsets = [0x00C]
+value = "the block count of the next DMA run, bits 5 to 0 (at most 63); bits 31 to 6 are reserved, dropped on write and read 0"
+class = "A"
+provenance = "IDF soc/esp32c3/include/soc/hwcrypto_reg.h (SHA_BLOCK_NUM_REG 0x6003_B00C) and hal/esp32c3/include/hal/sha_ll.h sha_ll_set_block_num; TRM register 21.10 (SHA_DMA_BLOCK_NUM, bits 5:0) and 21.4.2.2 (a single DMA-SHA calculation supports up to 63 blocks). Tests: wiring::sha::tests::a_run_reads_block_num_blocks_and_block_num_is_six_bits and ::busy_holds_for_the_run_s_blocks_at_the_profile_s_block_cost. Class A: tests/milestones/m8.rs t1_m8_the_probe_timing_digest_rests_on_this_sha_traffic checks that probe_timing's sha256_1m digest in the emulator is the one all three runs of the device capture device-probe_timing-20260923T101040Z print (841bf361..., the comparison t1_m11_probe_timing_deltas_within_20_percent also makes), and its PROBE_TIMING_SHA_TRAFFIC table, read from the MMIO trace of the time_sha256 step, shows 62 before DMA_START and 255 DMA_CONTINUE runs and 2 before 256 more (each 4 KB update is a 62-block and a 2-block run); the digest depends on every run's count. The 6-bit width (bits 31 to 6 dropped) is not exercised and rests on the TRM, class B inside the row; BLOCK_NUM 0 stays UNVERIFIED"
+
+[[overrides]]
+register = "SHA_DMA_START"
+offsets = [0x01C]
+value = "write-trigger: sets SHA_BUSY and starts a DMA run of SHA_DMA_BLOCK_NUM blocks from the initial state of SHA_MODE, read in stream order from the GDMA TX channel whose OUT_PERI_SEL is 7 (Wiring::ShaDma); the completion clears SHA_BUSY after BLOCK_NUM x sha_block_ps and latches the completion interrupt; reads back 0. UNVERIFIED and class C inside the row: a chain shorter than the run compresses the whole blocks it delivered and leaves SHA_BUSY set with no completion; BLOCK_NUM 0 completes at once; a trigger while SHA_BUSY is set is ignored; the run leaves SHA_M_MEM unchanged"
+class = "A"
+provenance = "IDF soc/esp32c3/include/soc/hwcrypto_reg.h (SHA_DMA_START_REG 0x6003_B01C), hal/esp32c3/include/hal/sha_ll.h sha_ll_start_dma, hal/sha_hal.c sha_hal_hash_dma, mbedtls/port/sha/core/sha.c esp_sha_dma_process (descriptor chain) and soc/esp32c3/include/soc/gdma_channel.h SOC_GDMA_TRIG_PERIPH_SHA0 (7); TRM 21.3 table 21.3-1 and 21.4.2.2. Class A: tests/milestones/m11.rs t1_m11_probe_timing_deltas_within_20_percent compares the probe_timing sha256_1m digest (mbedTLS SHA-256 of 1 MB in 4 KB updates, DMA_START then DMA_CONTINUE runs of 62 and 2 blocks) with the device capture device-probe_timing-20260923T101040Z. The UNVERIFIED items of the value have no source here. Unit tests: wiring::sha::tests::dma_mode_gives_the_standard_vectors_for_every_mode, ::a_run_reads_across_a_descriptor_chain_boundary, ::dma_start_restarts_and_dma_continue_does_not, ::a_starved_run_keeps_busy_and_a_trigger_while_busy_is_ignored; periph::sha::tests::a_dma_trigger_records_a_run_and_asks_for_the_wiring"
+
+[[overrides]]
+register = "SHA_DMA_CONTINUE"
+offsets = [0x020]
+value = "write-trigger: as SHA_DMA_START, but the run compresses into the state already in SHA_H_MEM, which a block-mode run or a guest write of the saved digest left there; reads back 0"
+class = "A"
+provenance = "IDF soc/esp32c3/include/soc/hwcrypto_reg.h (SHA_DMA_CONTINUE_REG 0x6003_B020), hal/esp32c3/include/hal/sha_ll.h sha_ll_continue_dma, mbedtls/port/sha/core/esp_sha256.c esp_internal_sha_update_state (writes the saved state to H before continuing); TRM 21.4.2.1 (interleaving) and 21.4.2.2 step 4. Class A by the same device comparison as SHA_DMA_START, whose 256 updates continue with this register. Unit tests: wiring::sha::tests::dma_mode_gives_the_standard_vectors_for_every_mode (one block per run), ::dma_continues_a_block_mode_digest_and_the_other_way_round"
+
+[[overrides]]
+register = "SHA_CLEAR_IRQ"
+offsets = [0x024]
+value = "write-trigger: a write of 1 clears the latched DMA completion interrupt (source 49); reads back 0"
+class = "C"
+provenance = "IDF soc/esp32c3/include/soc/hwcrypto_reg.h (SHA_CLEAR_IRQ_REG 0x6003_B024); TRM 21.4.4 and register 21.6; interrupt source 49 (specs/irq-sources.toml). Class C: no IDF driver on the C3 uses the SHA interrupt, so no LL-derived test or oracle exists; the behavior is the TRM's. Test: wiring::sha::tests::a_dma_completion_raises_the_interrupt_until_clear_irq"
+
+[[overrides]]
+register = "SHA_INT_ENA"
+offsets = [0x028]
+value = "bit 0 gates the level of source 49; the DMA completion latches whether or not it is set (UNVERIFIED), and block mode never raises it"
+class = "C"
+provenance = "IDF soc/esp32c3/include/soc/hwcrypto_reg.h (SHA_INT_ENA_REG 0x6003_B028); TRM 21.2 (interrupt only in DMA-SHA mode), 21.4.4 and register 21.7. Class C for the same reason as SHA_CLEAR_IRQ; whether a completion with the enable clear is remembered is not stated anywhere here. Test: wiring::sha::tests::a_dma_completion_raises_the_interrupt_until_clear_irq"

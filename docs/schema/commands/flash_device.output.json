@@ -1,0 +1,92 @@
+{
+  "description": "What the flow did: the plan digest, pass or fail per step, whether cardid was unchanged, and the boot check. No device value.",
+  "properties": {
+    "backup": {
+      "description": "Backup evidence: verified, owner-only, outside the repository. Never a file name or a directory stem. A dry run reports `verified: false`, because nothing was read back.",
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "boot_check": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "cardid_unchanged": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "dry_run": {
+      "type": "boolean"
+    },
+    "full_backup": {
+      "description": "The whole 8 MB backup, or `null` when none was asked for: `taken`, `verified` (two reads and the stored file agreed), `owner_only`, `inside_repository` and `bytes`. Never a file name, a directory stem or a digest.",
+      "properties": {
+        "bytes": {
+          "type": "integer"
+        },
+        "inside_repository": {
+          "type": "boolean"
+        },
+        "owner_only": {
+          "type": "boolean"
+        },
+        "taken": {
+          "type": "boolean"
+        },
+        "verified": {
+          "type": "boolean"
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "plan": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "plan_sha256": {
+      "type": "string"
+    },
+    "rehearsal": {
+      "description": "The same for the emulator rehearsal.",
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "steps": {
+      "description": "The steps that ran, in order, each pass or fail.",
+      "items": {
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "step": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "ok"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "plan_sha256",
+    "steps",
+    "dry_run"
+  ],
+  "type": "object"
+}

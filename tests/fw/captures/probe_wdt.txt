@@ -1,0 +1,280 @@
+ESP-ROM:esp32c3-eco7-20230720
+Build:Jul 20 2023
+rst:0x1 (POWERON),boot:0xa (SPI_FAST_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5830,len:0x1564
+load:0x403cbf10,len:0xc20
+load:0x403ce710,len:0x2ff8
+entry 0x403cbf1a
+I (0) boot: ESP-IDF v5.5.3 2nd stage bootloader
+I (0) boot: chip revision: v1.1
+I (0) boot: efuse block revision: v1.3
+I (0) boot.esp32c3: SPI Speed      : 80MHz
+I (0) boot.esp32c3: SPI Mode       : SLOW READ
+I (0) boot.esp32c3: SPI Flash Size : 8MB
+I (0) boot: Enabling RNG early entropy source...
+I (0) boot: Partition Table:
+I (0) boot: ## Label            Usage          Type ST Offset   Length
+I (0) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+I (0) boot:  1 phy_init         RF data          01 01 0000f000 00001000
+I (0) boot:  2 factory          factory app      00 00 00010000 00177000
+I (0) boot: End of partition table
+I (0) esp_image: segment 0: paddr=00010020 vaddr=3c020020 size=07fbch ( 32700) map
+I (1) esp_image: segment 1: paddr=00017fe4 vaddr=3fc8b600 size=01708h (  5896) load
+I (1) esp_image: segment 2: paddr=000196f4 vaddr=40380000 size=06924h ( 26916) load
+I (1) esp_image: segment 3: paddr=00020020 vaddr=42000020 size=10f58h ( 69464) map
+I (2) esp_image: segment 4: paddr=00030f80 vaddr=40386924 size=04be0h ( 19424) load
+I (2) esp_image: segment 5: paddr=00035b68 vaddr=50000010 size=00020h (    32) load
+I (2) boot: Loaded app from partition at offset 0x10000
+I (2) boot: Disabling RNG early entropy source...
+I (2) cpu_start: Unicore app
+I (10) cpu_start: Pro cpu start user code
+I (10) cpu_start: cpu freq: 160000000 Hz
+I (10) app_init: Application information:
+I (10) app_init: Project name:     probe_wdt
+I (10) app_init: App version:      probe
+I (10) app_init: ELF file SHA256:  44d711021...
+I (10) app_init: ESP-IDF:          v5.5.3
+I (10) efuse_init: Min chip rev:     v0.3
+I (10) efuse_init: Max chip rev:     v1.99 
+I (10) efuse_init: Chip rev:         v1.1
+I (10) heap_init: Initializing. RAM available for dynamic allocation:
+I (10) heap_init: At 3FC8DBB0 len 00032450 (201 KiB): RAM
+I (10) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM
+I (10) heap_init: At 3FCDC710 len 0000294C (10 KiB): Retention RAM
+I (10) heap_init: At 50000030 len 00001FB8 (7 KiB): RTCRAM
+I (10) spi_flash: detected chip: gd
+I (10) spi_flash: flash io: dio
+I (10) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (11) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (11) main_task: Started on CPU0
+I (11) main_task: Calling app_main()
+PROBE|name=probe_wdt|schema=passport-emu/probe-line/1
+BOOT|stage=0|reason=1|raw=0x01
+TWDT|owner=wdt_owner|waiter=wdt_waiter|holder=wdt_owner|waiter_state=2|owner_prio=4
+I (11) main_task: Returned from app_main()
+E (2021) task_wdt: Task watchdog got triggered. The following tasks/users did not reset the watchdog in time:
+E (2021) task_wdt:  - IDLE (CPU 0)
+E (2021) task_wdt: Tasks currently running:
+E (2021) task_wdt: CPU 0: wdt_owner
+E (2021) task_wdt: Aborting.
+E (2021) task_wdt: Print CPU 0 (current core) registers
+
+
+Core  0 register dump:
+MEPC    : 0x4200707e  RA      : 0x42007076  SP      : 0x3fc90c20  GP      : 0x3fc8be00  
+TP      : 0x3fc90c80  T0      : 0x40058d30  T1      : 0x3fc9087c  T2      : 0x00000000  
+S0/FP   : 0x3fc90cc4  S1      : 0x3fc90cc4  A0      : 0x00000001  A1      : 0x00000001  
+A2      : 0x00000000  A3      : 0x00000004  A4      : 0x3fc8e000  A5      : 0x17b8a599  
+A6      : 0x60023000  A7      : 0x0000000a  S2      : 0x3fc9161c  S3      : 0x00000002  
+S4      : 0x00000000  S5      : 0x00000000  S6      : 0x00000000  S7      : 0x00000000  
+S8      : 0x00000000  S9      : 0x00000000  S10     : 0x00000000  S11     : 0x00000000  
+T3      : 0x00000000  T4      : 0x00000000  T5      : 0x00000000  T6      : 0x00000000  
+MSTATUS : 0x00000000  MTVEC   : 0x00000000  MCAUSE  : 0x00000000  MTVAL   : 0x3fc915e8  
+MHARTID : 0x00000000  
+
+Stack memory:
+3fc90c20: 0x00000000 0x00000000 0x00000000 0x3fc915e8 0x00000000 0x00000000 0x00000000 0x00000000
+3fc90c40: 0x00000000 0x00000000 0x00000000 0x40383d08 0x00000000 0x00000000 0x00000000 0x00000000
+3fc90c60: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc90c80: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0x00000150 0x3fc90ba0 0x00000002 0x3fc8cf04 0x3fc8cf04
+3fc90ca0: 0x3fc90c90 0x3fc8cefc 0x00000015 0x00000000 0x00000000 0x3fc90c90 0x00000000 0x00000004
+3fc90cc0: 0x3fc9008c 0x5f746477 0x656e776f 0x00000072 0x00000000 0x3fc90c80 0x00000003 0x00000001
+3fc90ce0: 0x00000000 0x00000000 0x00000000 0x3fc8e1c8 0x3fc8e230 0x3fc8e298 0x00000000 0x00000000
+3fc90d00: 0x00000001 0x00000000 0x00000000 0x00000000 0x42004e0e 0x00000000 0x00000000 0x00000000
+3fc90d20: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+3fc90d40: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+3fc90d60: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+3fc90d80: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+3fc90da0: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+3fc90dc0: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+3fc90de0: 0x00000800 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc90e00: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc90e20: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc90e40: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc90e60: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc90e80: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc90ea0: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc90ec0: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc90ee0: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc90f00: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc90f20: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc90f40: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc90f60: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc90f80: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc90fa0: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc90fc0: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc90fe0: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc91000: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+
+
+
+ELF file SHA256: 44d711021
+
+Rebooting...
+ESP-ROM:esp32c3-eco7-20230720
+Build:Jul 20 2023
+rst:0xc (RTC_SW_CPU_RST),boot:0xa (SPI_FAST_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5830,len:0x1564
+load:0x403cbf10,len:0xc20
+load:0x403ce710,len:0x2ff8
+entry 0x403cbf1a
+I (4042) boot: ESP-IDF v5.5.3 2nd stage bootloader
+I (4042) boot: chip revision: v1.1
+I (4042) boot: efuse block revision: v1.3
+I (4042) boot.esp32c3: SPI Speed      : 80MHz
+I (4042) boot.esp32c3: SPI Mode       : SLOW READ
+I (4042) boot.esp32c3: SPI Flash Size : 8MB
+I (4042) boot: Enabling RNG early entropy source...
+I (4042) boot: Partition Table:
+I (4042) boot: ## Label            Usage          Type ST Offset   Length
+I (4043) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+I (4043) boot:  1 phy_init         RF data          01 01 0000f000 00001000
+I (4043) boot:  2 factory          factory app      00 00 00010000 00177000
+I (4043) boot: End of partition table
+I (4043) esp_image: segment 0: paddr=00010020 vaddr=3c020020 size=07fbch ( 32700) map
+I (4043) esp_image: segment 1: paddr=00017fe4 vaddr=3fc8b600 size=01708h (  5896) load
+I (4043) esp_image: segment 2: paddr=000196f4 vaddr=40380000 size=06924h ( 26916) load
+I (4044) esp_image: segment 3: paddr=00020020 vaddr=42000020 size=10f58h ( 69464) map
+I (4044) esp_image: segment 4: paddr=00030f80 vaddr=40386924 size=04be0h ( 19424) load
+I (4045) esp_image: segment 5: paddr=00035b68 vaddr=50000010 size=00020h (    32) load
+I (4045) boot: Loaded app from partition at offset 0x10000
+I (4045) boot: Disabling RNG early entropy source...
+I (4045) cpu_start: Unicore app
+I (4053) cpu_start: Pro cpu start user code
+I (4053) cpu_start: cpu freq: 160000000 Hz
+I (4053) app_init: Application information:
+I (4053) app_init: Project name:     probe_wdt
+I (4053) app_init: App version:      probe
+I (4053) app_init: ELF file SHA256:  44d711021...
+I (4053) app_init: ESP-IDF:          v5.5.3
+I (4053) efuse_init: Min chip rev:     v0.3
+I (4053) efuse_init: Max chip rev:     v1.99 
+I (4053) efuse_init: Chip rev:         v1.1
+I (4053) heap_init: Initializing. RAM available for dynamic allocation:
+I (4053) heap_init: At 3FC8DBB0 len 00032450 (201 KiB): RAM
+I (4053) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM
+I (4053) heap_init: At 3FCDC710 len 0000294C (10 KiB): Retention RAM
+I (4053) heap_init: At 50000030 len 00001FB8 (7 KiB): RTCRAM
+I (4053) spi_flash: detected chip: gd
+I (4053) spi_flash: flash io: dio
+I (4053) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (4053) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (4053) main_task: Started on CPU0
+I (4053) main_task: Calling app_main()
+PROBE|name=probe_wdt|schema=passport-emu/probe-line/1
+BOOT|stage=1|reason=6|raw=0x0c
+IWDT|twdt_reason=6
+Guru Meditation Error: Core  0 panic'ed (Interrupt wdt timeout on CPU0). 
+
+Core  0 register dump:
+MEPC    : 0x42006fb2  RA      : 0x42006fa4  SP      : 0x3fc8f610  GP      : 0x3fc8be00  
+TP      : 0x3fc8f680  T0      : 0x40058d30  T1      : 0x3fc8f27c  T2      : 0x00000000  
+S0/FP   : 0x00000002  S1      : 0x57445431  A0      : 0x00000001  A1      : 0x00000001  
+A2      : 0x00000000  A3      : 0x00000004  A4      : 0x3fc8e000  A5      : 0x01c9c327  
+A6      : 0x60023000  A7      : 0x0000000a  S2      : 0x00000001  S3      : 0x00000000  
+S4      : 0x00000000  S5      : 0x00000000  S6      : 0x00000000  S7      : 0x00000000  
+S8      : 0x00000000  S9      : 0x00000000  S10     : 0x00000000  S11     : 0x00000000  
+T3      : 0x00000000  T4      : 0x00000000  T5      : 0x00000000  T6      : 0x00000000  
+MSTATUS : 0x00001880  MTVEC   : 0x40380001  MCAUSE  : 0x00000018  MTVAL   : 0x00000000  
+MHARTID : 0x00000000  
+
+Stack memory:
+3fc8f610: 0x00000001 0x57445431 0x00000002 0x4200721e 0x00000000 0x00000003 0x3c023000 0x42010714
+3fc8f630: 0x00000000 0x000007d0 0x00000001 0x00000001 0x00000000 0x00000000 0x00000000 0x40383d08
+3fc8f650: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+3fc8f670: 0x00000000 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0x00000150 0x3fc8f560 0x00000002
+3fc8f690: 0x3fc8cec8 0x3fc8cec8 0x3fc8f688 0x3fc8cec0 0x00000018 0x00000000 0x00000000 0x3fc8f688
+3fc8f6b0: 0x00000000 0x00000001 0x3fc8e684 0x6e69616d 0x00000000 0x00000000 0x00000000 0x3fc8f680
+3fc8f6d0: 0x00000001 0x00000000 0x00000000 0x00000000 0x00000000 0x3fc8e1c8 0x3fc8e230 0x3fc8e298
+3fc8f6f0: 0x00000000 0x00000000 0x00000001 0x00000000 0x00000000 0x00000000 0x42004e0e 0x00000000
+3fc8f710: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+3fc8f730: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+3fc8f750: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+3fc8f770: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+3fc8f790: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+3fc8f7b0: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+3fc8f7d0: 0x00000000 0x00000000 0x00000600 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8f7f0: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8f810: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8f830: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8f850: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8f870: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8f890: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8f8b0: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8f8d0: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8f8f0: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8f910: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8f930: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8f950: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8f970: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8f990: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8f9b0: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8f9d0: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8f9f0: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+
+
+
+ELF file SHA256: 44d711021
+
+Rebooting...
+ESP-ROM:esp32c3-eco7-20230720
+Build:Jul 20 2023
+rst:0xc (RTC_SW_CPU_RST),boot:0xa (SPI_FAST_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5830,len:0x1564
+load:0x403cbf10,len:0xc20
+load:0x403ce710,len:0x2ff8
+entry 0x403cbf1a
+I (8448) boot: ESP-IDF v5.5.3 2nd stage bootloader
+I (8448) boot: chip revision: v1.1
+I (8448) boot: efuse block revision: v1.3
+I (8448) boot.esp32c3: SPI Speed      : 80MHz
+I (8448) boot.esp32c3: SPI Mode       : SLOW READ
+I (8448) boot.esp32c3: SPI Flash Size : 8MB
+I (8448) boot: Enabling RNG early entropy source...
+I (8448) boot: Partition Table:
+I (8448) boot: ## Label            Usage          Type ST Offset   Length
+I (8448) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+I (8448) boot:  1 phy_init         RF data          01 01 0000f000 00001000
+I (8448) boot:  2 factory          factory app      00 00 00010000 00177000
+I (8448) boot: End of partition table
+I (8448) esp_image: segment 0: paddr=00010020 vaddr=3c020020 size=07fbch ( 32700) map
+I (8448) esp_image: segment 1: paddr=00017fe4 vaddr=3fc8b600 size=01708h (  5896) load
+I (8448) esp_image: segment 2: paddr=000196f4 vaddr=40380000 size=06924h ( 26916) load
+I (8449) esp_image: segment 3: paddr=00020020 vaddr=42000020 size=10f58h ( 69464) map
+I (8449) esp_image: segment 4: paddr=00030f80 vaddr=40386924 size=04be0h ( 19424) load
+I (8450) esp_image: segment 5: paddr=00035b68 vaddr=50000010 size=00020h (    32) load
+I (8450) boot: Loaded app from partition at offset 0x10000
+I (8450) boot: Disabling RNG early entropy source...
+I (8450) cpu_start: Unicore app
+I (8458) cpu_start: Pro cpu start user code
+I (8458) cpu_start: cpu freq: 160000000 Hz
+I (8458) app_init: Application information:
+I (8458) app_init: Project name:     probe_wdt
+I (8458) app_init: App version:      probe
+I (8458) app_init: ELF file SHA256:  44d711021...
+I (8458) app_init: ESP-IDF:          v5.5.3
+I (8458) efuse_init: Min chip rev:     v0.3
+I (8458) efuse_init: Max chip rev:     v1.99 
+I (8458) efuse_init: Chip rev:         v1.1
+I (8458) heap_init: Initializing. RAM available for dynamic allocation:
+I (8458) heap_init: At 3FC8DBB0 len 00032450 (201 KiB): RAM
+I (8458) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM
+I (8458) heap_init: At 3FCDC710 len 0000294C (10 KiB): Retention RAM
+I (8458) heap_init: At 50000030 len 00001FB8 (7 KiB): RTCRAM
+I (8458) spi_flash: detected chip: gd
+I (8458) spi_flash: flash io: dio
+I (8458) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (8458) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (8458) main_task: Started on CPU0
+I (8458) main_task: Calling app_main()
+PROBE|name=probe_wdt|schema=passport-emu/probe-line/1
+BOOT|stage=2|reason=5|raw=0x0c
+SUMMARY|twdt_reason=6|iwdt_reason=5
+DONE|name=probe_wdt|status=ok
+I (8458) main_task: Returned from app_main()

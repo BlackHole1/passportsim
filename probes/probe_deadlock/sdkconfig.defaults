@@ -1,0 +1,4 @@
+# probe_deadlock overrides on top of probes/common/sdkconfig.defaults.
+#
+# `uxTaskGetSystemState` needs the trace facility; it prints the task table.
+CONFIG_FREERTOS_USE_TRACE_FACILITY=y

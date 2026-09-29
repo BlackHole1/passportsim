@@ -1,0 +1,693 @@
+# The rules that recover binding's symbols from an image without an ELF
+# (`crates/pemu-hle/src/image_symbols.rs`). `pemu-hle` compiles this file in; the parser refuses an
+# unknown table, a missing key, a malformed digest or offset, and a reference to an undeclared
+# data row.
+#
+# Measured, not written: `print_image_symbol_rules` in
+# `crates/pemu-hle/tests/corpus_image_symbols.rs` prints these rows from every corpus build with
+# an ELF that links a radio, and `every_corpus_build_recovers_what_its_elf_names_and_nothing_it_
+# does_not` checks them against the same builds. Regenerate after a corpus change; never edit a
+# digest by hand.
+#
+# `[[function]]` is one symbol; each `[[shape]]` under it is one accepted body:
+#
+# - `size`: bytes of the function, the ELF's `st_size`;
+# - `lead`: the body skeleton of its first 8 bytes, the scan's index key;
+# - `body_sha256`: SHA-256 of the body skeleton of the whole function (the relocation-masked
+#   skeleton with the low half of every relocated address zeroed as well), which stands in for
+#   `st_size`;
+# - `refs`: data symbols this body materializes, `name@0xHI+0xLO` for a `lui` or `auipc` and the
+#   instruction that completes it, `name@0xAT` for a `gp`-relative access;
+# - `calls`: calls this body makes, `name@0xAT`, to a function of this file or to the ROM;
+# - `builds`: the corpus builds the shape was measured on, informative only.
+#
+# `[[data]]` rows give the size the ELF path pins for each data symbol; a load or store witness
+# must access exactly that many bytes.
+
+[profile]
+idf = "5.5.3"
+
+[[function]]
+name = "esp_bt_controller_init"
+
+[[shape]]
+builds = "pk,pkgatt,probe_campaign_radio"
+size = 664
+lead = "411106c022c026c0"
+body_sha256 = "ecd5def645939837fdcfc03dacd51fec506931c1ff5e4ff8389802975f8818bf"
+refs = "btdm_controller_status@0xa"
+calls = "esp_log@0xce esp_log_timestamp@0xa6"
+
+[[shape]]
+builds = "scan3,probe2"
+size = 676
+lead = "411106c022c026c0"
+body_sha256 = "99cb62a8f75e83112ed7bd65eb4aa8f35ea2a898f64592e69ed8067bf37b8653"
+refs = "btdm_controller_status@0xa+0xe"
+calls = "esp_log@0xd6 esp_log_timestamp@0xae"
+
+[[shape]]
+builds = "official,demo"
+size = 680
+lead = "411106c022c026c0"
+body_sha256 = "c4d455eac92667eff2179dd93cb69e02e0e3206d60ed45b3ce88b69631fa21e3"
+refs = "btdm_controller_status@0xa+0xe"
+calls = "esp_log@0xd6 esp_log_timestamp@0xae"
+
+[[function]]
+name = "esp_bt_controller_deinit"
+
+[[shape]]
+builds = "pk,pkgatt,probe_campaign_radio"
+size = 60
+lead = "411106c003a70100"
+body_sha256 = "4696faf70a8042ddd332adbfa5cfc690f5527d40cad629afdabd22bea8c29000"
+refs = "btdm_controller_status@0x4"
+
+[[shape]]
+builds = "scan3,probe2,official,demo"
+size = 64
+lead = "411106c0b7070000"
+body_sha256 = "c67c8229ffea1dbee0cf3bab523b76b0cf3036f62342061cd5a33022626e90ef"
+refs = "btdm_controller_status@0x4+0x8"
+
+[[function]]
+name = "esp_bt_controller_enable"
+
+[[shape]]
+builds = "pk,pkgatt,probe_campaign_radio"
+size = 212
+lead = "411106c022c026c0"
+body_sha256 = "57a32d197ef1fa8ebcd6e400a1a8611e87ee9fdf0f244922c120b1bd2df85754"
+refs = "btdm_controller_status@0xa"
+calls = "esp_log@0x90 esp_log_timestamp@0x66"
+
+[[shape]]
+builds = "scan3,probe2,official,demo"
+size = 236
+lead = "411106c022c026c0"
+body_sha256 = "a6e78202c542126bc4a9dafaa30d0a4145c3f88d2c0ddd0336135cac8f3067be"
+refs = "btdm_controller_status@0xa+0xe"
+calls = "esp_log@0xa0 esp_log_timestamp@0x76"
+
+[[function]]
+name = "esp_bt_controller_disable"
+
+[[shape]]
+builds = "pk,pkgatt,probe_campaign_radio"
+size = 86
+lead = "411106c003a70100"
+body_sha256 = "53411f43f264388746b4780ecfc9205d3db3adc2ef125731d90033db1c76c7b9"
+refs = "btdm_controller_status@0x4"
+
+[[shape]]
+builds = "scan3,probe2,official,demo"
+size = 102
+lead = "411106c0b7070000"
+body_sha256 = "ed58b00330d5ef374a771ff13f0aa46cd236232c0ba9ecf94b1569309979f7ed"
+refs = "btdm_controller_status@0x4+0x8"
+
+[[function]]
+name = "esp_vhci_host_check_send_available"
+
+[[shape]]
+builds = "pk,pkgatt,probe_campaign_radio"
+size = 28
+lead = "411106c003a70100"
+body_sha256 = "f3013f62e7b297b988ba8abc45e75261520c67e1559b42e77ac62a782b032b99"
+refs = "btdm_controller_status@0x4"
+
+[[shape]]
+builds = "scan3,probe2,official,demo"
+size = 32
+lead = "411106c0b7070000"
+body_sha256 = "5f7ee4ea4289c674a61b0b947322e39ebbaf99772a0e54e7efe932420a63d47b"
+refs = "btdm_controller_status@0x4+0x8"
+
+[[function]]
+name = "esp_vhci_host_send_packet"
+
+[[shape]]
+builds = "pk,pkgatt,probe_campaign_radio"
+size = 54
+lead = "411106c022c026c0"
+body_sha256 = "6954aafe068cf69b148a1e33a1c391f30eb165f6630014107a57098e818fd1b0"
+refs = "btdm_controller_status@0xc"
+
+[[shape]]
+builds = "scan3,probe2,official,demo"
+size = 58
+lead = "411106c022c026c0"
+body_sha256 = "ce91ebbd38d74806adc793a25b06859bd51132164acd73fae2ee441fecd34e81"
+refs = "btdm_controller_status@0xc+0x10"
+
+[[function]]
+name = "esp_vhci_host_register_callback"
+
+[[shape]]
+builds = "pk,pkgatt,probe_campaign_radio"
+size = 34
+lead = "411106c003a70100"
+body_sha256 = "08c6defb2120885f748e7b4fd804483205d0aca22700641e9d8f6ec8952d89ee"
+refs = "btdm_controller_status@0x4"
+
+[[shape]]
+builds = "scan3,probe2,official,demo"
+size = 38
+lead = "411106c0b7070000"
+body_sha256 = "3359e7f2d29b593a9a5e279acf752b8dc3dfb85bc6d787532d43e35b5b990102"
+refs = "btdm_controller_status@0x4+0x8"
+
+[[function]]
+name = "esp_wifi_init"
+
+[[shape]]
+builds = "probe_wifi_http,probe_wifi_conn"
+size = 216
+lead = "411106c022c026c0"
+body_sha256 = "b0942d2daf5dba9e2c0bbf972cb6f99fbfc09ddf1112e1e793283dec766724e7"
+refs = "s_wifi_inited@0xa+0xe"
+calls = "esp_log@0x82 esp_log_timestamp@0x60"
+
+[[shape]]
+builds = "scan3,probe2,official,demo"
+size = 220
+lead = "411106c022c026c0"
+body_sha256 = "3f8babe2a8c1683c80f0c8671b43d2988d866151525f5a28606dc2a2a030d477"
+refs = "s_wifi_inited@0xa+0xe"
+calls = "esp_log@0x86 esp_log_timestamp@0x64"
+
+[[function]]
+name = "esp_wifi_deinit"
+
+[[shape]]
+builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
+size = 30
+lead = "411106c0b7070000"
+body_sha256 = "7df9232eb038c7aa7c2f316282aaa4f2aac760dd5bc7f970570ee3e99e5fbdb3"
+refs = "s_wifi_inited@0x4+0x8"
+
+[[function]]
+name = "esp_wifi_set_mode"
+
+[[shape]]
+builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
+size = 80
+lead = "411122c006c02a84"
+body_sha256 = "6fdd5eca70635b1dfa5b01eb27f8fd554b8ef21481f80314ba77251daa08b36a"
+
+[[function]]
+name = "esp_wifi_get_mode"
+
+[[shape]]
+builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
+size = 54
+lead = "411122c006c02a84"
+body_sha256 = "00898835f5ab5d765530afa176981a25bdad5baeb5ee93ae6c188cc17630ca7e"
+
+[[function]]
+name = "esp_wifi_set_storage"
+
+[[shape]]
+builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
+size = 88
+lead = "411122c006c026c0"
+body_sha256 = "5af6e2f6dc4f2dd0508271555b2dee620f80c625bf23212a40b89b65c0760690"
+
+[[function]]
+name = "esp_wifi_set_config"
+
+[[shape]]
+builds = "probe2,probe_wifi_http,probe_wifi_conn"
+size = 148
+lead = "411126c04ac006c0"
+body_sha256 = "a8c3b8d736d392536a692c268ef269ab71b55c37d85045eceeb97d61c9f27d39"
+
+[[function]]
+name = "esp_wifi_get_config"
+
+[[shape]]
+builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
+size = 94
+lead = "411122c026c006c0"
+body_sha256 = "246707fb2803602e2b3261e155b8f5fc7cadcd274e2611e8890359980297a6c5"
+
+[[function]]
+name = "esp_wifi_get_mac"
+
+[[shape]]
+builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
+size = 76
+lead = "411122c026c006c0"
+body_sha256 = "7c364db1d811ef612b00d3afee8532054d9d7e0df01a983ee5899dd541f88026"
+
+[[function]]
+name = "esp_wifi_start"
+
+[[shape]]
+builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
+size = 68
+lead = "411106c0ef000000"
+body_sha256 = "d0c592a9e58bdfa49e9bbd88b95337bd3a7ed84a5edbb8b8cfa91a710addd1a0"
+
+[[function]]
+name = "esp_wifi_stop"
+
+[[shape]]
+builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
+size = 418
+lead = "016106c022c026c0"
+body_sha256 = "70599e7f30fd312441fdbb731dee944db5c01f9677067b3c837014a9660c66b8"
+
+[[function]]
+name = "esp_wifi_scan_start"
+
+[[shape]]
+builds = "scan3,probe2,official,demo"
+size = 434
+lead = "011126c052c006c0"
+body_sha256 = "d4a63f34e0716645b0d90b12946d2a57ff973aa1fe7e41110e24312c5af55b84"
+
+[[function]]
+name = "esp_wifi_scan_stop"
+
+[[shape]]
+builds = "official,demo"
+size = 88
+lead = "411106c0ef000000"
+body_sha256 = "28930308cd3e9000307c8d05d539457ba957002d41552818ca2e913ffc4e7c13"
+
+[[function]]
+name = "esp_wifi_scan_get_ap_num"
+
+[[shape]]
+builds = "scan3,probe2,official,demo"
+size = 94
+lead = "411122c006c02a84"
+body_sha256 = "b31ef3fd367690569e6715ad91d6c5c7e73ee7da75f91b1dd133030714907262"
+
+[[function]]
+name = "esp_wifi_scan_get_ap_records"
+
+[[shape]]
+builds = "scan3,probe2,official,demo"
+size = 164
+lead = "411122c026c006c0"
+body_sha256 = "9d885866c3acb715ff68dcf9c832149556317360297a567018690b85affb04e2"
+
+[[function]]
+name = "esp_wifi_internal_reg_rxcb"
+
+[[shape]]
+builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
+size = 110
+lead = "411122c026c006c0"
+body_sha256 = "e7d8132db90475dae902c4fb59cab9606111df89aedc4e98816a9c04c0da8011"
+
+[[function]]
+name = "esp_wifi_internal_reg_netstack_buf_cb"
+
+[[shape]]
+builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
+size = 38
+lead = "b707000001611300"
+body_sha256 = "54222b3238ef621e40b5fbd699e1591d242882eebfbd21e6366e516d78a6e0c2"
+
+[[function]]
+name = "esp_wifi_internal_free_rx_buffer"
+
+[[shape]]
+builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
+size = 8
+lead = "1703000067000300"
+body_sha256 = "6073b055ad2065d92fe7da1baf535f08130f69520efe9f0667ebbee143511906"
+calls = "__call_ppRecycleRxPkt@0x0"
+
+[[function]]
+name = "esp_wifi_connect_internal"
+
+[[shape]]
+builds = "probe2,probe_wifi_http,probe_wifi_conn"
+size = 88
+lead = "411106c0ef000000"
+body_sha256 = "cf663318c02f94366c3b284413794dfcbeb77cff5b18445b78e536b14e0c9e8b"
+
+[[function]]
+name = "esp_wifi_disconnect_internal"
+
+[[shape]]
+builds = "probe2,probe_wifi_conn"
+size = 88
+lead = "411106c0ef000000"
+body_sha256 = "553ea5a6b4c80b029b852f20e88510123284e9aa8b1ca75d9766e4c8dc915bed"
+
+[[function]]
+name = "esp_wifi_internal_tx"
+
+[[shape]]
+builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
+size = 50
+lead = "011122c026c02a84"
+body_sha256 = "4689cee00c877492c5c4bb093aef6378c059265b26b01d7d90f4a4ff2e3d351a"
+
+[[function]]
+name = "esp_wifi_internal_set_sta_ip"
+
+[[shape]]
+builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
+size = 52
+lead = "411106c0ef000000"
+body_sha256 = "4e30fe872df51219024f279a93c0a2734a0507e2073d927248cb97a82c063a45"
+
+[[function]]
+name = "xTaskCreatePinnedToCore"
+
+[[shape]]
+builds = "pkgatt,scan3,probe2,probe_campaign_radio"
+size = 190
+lead = "016106c022c026c0"
+body_sha256 = "25e9cc1a2d7b5f0c489e84b32a1021af88e50b91ad823cf5f6b0a986a2b18865"
+calls = "__assert_func@0x96"
+
+[[shape]]
+builds = "pk,official,demo,probe_wifi_http,probe_wifi_conn,probe_wifi_assoc,hle_probe"
+size = 190
+lead = "016106c022c026c0"
+body_sha256 = "2d5a3bb8235c2fac1574792794d39e0f298f4d1e2b5c3a5d35ef2647d290b55e"
+calls = "__assert_func@0x96"
+
+[[function]]
+name = "xQueueGenericCreate"
+
+[[shape]]
+builds = "pkgatt,scan3,probe2,probe_campaign_radio"
+size = 126
+lead = "011106c022c026c0"
+body_sha256 = "049ddde2e1fd183f82db685fcdf889e16509facefd252f3f75d49c1a26dd83b1"
+calls = "__assert_func@0x7a"
+
+[[shape]]
+builds = "pk,official,demo,probe_wifi_http,probe_wifi_conn,probe_wifi_assoc,hle_probe"
+size = 126
+lead = "011106c022c026c0"
+body_sha256 = "4093c3a36d391a2ff76386da0b057deecf57617cad74b6419e2fe64a36d45a29"
+calls = "__assert_func@0x7a"
+
+[[function]]
+name = "xQueueSemaphoreTake"
+
+[[shape]]
+builds = "pkgatt,probe_wifi_http,probe_wifi_conn,probe_wifi_assoc,probe_campaign_radio,hle_probe"
+size = 388
+lead = "016106c022c026c0"
+body_sha256 = "97c9732f9aef7e0430cc4273460415b198c960d587a80b21cb95c93e875413d9"
+calls = "__assert_func@0x40"
+
+[[shape]]
+builds = "pk,scan3,probe2"
+size = 390
+lead = "016106c022c026c0"
+body_sha256 = "a8463dde69ffbc0b84668b4e351ecd658e0e20d46ce7dade0c8c61c2a659f008"
+calls = "__assert_func@0x40"
+
+[[shape]]
+builds = "official,demo"
+size = 396
+lead = "016106c022c026c0"
+body_sha256 = "fa8be0fce9ad1aaabe574db39f7035dc33b3a93a3402c08a14a4e619d5f2196c"
+calls = "__assert_func@0x40"
+
+[[function]]
+name = "xQueueGenericSend"
+
+[[shape]]
+builds = "pk,pkgatt,scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn,probe_wifi_assoc,probe_campaign_radio,hle_probe"
+size = 446
+lead = "016106c022c026c0"
+body_sha256 = "e5426be12c1c875cd476cf68315ccfc087fac2a112f1fc734292c4d172a2ecff"
+calls = "__assert_func@0x48"
+
+[[function]]
+name = "xQueueGiveFromISR"
+
+[[shape]]
+builds = "probe_wifi_assoc"
+size = 320
+lead = "011106c022c026c0"
+body_sha256 = "c03a2ff7dc8db0c88bd7151295aef4d53af42c7cb63b34c80b3edafab975e2f9"
+calls = "__assert_func@0x72"
+
+[[shape]]
+builds = "pk,pkgatt,scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn,probe_campaign_radio,hle_probe"
+size = 322
+lead = "011106c022c026c0"
+body_sha256 = "dd8fa5790dd201f0dbe95315bcc6315f6eec9c8de16c8287ed91b8e573b6c541"
+calls = "__assert_func@0x72"
+
+[[function]]
+name = "vPortYieldFromISR"
+
+[[shape]]
+builds = "pk,pkgatt,scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn,probe_wifi_assoc,probe_campaign_radio,hle_probe"
+size = 20
+lead = "8547370700002300"
+body_sha256 = "b94c7304b54043339cac6683f062232ff266159a8098a006d741f719ebdc6932"
+
+[[function]]
+name = "vTaskDelete"
+
+[[shape]]
+builds = "pk,pkgatt,scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn,probe_wifi_assoc,probe_campaign_radio,hle_probe"
+size = 260
+lead = "411106c022c026c0"
+body_sha256 = "7f89552d1e79f411968c03c9793489ceebb2f778a779632aa4375194f4b9e8c4"
+refs = "pxCurrentTCBs@0x66+0x6a xSchedulerRunning@0x8c+0x90"
+calls = "__assert_func@0x100"
+
+[[function]]
+name = "vQueueDelete"
+
+[[shape]]
+builds = "pk,pkgatt,scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn,probe_wifi_assoc,probe_campaign_radio,hle_probe"
+size = 56
+lead = "411106c001c10300"
+body_sha256 = "6b2f3b5d10fb27be0c94bb8ae1eb234348433afbf03f75bfd414512859b1b77d"
+calls = "__assert_func@0x30"
+
+[[function]]
+name = "esp_event_post"
+
+[[shape]]
+builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn,hle_probe"
+size = 42
+lead = "411106c02a88ba87"
+body_sha256 = "b4b558442dbe0d92d8c89165a2d3e53076a808f83a92a4d25dfee4a1a2d79387"
+
+[[function]]
+name = "esp_read_mac"
+
+[[shape]]
+builds = "pk,pkgatt,scan3,probe2,official,demo,probe_campaign_radio"
+size = 272
+lead = "016106c022c026c0"
+body_sha256 = "8d2e44c946362e8e376f2b50d72f427eedd3af4454a9de2bb5a803b189ccdb78"
+calls = "esp_log@0x5e esp_log_timestamp@0x3e"
+
+[[shape]]
+builds = "probe_wifi_http,probe_wifi_conn"
+size = 276
+lead = "016106c022c026c0"
+body_sha256 = "4ac6fa35ec7fef1fff225c99240ed7bf47f9fd7914728ab66689b94b035ca88f"
+calls = "esp_log@0x5e esp_log_timestamp@0x3e"
+
+[[function]]
+name = "esp_intr_alloc"
+
+[[shape]]
+builds = "pk,pkgatt,scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn,probe_wifi_assoc,probe_campaign_radio,hle_probe"
+size = 22
+lead = "411106c0b6873a88"
+body_sha256 = "c0c1fa90fadb8886ef1f8ce15e62572ad562d344de59be98733463893132fee7"
+
+[[function]]
+name = "esp_intr_free"
+
+[[shape]]
+builds = "pk,pkgatt,scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn,probe_campaign_radio,hle_probe"
+size = 20
+lead = "411106c001c10120"
+body_sha256 = "7c9e1c65bcdfea5d479d7088db596e99a0e94b094e27e68b5604a220ccedfdaa"
+
+[[function]]
+name = "esp_log"
+
+[[shape]]
+builds = "pk,pkgatt,scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn,probe_wifi_assoc,probe_campaign_radio,hle_probe"
+size = 68
+lead = "016126c0641022c0"
+body_sha256 = "8802aa40057152ebb406543c012642852320300d3df5addd855fda0aa2d218f8"
+
+[[function]]
+name = "esp_log_timestamp"
+
+[[shape]]
+builds = "pk,pkgatt,scan3,probe2,official,demo,probe_campaign_radio"
+size = 76
+lead = "411106c0ef000000"
+body_sha256 = "d9a1ee64bc5fb2474fd903d7d4be57e3a89d9ac24cf9a64f4e8ff4c6a2312b9e"
+
+[[shape]]
+builds = "probe_wifi_http,probe_wifi_conn,probe_wifi_assoc,hle_probe"
+size = 84
+lead = "411106c0ef000000"
+body_sha256 = "05ee6a61e743f03ed84adab13d8cb5a087f5f58cd54e1ba20c891f2addb68b1a"
+
+[[function]]
+name = "heap_caps_malloc"
+
+[[shape]]
+builds = "pk,pkgatt,scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn,probe_wifi_assoc,probe_campaign_radio,hle_probe"
+size = 52
+lead = "411106c022c026c0"
+body_sha256 = "6286b40991f8051e24921f8c5dcceb02f64f8737dd374e30ddb61bfca1b0e200"
+
+[[function]]
+name = "heap_caps_free"
+
+[[shape]]
+builds = "pk,pkgatt,scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn,probe_wifi_assoc,probe_campaign_radio,hle_probe"
+size = 104
+lead = "411106c0aa8501c1"
+body_sha256 = "160cd3edfe2b3503ef526b2d6748c7e5a919c80cb91074cf11b15103c89352cc"
+calls = "__assert_func@0x64"
+
+[[function]]
+name = "esp_panic_handler"
+
+[[shape]]
+builds = "pk,pkgatt,scan3,probe2,probe_wifi_http,probe_wifi_conn,probe_wifi_assoc,probe_campaign_radio,hle_probe"
+size = 402
+lead = "011106c022c026c0"
+body_sha256 = "666e19823cd5cf7ae36015215d2962e8803e05941fc56e9598ec037183d078f5"
+
+[[shape]]
+builds = "official,demo"
+size = 406
+lead = "011106c022c026c0"
+body_sha256 = "e9a9eb755742dfa9eb75931aae75941af2997811a8388344f4aac3db653280c6"
+
+[[function]]
+name = "abort"
+
+[[shape]]
+builds = "probe_wifi_assoc,hle_probe"
+size = 126
+lead = "016106c022c026c0"
+body_sha256 = "82deb3060746d03b098a40423063fc9944f467c57be24741963f5f05f20a444e"
+
+[[shape]]
+builds = "pk,pkgatt,scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn,probe_campaign_radio"
+size = 134
+lead = "016106c022c026c0"
+body_sha256 = "b47ab199ead12c8dc32bca3e7e72ee579514e0dc8bd3feffbbf484eac3a66ebd"
+
+[[function]]
+name = "__assert_func"
+
+[[shape]]
+builds = "probe_wifi_assoc,hle_probe"
+size = 264
+lead = "0161232011002300"
+body_sha256 = "d3b227a3f3714e815c41650e986cf041eefea38ffd6f1ddb81b66f1b1ec17c59"
+
+[[shape]]
+builds = "pk,pkgatt,scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn,probe_campaign_radio"
+size = 296
+lead = "0161232011002300"
+body_sha256 = "189bb3b67b6a0c7e924814b747e51897d4aba4cca0d65dede10af68eeb84abaf"
+
+[[function]]
+name = "esp_phy_load_cal_data_from_nvs"
+
+[[shape]]
+builds = "pk,pkgatt,scan3,probe2,official,demo,probe_wifi_http"
+size = 120
+lead = "011106c022c026c0"
+body_sha256 = "6d1433c45e3f13652beb4c05835ab8e0e9a3c299983048fa6314eb5aa72161f0"
+calls = "esp_log@0x5c esp_log_timestamp@0x34"
+
+[[function]]
+name = "xPortStartScheduler"
+
+[[shape]]
+builds = "pk,pkgatt,scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn,probe_wifi_assoc,probe_campaign_radio,hle_probe"
+size = 118
+lead = "411106c0b7070000"
+body_sha256 = "d21b952aad6407c43087afab65d67af244d83d017dd206dd82096a985d9eff71"
+refs = "port_uxInterruptNesting@0x4+0x8 xIsrStackBottom@0x66+0x6a xIsrStackTop@0x5a+0x5e"
+
+[[function]]
+name = "call_start_cpu0"
+
+[[shape]]
+builds = "pk,pkgatt,scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn,probe_wifi_assoc,probe_campaign_radio,hle_probe"
+size = 252
+lead = "011106c022c08547"
+body_sha256 = "afba7b6ece00f0b82e98d1cff4d5cf1e3f3236bd599726b1d006b8f669e7f46a"
+refs = "__global_pointer$@0x10+0x14"
+
+[[function]]
+name = "wifi_event_post"
+
+[[shape]]
+builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
+size = 82
+lead = "b707000083a70700"
+body_sha256 = "a91c2540f1a8c16dab4d5b110f32a1e6706e12029dd2df7e4f12f33758bb6a23"
+refs = "WIFI_EVENT@0x14+0x1c"
+
+[[function]]
+name = "esp_event_post_wrapper"
+
+[[shape]]
+builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
+size = 28
+lead = "411106c0fd576300"
+body_sha256 = "b768c702deb1b7de1b2dabfa1a7d7bff955e87de4e894bddf95ad221918e96c3"
+calls = "esp_event_post@0xa"
+
+[[data]]
+name = "btdm_controller_status"
+size = 4
+
+[[data]]
+name = "s_wifi_inited"
+size = 1
+
+[[data]]
+name = "WIFI_EVENT"
+size = 4
+
+[[data]]
+name = "pxCurrentTCBs"
+size = 4
+
+[[data]]
+name = "port_uxInterruptNesting"
+size = 4
+
+[[data]]
+name = "xSchedulerRunning"
+size = 4
+
+[[data]]
+name = "xIsrStackBottom"
+size = 4
+
+[[data]]
+name = "xIsrStackTop"
+size = 4
+
+[[data]]
+name = "__global_pointer$"
+size = 0

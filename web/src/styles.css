@@ -1,0 +1,313 @@
+/*
+ * The web UI stylesheet, built by the Tailwind CLI into `dist/styles.css`. Nothing is fetched at
+ * run time: no web font, no CDN.
+ *
+ * The colour tokens are coss ui's neutral theme (`apps/ui/registry/registry-styles.ts` at
+ * 8423f18a, MIT, see THIRD_PARTY.md); the `@theme inline` block maps them onto Tailwind colours
+ * so the vendored components in `src/ui/` resolve. The page chrome is greys only; colour appears
+ * where it carries meaning (a stopped machine or a refusal) and on the device screen.
+ */
+
+@import "tailwindcss" source(none);
+@source "./app/view";
+@source "./ui";
+@source "../public";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --radius: 0.625rem;
+  --accent: --alpha(var(--color-black) / 4%);
+  --accent-foreground: var(--color-neutral-800);
+  --background: var(--color-white);
+  --border: --alpha(var(--color-black) / 8%);
+  --card: var(--color-white);
+  --card-foreground: var(--color-neutral-800);
+  --destructive: var(--color-red-500);
+  --destructive-foreground: var(--color-red-700);
+  --foreground: var(--color-neutral-800);
+  --info: var(--color-blue-500);
+  --info-foreground: var(--color-blue-700);
+  --input: --alpha(var(--color-black) / 10%);
+  --muted: --alpha(var(--color-black) / 4%);
+  --muted-foreground: color-mix(in srgb, var(--color-neutral-500) 90%, var(--color-black));
+  --popover: var(--color-white);
+  --popover-foreground: var(--color-neutral-800);
+  --primary: var(--color-neutral-800);
+  --primary-foreground: var(--color-neutral-50);
+  --ring: var(--color-neutral-400);
+  --secondary: --alpha(var(--color-black) / 4%);
+  --secondary-foreground: var(--color-neutral-800);
+  --success: var(--color-emerald-500);
+  --success-foreground: var(--color-emerald-700);
+  --warning: var(--color-amber-500);
+  --warning-foreground: var(--color-amber-700);
+  --font-sans-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    "PingFang SC", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Microsoft YaHei", "Yu Gothic UI",
+    "Noto Sans CJK SC", "Noto Sans", sans-serif;
+  --font-mono-stack: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  color-scheme: light;
+}
+
+.dark {
+  --accent: --alpha(var(--color-white) / 4%);
+  --accent-foreground: var(--color-neutral-100);
+  --background: color-mix(in srgb, var(--color-neutral-950) 95%, var(--color-white));
+  --border: --alpha(var(--color-white) / 6%);
+  --card: color-mix(in srgb, var(--background) 98%, var(--color-white));
+  --card-foreground: var(--color-neutral-100);
+  --destructive: color-mix(in srgb, var(--color-red-500) 90%, var(--color-white));
+  --destructive-foreground: var(--color-red-400);
+  --foreground: var(--color-neutral-100);
+  --info: var(--color-blue-500);
+  --info-foreground: var(--color-blue-400);
+  --input: --alpha(var(--color-white) / 8%);
+  --muted: --alpha(var(--color-white) / 4%);
+  --muted-foreground: color-mix(in srgb, var(--color-neutral-500) 90%, var(--color-white));
+  --popover: color-mix(in srgb, var(--background) 98%, var(--color-white));
+  --popover-foreground: var(--color-neutral-100);
+  --primary: var(--color-neutral-100);
+  --primary-foreground: var(--color-neutral-800);
+  --ring: var(--color-neutral-500);
+  --secondary: --alpha(var(--color-white) / 4%);
+  --secondary-foreground: var(--color-neutral-100);
+  --success: var(--color-emerald-500);
+  --success-foreground: var(--color-emerald-400);
+  --warning: var(--color-amber-500);
+  --warning-foreground: var(--color-amber-400);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-sans-stack);
+  --font-heading: var(--font-sans-stack);
+  --font-mono: var(--font-mono-stack);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+  code,
+  kbd,
+  samp,
+  pre {
+    font-family: var(--font-mono);
+  }
+}
+
+/*
+ * The static badge of `index.html`: outside `#app`, so it is on the page before the bundle runs.
+ * The header sets `--badge-left` where its brand ends, so the chip follows the product name.
+ */
+.emulator-badge {
+  position: fixed;
+  top: calc((3.5rem - 1.25rem) / 2);
+  left: var(--badge-left, 1rem);
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  height: 1.25rem;
+  margin: 0;
+  padding: 0 0.375rem;
+  border: 1px solid var(--input);
+  border-radius: 0.25rem;
+  background: var(--background);
+  color: var(--muted-foreground);
+  font: 500 0.75rem/1 var(--font-sans-stack);
+  pointer-events: none;
+}
+
+/*
+ * The page grid. The glass's size is `layout.ts` arithmetic, not CSS; these rules only place the
+ * columns, and they use the same breakpoint (`STACK_BELOW_PX`) so the two agree on when to stack.
+ */
+.layout {
+  display: grid;
+  width: 100%;
+  max-width: 100rem;
+  margin-inline: auto;
+  padding: 1.5rem 1rem;
+  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.workbench:not([hidden]) {
+  display: contents;
+}
+
+.layout-simple .device-column {
+  grid-area: device;
+}
+.layout-simple .firmware {
+  grid-area: firmware;
+}
+.layout-simple .log-panel {
+  grid-area: log;
+  height: 24rem;
+}
+.layout-simple {
+  grid-template-areas: "device" "firmware" "log";
+}
+
+.layout-advanced {
+  grid-template-areas: "toolbar" "device" "firmware" "panels" "cards";
+}
+.layout-advanced .toolbar {
+  grid-area: toolbar;
+}
+.layout-advanced .device-column {
+  grid-area: device;
+}
+.layout-advanced .firmware {
+  grid-area: firmware;
+}
+.layout-advanced .panels {
+  grid-area: panels;
+}
+.layout-advanced .cards {
+  grid-area: cards;
+}
+
+@media (width >= 900px) {
+  .layout {
+    padding-inline: 1.5rem;
+  }
+  .layout-simple {
+    grid-template-columns: auto 25rem;
+    justify-content: center;
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: "device firmware" "device log";
+    column-gap: 4rem;
+    row-gap: 1.5rem;
+    align-items: stretch;
+  }
+  .layout-simple .device-column {
+    justify-content: center;
+  }
+  /* The log fills what the device leaves and never grows the row with its own lines. */
+  .layout-simple .log-panel {
+    height: auto;
+    min-height: 16rem;
+    contain: size;
+  }
+  .layout-advanced {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "toolbar toolbar"
+      "device firmware"
+      "device panels"
+      "cards cards";
+    column-gap: 2rem;
+  }
+  /* Like the log: the panels fill what the device leaves, and a long pane scrolls inside. */
+  .layout-advanced .panels {
+    align-self: stretch;
+    min-height: 32rem;
+    contain: size;
+  }
+  .layout-advanced .panels .pane {
+    overflow: auto;
+  }
+}
+
+/* A card a confirmation pointed at ("in the Snapshots card"), marked for a moment. */
+.card[data-flash="true"] {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .card {
+    transition: outline-color 300ms ease-out;
+  }
+}
+
+/* The glass is a 240x320 backing store drawn at a whole factor; no smoothing between pixels. */
+.glass {
+  display: block;
+  image-rendering: pixelated;
+}
+
+/* A pane fills the panel card, and the console inside it fills the pane. */
+.panels .pane:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+@keyframes nfc-tap {
+  from {
+    opacity: 1;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.4);
+  }
+}
+.nfc-ripple {
+  animation: nfc-tap 700ms ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nfc-ripple {
+    animation-duration: 1ms;
+  }
+}
+
+/* The Audio card's output meter, in the page's colours rather than the platform's. */
+.audio-meter {
+  appearance: none;
+  height: 0.5rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--muted);
+  overflow: hidden;
+}
+.audio-meter::-webkit-meter-bar {
+  height: 0.5rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--muted);
+}
+.audio-meter::-webkit-meter-optimum-value {
+  border-radius: 999px;
+  background: var(--foreground);
+}
+.audio-meter::-moz-meter-bar {
+  border-radius: 999px;
+  background: var(--foreground);
+}

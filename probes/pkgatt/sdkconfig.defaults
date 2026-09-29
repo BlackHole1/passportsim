@@ -1,0 +1,18 @@
+# pkgatt overrides on top of probes/common/sdkconfig.defaults.
+#
+# The non-default settings of the earlier prototype's build, reduced with
+# `idf.py save-defconfig`. The target, flash size, partition table and USJ console lines of that
+# reduction are already in the common file and are not repeated.
+
+# NimBLE as a peripheral with one connection, as Passport Keys configures it (pk_ble.c header).
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+CONFIG_BT_NIMBLE_ROLE_CENTRAL=n
+CONFIG_BT_NIMBLE_ROLE_OBSERVER=n
+CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1
+
+# A 1 kHz tick, as in the prototype and in Passport Keys.
+CONFIG_FREERTOS_HZ=1000
+CONFIG_FREERTOS_USE_TRACE_FACILITY=y
+
+CONFIG_LWIP_DNS_SUPPORT_MDNS_QUERIES=n

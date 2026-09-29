@@ -1,0 +1,60 @@
+{
+  "description": "Typed error envelope of a failed command.",
+  "properties": {
+    "backtrace": {
+      "description": "Unwound guest frames.",
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "code": {
+      "description": "Stable registered error-code name.",
+      "type": "string"
+    },
+    "detail": {
+      "description": "Machine-readable detail, shape per code."
+    },
+    "hint": {
+      "description": "The next useful call for an agent.",
+      "type": "string"
+    },
+    "message": {
+      "description": "Human-readable message.",
+      "type": "string"
+    },
+    "number": {
+      "description": "Registered number, also the wasm result status.",
+      "maximum": 6999,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "retryable": {
+      "description": "Whether repeating the same call can succeed.",
+      "type": "boolean"
+    },
+    "serial_tail": {
+      "description": "Bounded serial excerpt as evidence.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "vt_us": {
+      "description": "Virtual time in microseconds when the error was raised.",
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "code",
+    "number",
+    "message",
+    "vt_us",
+    "retryable",
+    "detail",
+    "serial_tail",
+    "backtrace"
+  ],
+  "type": "object"
+}

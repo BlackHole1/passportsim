@@ -1,0 +1,24 @@
+[package]
+name = "pemu-loader"
+description = "ELF, ESP image, partition, ROM and eFuse loading for PassportSim."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = ["bundled-rom"]
+bundled-rom = []
+
+[dependencies]
+pemu-core.workspace = true
+object.workspace = true
+sha2.workspace = true
+md-5.workspace = true
+
+# Large fixed-size buffers are heap-built: a Windows .exe gets a 1 MiB main stack, macOS 8 MiB.
+# The size the lints treat as large is `array-size-threshold` of this crate's clippy.toml.
+[lints.clippy]
+large_stack_arrays = "deny"
+large_stack_frames = "deny"

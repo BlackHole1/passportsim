@@ -1,0 +1,310 @@
+# Intended oracle differences.
+#
+# A difference listed here is suppressed in an oracle comparison; anything not listed fails. Every
+# entry carries a reason: a line QEMU cannot reproduce, such as `boot:` or `chip revision`, is a
+# listed entry with its reason, never a silent mask. The loader
+# (crates/pemu-verify/src/known_diffs.rs) refuses an entry with an empty reason.
+#
+# Fields:
+#   id        unique, `<block-or-area>.<what>`
+#   kind      "mmio" for a register-stream difference, "console" for a golden text line, "call"
+#             for a call-trace difference
+#   oracle    which oracle the entry excuses: "qemu", "qemu-stock", "esp32sim" or "any"
+#   reason    why the difference is intended, with its citation
+#   block     (mmio) block name of specs/oracle-qemu-regions.toml
+#   offset    (mmio, optional) first offset inside the block; absent means the whole window
+#   offset_end (mmio, optional) exclusive end of the offset range
+#   access    (mmio, optional) "read", "write" or "any" (default)
+#   contains  (console) substring of the normalized line the entry excuses
+#   milestone (optional) milestone by which the entry is expected to disappear
+#   xor_mask  (mmio, optional) bits ignored in the values written to the entry's registers, both sides
+#   values    (mmio, optional) [[ours, oracle], ...]: our write of `ours` is compared as `oracle`
+#   extra_ours / extra_oracle (mmio, optional) at most this many writes one side has and the other
+#             does not, per block diff
+#   pcs       (mmio, optional) an extra write of ours is excused only from one of these PCs, and
+#             an `xor_mask` or `values` rewrite applies only to our writes from them
+#   readback  (mmio, optional) true: a write that differs only in bits where the two runs' read of
+#             the register just before it differed is compared without those bits (the
+#             read-modify-write carried the read-back value; KnownDiffs::apply_readback)
+#   An entry with any of the last six excuses only what they name (crates/pemu-verify/src/known_diffs.rs).
+#   function  (call) the watched function whose entries the entry counts; a call entry takes only
+#             `extra_ours` and `extra_oracle`, and at least one of them
+
+schema = 1
+
+[[diff]]
+id = "regi2c.analog-store"
+kind = "mmio"
+oracle = "qemu"
+block = "regi2c"
+access = "any"
+reason = "QEMU is not trusted for regi2c, where it reads 0xFFFFFF (seen in QEMU runs; no committed capture). Our model keeps a store of the analog registers, so every read of a written field differs from the oracle by design."
+
+[[diff]]
+id = "gdma.qemu-asserts"
+kind = "mmio"
+oracle = "qemu"
+block = "gdma"
+access = "any"
+reason = "QEMU is not trusted for GDMA, whose model asserts and aborts the process when the descriptor path is exercised (seen in a QEMU run; no committed capture). Its GDMA stream is not evidence either way."
+
+[[diff]]
+id = "usj.stock-stub"
+kind = "mmio"
+oracle = "qemu-stock"
+block = "usj"
+access = "any"
+reason = "The stock Espressif USB Serial/JTAG model is a stub, so a USJ write-stream diff means nothing unless the run used the patched binary. The `qemu` oracle, which is the patched build, is compared normally."
+
+[[diff]]
+id = "rtc_cntl.dig-iso-reset-value"
+kind = "mmio"
+oracle = "qemu"
+block = "rtc_cntl"
+offset = 0x08C
+offset_end = 0x090
+access = "write"
+xor_mask = 0xAA805080
+reason = "RTC_CNTL_DIG_ISO resets with DIG_ISO_FORCE_OFF, DG_PAD_FORCE_NOISO, DG_PAD_FORCE_UNHOLD and the per-domain NOISO bits set (specs/c3-registers.csv, IDF v5.5.3 rtc_cntl_reg.h), and our RTC_CNTL reads that, while the oracle's rtc_cntl region reads 0 there (oracles/consoles/pk.trace below the data root). ROM rtc_unhold_all_pads (rev101 ROM 0x40049786 to 0x4004979c) clears bit 15 and sets bit 10 by read-modify-write, so both writes carry the reset bits here and not there."
+
+[[diff]]
+id = "rtc_cntl.apb-freq-store"
+kind = "mmio"
+oracle = "qemu"
+block = "rtc_cntl"
+offset = 0x0BC
+offset_end = 0x0C0
+access = "write"
+values = [[0x26252625, 0x4C4B4C4B]]
+pcs = [0x40049830]
+reason = "ROM boot_prepare stores ets_get_apb_freq() >> 12, twice, in RTC_CNTL_STORE5 (rev101 ROM 0x4004980c to 0x40049830). ets_get_apb_freq reads SYSTEM_SYSCLK_CONF: SOC_CLK_SEL 0 selects the crystal, whose CLK_XTAL_FREQ reads 40, divided only when CLK_DIV_EN is set. Both reset to 0 (specs/c3-registers.csv, IDF v5.5.3 system_reg.h:791 and :803), so our write is 40 MHz (0x26252625). The oracle's SYSCLK_CONF reads 0xa8401, SOC_CLK_SEL 1 (PLL), which is 80 MHz (0x4c4b4c4b) (oracles/consoles/pk.trace below the data root). specs/oracle-qemu-regions.toml already marks the oracle system block untrusted (trusted = false)."
+
+[[diff]]
+id = "systimer.unit0-op-snapshots"
+kind = "mmio"
+oracle = "qemu"
+block = "systimer"
+offset = 0x004
+offset_end = 0x008
+access = "write"
+values = [[0x40000000, 0x60000000]]
+extra_ours = 5
+pcs = [0x403937D0]
+reason = "Two differences at SYSTIMER_UNIT0_OP, both outside the timer's semantics. (1) The first snapshot write is a read-modify-write of the register (esp_timer_impl_get_time, pk app 0x403937d0); VALUE_VALID reads 0 here before the first update (specs/c3-registers.csv reset 0, basis UNVERIFIED) and 1 in the oracle, so the write is 0x40000000 here and 0x60000000 there. (2) the pk app's esp_flash_init_main probes the flash drivers of IDF v5.5.3 default_registered_chips (spi_flash_chip_drivers.c: issi, gd, mxic, winbond, boya, th, then generic), and every probe ends a SPI1 transaction. The oracle's flash reports a GD id and is taken by the second driver (its console prints `spi_flash: detected chip: gd`); ours reports the XMC id the device prints (dev golden) and is taken by generic, the seventh, so our app phase has five more flash operations before `bsp_i2c`, and each one calls esp_timer_get_time through on_spi_released (breakpoint stacks of this run: spiflash_end_default < read_id_core, detect_spi_flash_chip), which is five more UNIT0_OP writes. The rest of the SYSTIMER stream aligns."
+
+[[diff]]
+id = "intc.flash-probe-critical-sections-104"
+kind = "mmio"
+oracle = "qemu"
+block = "intc"
+offset = 0x104
+offset_end = 0x108
+access = "write"
+extra_ours = 10
+pcs = [0x40054368, 0x4005437C]
+reason = "The pk app's esp_flash_init_main probes the flash drivers of IDF v5.5.3 default_registered_chips (spi_flash_chip_drivers.c: issi, gd, mxic, winbond, boya, th, then generic), and every probe ends a SPI1 transaction. The oracle's flash reports a GD id and is taken by the second driver (its console prints `spi_flash: detected chip: gd`); ours reports the XMC id the device prints (dev golden) and is taken by generic, the seventh, so our app phase has five more flash operations before `bsp_i2c`. Each flash operation masks interrupts through esprv_intc_int_enable/disable (rev101 ROM 0x40054368, 0x4005437c; +0x104 CPU_INT_ENABLE) and critical sections through rv_utils_restore_intlevel_regval (pk app 0x4038e546, 0x4038e556; +0x194 CPU_INT_THRESH): 40 more writes here than there, 10 at +0x104 and 30 at +0x194 (8 per probe), and the streams align before and after. This entry covers CPU_INT_ENABLE."
+
+[[diff]]
+id = "intc.flash-probe-critical-sections-194"
+kind = "mmio"
+oracle = "qemu"
+block = "intc"
+offset = 0x194
+offset_end = 0x198
+access = "write"
+extra_ours = 30
+pcs = [0x4038E546, 0x4038E556]
+reason = "The pk app's esp_flash_init_main probes the flash drivers of IDF v5.5.3 default_registered_chips (spi_flash_chip_drivers.c: issi, gd, mxic, winbond, boya, th, then generic), and every probe ends a SPI1 transaction. The oracle's flash reports a GD id and is taken by the second driver (its console prints `spi_flash: detected chip: gd`); ours reports the XMC id the device prints (dev golden) and is taken by generic, the seventh, so our app phase has five more flash operations before `bsp_i2c`. Each flash operation masks interrupts through esprv_intc_int_enable/disable (rev101 ROM 0x40054368, 0x4005437c; +0x104 CPU_INT_ENABLE) and critical sections through rv_utils_restore_intlevel_regval (pk app 0x4038e546, 0x4038e556; +0x194 CPU_INT_THRESH): 40 more writes here than there, 10 at +0x104 and 30 at +0x194 (8 per probe), and the streams align before and after. This entry covers CPU_INT_THRESH."
+
+[[diff]]
+id = "timg0.reset-value-048"
+kind = "mmio"
+oracle = "qemu"
+block = "timg0"
+offset = 0x048
+offset_end = 0x04C
+access = "write"
+xor_mask = 0x48000
+reason = "TIMG_WDTCONFIG0 resets with WDT_SYS_RESET_LENGTH 1 and WDT_CPU_RESET_LENGTH 1 (0x48000 once FLASHBOOT_MOD_EN is cleared; specs/c3-registers.csv, IDF v5.5.3 timer_group_reg.h), which our model reads back and the oracle reads as 0, so every read-modify-write of the watchdog configuration before the app sets those fields itself carries 0x48000 here only (for example 0x448000 against 0x400000); from the write that sets the lengths (0x1f8000 in timg0) the streams agree."
+
+[[diff]]
+id = "timg0.reset-value-068"
+kind = "mmio"
+oracle = "qemu"
+block = "timg0"
+offset = 0x068
+offset_end = 0x06C
+access = "write"
+xor_mask = 0x8000
+reason = "TIMG_RTCCALICFG: rtc_clk_cal_internal (pk app 0x4038b490 to 0x4038b50e) rewrites the register by read-modify-write and carries RTC_CALI_RDY (bit 15, read-only) back into the write. The register resets with RDY clear, as the device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 356 reads it (0x00013000, RDY 0), so the write of the bootloader's first calibration does not differ. That read comes after the app's TIMERGROUP_RST pulse, so it is the reset value and says nothing about RDY after a completed calibration; this entry stays unsettled. A cycling calibration sets no RDY and the reset pulse clears it, so our read carries 0 and the oracle's 1 (0x10000 against 0x18000); that bit is excused."
+
+[[diff]]
+id = "timg0.reset-value-080"
+kind = "mmio"
+oracle = "qemu"
+block = "timg0"
+offset = 0x080
+offset_end = 0x084
+access = "write"
+xor_mask = 0x19
+reason = "TIMG_RTCCALICFG2 resets with RTC_CALI_TIMEOUT_RST_CNT 3 (bits 3 to 6; specs/c3-registers.csv), which our model reads back and the oracle reads as 0, so rtc_clk_cal_internal's read-modify-write (pk app 0x4038b45c, 0x4038b4d2) carries 0x18 here only. The device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 357 reads the register 0xffffff98 after the app's TIMERGROUP_RST pulse, RST_CNT 3, so the reset value this model reads back is the device's and the difference is the oracle's. IDF pulses TIMERGROUP_RST after the calibration and the cycling calibration ends on RTC_CALI_TIMEOUT (bit 0, read-only), which our model sets as the device does (timg0.rtccali_cycling_timeout) and the oracle does not, so the later read-modify-write at 0x4038b4d2 also carries bit 0 here only (0x8000019 against 0x8000000)."
+
+[[diff]]
+id = "timg0.reset-value-0fc"
+kind = "mmio"
+oracle = "qemu"
+block = "timg0"
+offset = 0x0FC
+offset_end = 0x100
+access = "write"
+xor_mask = 0x40000000
+reason = "TIMG_REGCLK resets with TIMER_CLK_IS_ACTIVE (bit 30) and WDT_CLK_IS_ACTIVE (bit 29) set (specs/c3-registers.csv), and the oracle reads bit 30 as 0, so the app's read-modify-write is 0x60000000 here and 0x20000000 there."
+
+[[diff]]
+id = "timg1.reset-value-048"
+kind = "mmio"
+oracle = "qemu"
+block = "timg1"
+offset = 0x048
+offset_end = 0x04C
+access = "write"
+xor_mask = 0x48000
+reason = "TIMG1 TIMG_WDTCONFIG0 resets with WDT_SYS_RESET_LENGTH 1 and WDT_CPU_RESET_LENGTH 1 (bits 15 and 18, 0x48000; specs/c3-registers.csv, IDF v5.5.3 timer_group_reg.h), which our model reads back and the oracle reads as 0. The first TIMG1 write of the app phase is `_timer_ll_reset_register` (pk app 0x42080fde, 0x48000 here, 0 there); the watchdog disable and configure sequence that follows (pk app 0x40393b18 to 0x40393b9c) is a read-modify-write chain that keeps the two fields, so its writes differ in exactly those bits (0x448000 against 0x400000, 0x1c8000 against 0x1c0000). The mask ignores bits 15 and 18 on both sides; every other bit of the 32 TIMG1 writes aligns."
+
+[[diff]]
+id = "timg1.reset-value-0fc"
+kind = "mmio"
+oracle = "qemu"
+block = "timg1"
+offset = 0x0FC
+offset_end = 0x100
+access = "write"
+xor_mask = 0x40000000
+reason = "TIMG_REGCLK resets with TIMER_CLK_IS_ACTIVE (bit 30) and WDT_CLK_IS_ACTIVE (bit 29) set (specs/c3-registers.csv), and the oracle reads bit 30 as 0, so the app's read-modify-write is 0x60000000 here and 0x20000000 there."
+
+[[diff]]
+id = "spi1.xmc-startup-sfdp-read"
+kind = "mmio"
+oracle = "qemu"
+block = "spi1"
+access = "write"
+extra_oracle = 19
+reason = "The second-stage bootloader's bootloader_flash_xmc_startup (IDF v5.5.3 bootloader_flash.c:942-957) skips its SFDP read when the RDID is a strict XMC id (is_xmc_chip_strict, :915) and otherwise reads the SFDP manufacturer byte with bootloader_flash_read_sfdp (:867, SPI command 0x5A). Our flash answers RDID with the XMC id the device prints (the derived device golden dev:L18 and GROUND_TRUTH XMC flash ID), so the bootloader returns at :948; the oracle's flash answers with a GD id (its app console prints `spi_flash: detected chip: gd`, see `systimer.unit0-op-snapshots`), so its bootloader issues one more SPI1 user command, the 19 SPI1 writes of that one transaction (USER2 carries command 0x5a; oracles/phase/pk.boot.qemu below the data root). The call trace shows the same transaction as `call.xmc-startup-sfdp-read` and `call.xmc-startup-sfdp-command`. The streams align before and after it."
+
+[[diff]]
+id = "call.xmc-startup-sfdp-read"
+kind = "call"
+oracle = "qemu"
+function = "bootloader_flash_read_sfdp"
+extra_oracle = 1
+reason = "The oracle's flash answers RDID with a GD id, ours with the XMC id the device prints, so only the oracle's bootloader_flash_xmc_startup goes on to read the SFDP manufacturer byte (IDF v5.5.3 bootloader_flash.c:942-957). The reason and evidence are those of `spi1.xmc-startup-sfdp-read`."
+
+[[diff]]
+id = "call.xmc-startup-sfdp-command"
+kind = "call"
+oracle = "qemu"
+function = "bootloader_flash_execute_command_common"
+extra_oracle = 1
+reason = "The SPI1 user command bootloader_flash_read_sfdp issues (IDF v5.5.3 bootloader_flash.c:867) runs through bootloader_flash_execute_command_common, once, in the oracle only; see `spi1.xmc-startup-sfdp-read`."
+
+[[diff]]
+id = "call.cpu-clock-source-at-reset"
+kind = "call"
+oracle = "qemu"
+function = "rtc_clk_xtal_freq_get"
+extra_ours = 2
+reason = "SYSTEM_SYSCLK_CONF resets with SOC_CLK_SEL 0, the crystal (specs/c3-registers.csv, IDF v5.5.3 system_reg.h:803), and our bootloader reads 0x28001 there; the oracle's reads 0xa8401, SOC_CLK_SEL 1, the PLL (oracles/phase/pk.boot.qemu below the data root; the same fact as `rtc_cntl.apb-freq-store`, and the oracle's system block is untrusted in specs/oracle-qemu-regions.toml). bootloader_clock_configure then takes two branches only on the crystal side: rtc_clk_cpu_freq_get_config asks rtc_clk_xtal_freq_get for the source frequency of an XTAL source (IDF v5.5.3 esp32c3/rtc_clk.c:269), and rtc_clk_cpu_freq_set_config enables and configures the BBPLL with rtc_clk_xtal_freq_get() when the old source is not the PLL (:246-249). Both are entries the oracle cannot make; the RTC_CNTL write of the second is `rtc_cntl.bbpll-enable-at-reset`."
+
+[[diff]]
+id = "rtc_cntl.bbpll-enable-at-reset"
+kind = "mmio"
+oracle = "qemu"
+block = "rtc_cntl"
+offset = 0x000
+offset_end = 0x004
+access = "write"
+extra_ours = 1
+pcs = [0x403D1496]
+reason = "rtc_clk_cpu_freq_set_config enables the BBPLL when the CPU's old clock source is not the PLL (IDF v5.5.3 esp32c3/rtc_clk.c:246-248); rtc_clk_bbpll_enable clears the BBPLL power-down bits of RTC_CNTL_OPTIONS0 by read-modify-write (pk bootloader 0x403d1490 read, 0x403d1496 write). Our SYSTEM_SYSCLK_CONF resets to the crystal and the oracle's to the PLL (`call.cpu-clock-source-at-reset`), so only we make this write."
+
+[[diff]]
+id = "rtc_cntl.oracle-reads-zero"
+kind = "mmio"
+oracle = "qemu"
+block = "rtc_cntl"
+offset = 0x000
+offset_end = 0x120
+access = "write"
+readback = true
+reason = "The oracle's rtc_cntl region reads 0 from the registers the bootloader changes by read-modify-write, both at reset and after a write: RTC_CNTL_WDTCONFIG0 (+0x090) reads 0 right after the oracle's own write of 0x800, RTC_CNTL_SENSOR_CTRL (+0x11c) reads 0 after 0xc0000000 (oracles/phase/pk.boot.qemu below the data root, the read lines of the bootloader phase). The registers are read/write with nonzero reset values (specs/c3-registers.csv: RTC_CNTL_FIB_SEL +0x10c, SWD_CONF +0x0ac, BROWN_OUT +0x0d8, ANA_CONF +0x034, +0x080, CLK_CONF +0x070, TIMER1 +0x01c, WDTCONFIG0 +0x090; IDF v5.5.3 rtc_cntl_reg.h), and our RTC_CNTL keeps the reset value and every write, which is what the bootloader's own read-modify-write chains rely on (wdt_hal_init builds WDTCONFIG0 one field at a time). Each such write therefore carries different read-back bits on the two sides. The entry excuses a write only where every bit that differs is a bit in which the two reads before it differed, so a bit the code itself set or cleared differently still fails; registers written without a read before them are compared as they are."
+
+[[diff]]
+id = "console.boot-strap"
+kind = "console"
+oracle = "qemu"
+contains = "boot:0x"
+reason = "The strap value the ROM prints comes from the emulated strapping pins, and the oracle configuration sets strap_mode 0x0A as an override that is itself UNVERIFIED. The device boots with rst:0x15 and boot:0xa; QEMU cannot be made to reproduce the pin state, so the line is listed rather than masked."
+milestone = "M1"
+
+[[diff]]
+id = "console.chip-revision"
+kind = "console"
+oracle = "qemu"
+contains = "chip revision"
+reason = "The chip revision the bootloader prints follows the eFuse image, and the oracle eFuse is a synthesized v1.1 block v1.3 image rather than the device's. Listed with its reason instead of masked."
+milestone = "M1"
+
+[[diff]]
+id = "console.spi-mode-slow-read"
+kind = "console"
+oracle = "qemu"
+contains = "boot.esp32c3: SPI Mode       :"
+reason = "The bootloader does not print the image header's mode. IDF v5.5.3 bootloader_flash_config_esp32c3.c:186-208 says \"SPI mode could have been set to QIO during boot already, so test the SPI registers not the flash header\" and calls bootloader_flash_get_spi_mode(), which reads the SPI0 cache CTRL register (bootloader_flash.c:1029-1060, spi_flash_ll_get_ctrl_val(&SPIMEM_LL_CACHE)) and falls through to ESP_ROM_SPIFLASH_SLOWRD_MODE when no FREAD bit is set. The oracle's spi_mem model reads CTRL back as 0, so every QEMU console of this configuration prints `SLOW READ` (oracles/consoles/{pk,official,goldminer}.usj.console below the data root, line 15 of each). Ours keeps the FREAD_DIO bit the ROM wrote and prints `DIO`, which is what the device prints (the derived device golden dev:L18) and what the image header of all three merged images carries. The emulator is on the device side of this difference, so it is listed rather than fixed."
+milestone = "M2"
+
+[[diff]]
+id = "console.probe-intc-edge-round"
+kind = "console"
+oracle = "qemu"
+contains = "EDGE|"
+reason = "The QEMU capture of probes/probe_intc (tests/fw/captures/probe_intc.txt) completes its EDGE round with `triggers=8|isr=8`, but silicon does not. A device capture of the same image (device-probe_intc-20260917T120257Z.log below the data root, not committed) prints the THRESH and MAP rounds and then never an EDGE line: rv_utils_intr_edge_ack writes the line number 7 into CPU_INT_CLEAR rather than bit 7 (IDF riscv/include/esp_private/interrupt_intc.h:64, `REG_SET_BIT(INTERRUPT_CORE0_CPU_INT_CLEAR_REG, intr_num)`), the edge latch of line 7 never clears, the ISR storms, IDLE starves and task_wdt fires every 5 s with `main` running. The fidelity target is the silicon storm, which the emulator reproduces (tests/milestones/m3.rs t1_probe_intc_edge_round_storms_like_silicon), so the oracle's EDGE lines are an intended difference."
+
+# Coverage allowlist: a `(block, offset)` the `xtask oracle hist` gate accepts
+# although no RegSpec claims it, each with a reason. `offset` alone covers one register,
+# `offset` with `offset_end` covers a half-open range, and an entry with neither covers the whole
+# block window. crates/pemu-verify/src/hist.rs refuses an entry without a reason.
+#
+# Bound every entry. An entry with no `offset` blanks the gate for a whole 4 KB window, which
+# defeats the gate (a new touch must fail CI), so both entries below carry the range their
+# block's register file actually spans.
+#
+# OPEN ITEM. The gate is meant to accept a touch only with a RegSpec of class other than U or an
+# allowlist entry with a reason. Only the second half is enforced today: the gate of
+# crates/pemu-verify/src/hist.rs compares an observed histogram with the committed baseline and
+# this allowlist, and accepts anything already in the baseline whatever its RegSpec class,
+# because pemu-verify may depend on no core crate and so cannot read the generated RegSpec table.
+# Wiring the class half in belongs to code that has both tables in scope; until then the
+# baseline itself is the record of what was accepted.
+
+[[allow]]
+block = "spi2"
+offset = 0x000
+offset_end = 0x0F4
+reason = "SPI2 is not modeled by QEMU, so every SPI2 touch under the QEMU oracle lands in the catch-all region and reads 0. The block is polled 4.4 M times in one official boot (a QEMU run of the official image). The range is the register file specs/c3-registers.csv records for spi2, SPI_CMD at 0x000 through SPI_DATE at 0x0F0; a touch outside it is a register nobody has specified and must fail the gate rather than be waved through."
+
+[[allow]]
+block = "assist_debug"
+offset = 0x000
+offset_end = 0x200
+reason = "QEMU does not model ASSIST_DEBUG, so its 54 K reads and 100 K writes in one official boot (a QEMU run of the official image, page 0x600ce000) are recorded and accepted rather than specified register by register. The range is the register file specs/c3-registers.csv records for assist_debug, offset 0x000 through the DATE register at 0x1FC (IDF soc/esp32c3/register/soc/assist_debug_reg.h); a touch above it is unexplained and must fail the gate."
+
+[[diff]]
+id = "spi1.ctrl2-unstored"
+kind = "mmio"
+oracle = "qemu"
+block = "spi1"
+offset = 0x010
+offset_end = 0x014
+access = "write"
+xor_mask = 0x3FF
+reason = "SPI1 CTRL2 bits 9:0 do not store on this chip. The pk app runs IDF's spimem_flash_ll_set_hold with the default cs_hold of 0 (IDF v5.5.3 spimem_flash_ll.h:612, esp_flash_spi_init.c leaves cs_hold unset), which writes cs_hold_time = 31, and the device reads CTRL2 back as 0 (device-probe_campaign_regs-20260924T164141Z line 330). QEMU stores the bits, so the ROM's read-modify-write of CTRL2 (0x40, then 0x40 | 1 on QEMU, 0 | 1 here) carries a different read-back value; the stored bits are compared without bits 9:0."

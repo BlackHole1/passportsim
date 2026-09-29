@@ -1,0 +1,44 @@
+{
+  "properties": {
+    "counts": {
+      "type": "object"
+    },
+    "diff": {
+      "items": {
+        "type": "object"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "instance": {
+      "type": "string"
+    },
+    "resolved": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "screen": {
+      "type": "object"
+    },
+    "text": {
+      "type": "string"
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "ui_rev": {
+      "type": "integer"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "type": "object"
+}

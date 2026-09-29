@@ -1,0 +1,27 @@
+# probe_wifi_assoc overrides on top of probes/common/sdkconfig.defaults.
+#
+# Same three properties as `probe_wifi_conn`, for the same reasons, and one difference.
+#
+# 1. **The partition table.** `partitions.csv` beside this file is the Passport's own layout, so
+#    the identity guard accepts a flash of this image.
+#
+# 2. **Nothing is written to the device's NVS.** The Wi-Fi driver's NVS store and the PHY
+#    calibration store are both off, the probe calls `esp_wifi_set_storage(WIFI_STORAGE_RAM)`,
+#    and it never calls `nvs_flash_erase`. So the station configuration this probe is given --
+#    which, unlike `probe_wifi_conn`'s, may include a credential at build time -- **is never
+#    written to the device's flash outside the app image itself**, and the restore that follows
+#    the capture overwrites that app. This is the property that makes a credentialled run
+#    containable at all, and it is why the option is here and not left to a person to remember.
+#
+# 3. **The difference from `probe_wifi_conn`:** this probe is allowed to associate, so it needs
+#    the IP stack's DHCP client to run. Nothing is enabled for it beyond ESP-IDF's defaults; the
+#    line is here to say the absence is deliberate and checked, not overlooked.
+#
+# **No SSID and no password live here or anywhere else in the repository.** Both are empty
+# Kconfig strings in main/Kconfig.projbuild, and an empty SSID makes the probe print a `NOTE|` and
+# stop before it touches the radio. A capture against a real network supplies them through a
+# third defaults file kept outside the checkout; see the Kconfig help (docs/secrets.md).
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_ESP_WIFI_NVS_ENABLED=n
+CONFIG_ESP_PHY_CALIBRATION_AND_DATA_STORAGE=n

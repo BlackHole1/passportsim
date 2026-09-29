@@ -1,0 +1,42 @@
+# cargo-deny 0.20 configuration. Adding a license to the allow list is a reviewed change of its
+# own, with the reason in the pull request.
+
+[graph]
+all-features = true
+# The three shipped targets, so a Windows-only dependency is
+# checked too.
+targets = [
+  "aarch64-apple-darwin",
+  "x86_64-pc-windows-msvc",
+  "wasm32-unknown-unknown",
+]
+
+[advisories]
+ignore = []
+
+[licenses]
+# Every other license, including GPL, AGPL, LGPL and crates without a license, is denied.
+# 0BSD is required by smoltcp.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "0BSD",
+    "Unicode-3.0",
+]
+confidence-threshold = 0.93
+unused-allowed-license = "allow"
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

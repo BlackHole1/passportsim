@@ -1,0 +1,55 @@
+# The settled menu of the official firmware reacts to DOWN, to OK and to a long OK press, and the
+# LVGL tree says so.
+#
+# Run it on an instance started with `start --fw official --boot-cache ui-settled` (or any start
+# that has passed `main_task: Returned from app_main()`).
+#
+# The firmware marks the selected card by a local style only, background #ffd928, and sets no
+# LVGL state, so "focus on Button" is `{text: Button, within: {bg: "#ffd928"}}`.
+#
+# `s_sel == 1` and `s_active == 1` are DWARF variable reads, asserted in tests/milestones/m5.rs
+# (`menu_variables_follow_the_presses`); no scenario step asserts a global yet, and adding one
+# here would move the goldens of the ten-run comparison (`t1_m5_official_menu_smoke`).
+schema: passportsim/scenario@1
+name: official-menu-smoke
+description: The settled menu reacts to DOWN, to OK and to a long OK press
+image: official
+tags: [t1, m5, menu]
+setup: {power: on}
+defaults: {timeout: 5s}
+fail_on:
+  - {event: panic}
+  - {serial: {re: Guru Meditation}}
+steps:
+  - name: the menu is on screen with the first card selected
+    ui.expect:
+      contains:
+        - {text: FoloToy}
+        - {text: Display, within: {bg: "#ffd928"}}
+        - {text: Button}
+        - {text: Wi-Fi}
+        - {text: BLE}
+        - {text: Low Power}
+      count: {query: {bg: "#ffd928"}, eq: 1}
+
+  - name: DOWN is delivered to the firmware
+    press: {button: down, action: click}
+  - name: the selection moved to Button
+    ui.expect:
+      contains: [{text: Button, within: {bg: "#ffd928"}}]
+      absent: [{text: Display, within: {bg: "#ffd928"}}]
+
+  - name: OK is delivered to the firmware
+    press: {button: ok, action: click}
+  - name: the Button page replaced the menu
+    ui.expect:
+      absent: [{text: Low Power}, {text: Display}]
+
+  - name: a long OK is delivered to the firmware
+    press: {button: ok, action: hold}
+  - name: the menu is back with Button still selected
+    ui.expect:
+      contains:
+        - {text: Low Power}
+        - {text: Button, within: {bg: "#ffd928"}}
+      count: {query: {bg: "#ffd928"}, eq: 1}

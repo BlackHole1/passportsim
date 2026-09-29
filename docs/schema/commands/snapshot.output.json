@@ -1,0 +1,48 @@
+{
+  "properties": {
+    "instance": {
+      "type": "string"
+    },
+    "instances": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "name": {
+      "type": "string"
+    },
+    "op": {
+      "type": "string"
+    },
+    "path": {
+      "type": "string"
+    },
+    "redacted": {
+      "type": "boolean"
+    },
+    "sections": {
+      "type": "integer"
+    },
+    "sha256": {
+      "type": "string"
+    },
+    "size_bytes": {
+      "type": "integer"
+    },
+    "snapshots": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "state_hash": {
+      "description": "`save`: the state hash of the saved state, 64 hex characters.",
+      "type": "string"
+    },
+    "vt_us": {
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}

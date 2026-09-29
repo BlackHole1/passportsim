@@ -1,0 +1,56 @@
+{
+  "properties": {
+    "batch": {
+      "description": "A parallel batch: `forked_from` lists one template per distinct boot, `parallel` is how many ran at once (capped by the daemon's room, so it varies by host), and `wall_budget` is `per_scenario`.",
+      "type": "object"
+    },
+    "caveats": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "exit_code": {
+      "type": "integer"
+    },
+    "jobs": {
+      "type": "integer"
+    },
+    "junit_path": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "op": {
+      "type": "string"
+    },
+    "result": {
+      "enum": [
+        "pass",
+        "fail"
+      ],
+      "type": "string"
+    },
+    "scenarios": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "status": {
+      "enum": [
+        "pass",
+        "pass_with_caveats",
+        "fail",
+        "error",
+        "wall_budget"
+      ],
+      "type": "string"
+    },
+    "wall_budget_ms": {
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}

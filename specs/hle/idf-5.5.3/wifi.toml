@@ -1,0 +1,664 @@
+# The fail-closed Wi-Fi binding profile for IDF 5.5.3.
+#
+# `pemu-radio` compiles this file in with `include_str!` (`crates/pemu-radio/src/wifi/profile.rs`),
+# so no core crate reads a file. The parser refuses an unknown table, a hook without a section or
+# without a variant, and a variant without a size or a 64-digit hash: a row that silently parsed
+# empty would bind by guessing, and binding never guesses. It is the `ble.toml` shape with a
+# `[driver]` table instead of a `[controller]` one.
+#
+# ## Hooks
+#
+# The Wi-Fi HLE replaces `esp_wifi_init` and `esp_wifi_deinit` (open-source `wifi_init.c`, compiled
+# into each app) and the blob-defined public `esp_wifi_*` API. The rows below are the subset the
+# emulator models: the driver lifecycle, the configuration getters and setters, and the scan; the
+# RX half of the data plane, `esp_wifi_internal_free_rx_buffer`; the association half,
+# `esp_wifi_connect_internal` and `esp_wifi_disconnect_internal`; and the TX half of the data
+# plane, `esp_wifi_internal_tx`, which hands the frame to the virtual LAN, and
+# `esp_wifi_internal_set_sta_ip`, which `esp_netif`'s `GOT_IP` handler calls.
+#
+# For each row binding checks presence, section, size and the SHA-256 of the skeleton of its first
+# 32 code bytes: opcode, `rd`, `rs1`, `rs2` and `funct` kept, the relocated
+# immediates zeroed. A symbol the image does not link is skipped by name (an earlier prototype
+# logged `hook skipped (not linked)` for 7 Wi-Fi functions); an image that links none of them
+# binds nothing and is recorded `not linked`, never `bound`. Binding also requires the app
+# descriptor's `idf_ver` to be `v` plus `[profile] idf`.
+#
+# `builds` names the corpus builds each (size, hash) pair was measured on, informative only. The
+# three `[[variant]]` rows of `esp_wifi_scan_get_ap_records` and of
+# `esp_wifi_internal_reg_netstack_buf_cb` are the same blob code linked into three different images:
+# their first 32 bytes hold an instruction whose register allocation the link decides, so the
+# skeleton differs although the function does not. `pk` and `pkgatt` link no Wi-Fi function at all.
+#
+# `probe_wifi_http` is the one non-corpus build named here: the Wi-Fi HTTP probe, pinned by
+# `elf_sha256` in `tests/fw/manifest.toml`, whose committed ELF is stripped, so its rows were
+# measured the way the corpus rows were, over the section bytes at each symbol of the unstripped
+# build ELF under the data root's `corpus/probes/build/probe_wifi_http/`. Every row it links matched
+# an existing (size, hash) pair except two, which are rows of their own: `esp_wifi_init` at 216
+# bytes with the corpus skeleton, and a fourth link of `esp_wifi_internal_reg_netstack_buf_cb`. It
+# links no `esp_wifi_scan_*` and no `esp_wifi_disconnect_internal`, so those rows skip by name for
+# it.
+#
+# The hashes were computed over the ELF section bytes at each symbol address of the corpus ELFs,
+# and the machine checks them against the boot app's flash segments, which hold the same bytes
+# (`crates/pemu-machine/src/hle.rs`).
+
+[profile]
+idf = "5.5.3"
+module = "wifi"
+
+[[hook]]
+name = "esp_wifi_init"
+handler = 0
+section = ".flash.text"
+
+# `log_lines = "verified"` says the sdkconfig-dependent lines of `log-lines.toml` (`config =
+# "corpus"`) hold for an image of this shape: the four corpus builds share this `esp_wifi_init`
+# and the Wi-Fi half of their sdkconfig (`CONFIG_ESP_WIFI_*`, `CONFIG_LWIP_*`,
+# `CONFIG_LOG_MAXIMUM_LEVEL=3`), which is the shape the device capture
+# `device-wifi_facts-20260917T193712Z` was taken from, except `CONFIG_ESP_WIFI_NVS_ENABLED`: the
+# capture's probe had it off and the corpus builds have it on, so the `config NVS flash:` line
+# carries the corpus value. An image of another shape prints the unconditional lines only and its
+# receipt reports `log_lines: unverified`.
+[[variant]]
+builds = "scan3,probe2,demo,official"
+size = 220
+code_sha256 = "a8663cb6b7bd927d59b455cfce2322801b9aae4f91515ee73c5c0e8cf220617b"
+log_lines = "verified"
+
+# `probe_wifi_http` (`tests/fw/manifest.toml`) links the same first 32 bytes at 216 bytes, so it is
+# a second shape of the open-source `wifi_init.c` built under another sdkconfig. It carries **no**
+# `log_lines = "verified"`: nobody has read that build's sdkconfig against the corpus one the
+# verified console lines were taken from, so it prints the unconditional lines only. Its RX capacity
+# does not depend on this flag: every image's capacity is the `dynamic_rx_buf_num` of its own
+# `wifi_init_config_t` (the heap header below).
+[[variant]]
+builds = "probe_wifi_http"
+size = 216
+code_sha256 = "a8663cb6b7bd927d59b455cfce2322801b9aae4f91515ee73c5c0e8cf220617b"
+
+[[hook]]
+name = "esp_wifi_deinit"
+handler = 1
+section = ".flash.text"
+
+[[variant]]
+builds = "scan3,probe2,demo,official,probe_wifi_http"
+size = 30
+code_sha256 = "297d7ed131c7539ff87f11fd6442b093c6d4e74bc344bbcaf9481ed69b98237e"
+
+[[hook]]
+name = "esp_wifi_set_mode"
+handler = 2
+section = ".flash.text"
+
+[[variant]]
+builds = "scan3,probe2,demo,official,probe_wifi_http"
+size = 80
+code_sha256 = "a777af0b7264bfd15205ff8b62320d669025c0d1f394446c4949c6ba828b3d73"
+
+[[hook]]
+name = "esp_wifi_get_mode"
+handler = 3
+section = ".flash.text"
+
+[[variant]]
+builds = "scan3,probe2,demo,official,probe_wifi_http"
+size = 54
+code_sha256 = "77bae1db229a88598d8fe2db9e2a15e79f723e05cd9f968b05e703d3bff62545"
+
+[[hook]]
+name = "esp_wifi_set_storage"
+handler = 4
+section = ".flash.text"
+
+[[variant]]
+builds = "scan3,probe2,demo,official,probe_wifi_http"
+size = 88
+code_sha256 = "a38ea5e7659d28e9b3250e394db1368131a56977ad36754c1397530d9393712b"
+
+[[hook]]
+name = "esp_wifi_set_config"
+handler = 5
+section = ".flash.text"
+
+[[variant]]
+builds = "probe2,probe_wifi_http"
+size = 148
+code_sha256 = "fa4e3417206fbb053cf20a2b30f9b2698e9bdb63b3836f3ee3106dd5fb98d340"
+
+[[hook]]
+name = "esp_wifi_get_config"
+handler = 6
+section = ".flash.text"
+
+[[variant]]
+builds = "scan3,probe2,demo,official,probe_wifi_http"
+size = 94
+code_sha256 = "e03e4ee427ad5828d8de9712f74247a6396ec4cd260fc337e8bea4438f80811d"
+
+[[hook]]
+name = "esp_wifi_get_mac"
+handler = 7
+section = ".flash.text"
+
+[[variant]]
+builds = "scan3,probe2,demo,official,probe_wifi_http"
+size = 76
+code_sha256 = "65a88e9e603c0ff7fced0db3586a0bc07cb92299ad758b7c42a9025371b0093a"
+
+[[hook]]
+name = "esp_wifi_start"
+handler = 8
+section = ".flash.text"
+
+[[variant]]
+builds = "scan3,probe2,demo,official,probe_wifi_http"
+size = 68
+code_sha256 = "4c190cefe1899aa816b1ffb701f8552676173188a0ba00abfa2765107860abe8"
+
+[[hook]]
+name = "esp_wifi_stop"
+handler = 9
+section = ".flash.text"
+
+[[variant]]
+builds = "scan3,probe2,demo,official,probe_wifi_http"
+size = 418
+code_sha256 = "b6aa1fdf601815fbd126fdf2f71a874110de167c6eab20df1e2c0a0c8b082700"
+
+[[hook]]
+name = "esp_wifi_scan_start"
+handler = 10
+section = ".flash.text"
+
+[[variant]]
+builds = "scan3,probe2,demo,official"
+size = 434
+code_sha256 = "cfb3ad825445cdb615141c7975c617c571fd1b7ab66118be5d1b595540595ba3"
+
+[[hook]]
+name = "esp_wifi_scan_stop"
+handler = 11
+section = ".flash.text"
+
+[[variant]]
+builds = "demo,official"
+size = 88
+code_sha256 = "f4c783c0ffe1ce5813079bf058355f3d24a552eff18f776d867d06c11240af6c"
+
+[[hook]]
+name = "esp_wifi_scan_get_ap_num"
+handler = 12
+section = ".flash.text"
+
+[[variant]]
+builds = "scan3,probe2,demo,official"
+size = 94
+code_sha256 = "ebeedc4daadf09f074e870207d68f53e9d849bfc75a3b4f21766e092e56ec195"
+
+[[hook]]
+name = "esp_wifi_scan_get_ap_records"
+handler = 13
+section = ".flash.text"
+
+[[variant]]
+builds = "scan3"
+size = 164
+code_sha256 = "6276cc367acdc547a143f986676bbb532fa091c4a6760da402a4f2e7c8686a6b"
+
+[[variant]]
+builds = "probe2"
+size = 164
+code_sha256 = "c91b5a9ba760788c4291e791a4ce5c821c4f81bceb8153d39602a7cbe7fd707e"
+
+[[variant]]
+builds = "demo,official"
+size = 164
+code_sha256 = "277d308633cca86e6d0eff18b0d796c7180396b68e3ee4dab26891527c90148f"
+
+[[hook]]
+name = "esp_wifi_internal_reg_rxcb"
+handler = 14
+section = ".flash.text"
+
+[[variant]]
+builds = "scan3,probe2,demo,official,probe_wifi_http"
+size = 110
+code_sha256 = "7d76961f43056eb50190f55681dbad4150189b8c676a192fc58d72e165980173"
+
+[[hook]]
+name = "esp_wifi_internal_reg_netstack_buf_cb"
+handler = 15
+section = ".flash.text"
+
+[[variant]]
+builds = "scan3"
+size = 38
+code_sha256 = "0733e9a0fc7211b4fbcf0b18519e2a9cedddd9c0e1913d98c21620a52301c942"
+
+[[variant]]
+builds = "probe2"
+size = 38
+code_sha256 = "81b2485aec79ef30d51c0167be22e36a192c251daca9b07ecace4e4316704634"
+
+[[variant]]
+builds = "demo,official"
+size = 38
+code_sha256 = "58827b6a74a8cd40725fabb6472988215c904d111d3696519f72cfc2f0624621"
+
+[[variant]]
+builds = "probe_wifi_http"
+size = 38
+code_sha256 = "f7ff04f47423224498dc9081c804d99c2adcbecdd3de37edc53be912ee7c9d3b"
+
+# The RX half of the data plane.
+# `libpp` defines it, and all four Wi-Fi corpus builds link the same code, so one (size, hash)
+# pair covers them.
+#
+# `esp_wifi_internal_free_rx_buffer(void *eb)` gives back one RX buffer the driver lent the
+# netstack. It is what makes the `[[heap]]` row below a lifetime and not just a number: without
+# it a lent buffer would never come back and the capacity would be reached once and never left.
+#
+# The TX half, `esp_wifi_internal_tx`, has its row below the association half: a frame needs the
+# virtual LAN to go to and an association to decide it with.
+[[hook]]
+name = "esp_wifi_internal_free_rx_buffer"
+handler = 16
+section = ".flash.text"
+
+[[variant]]
+builds = "scan3,probe2,demo,official,probe_wifi_http"
+size = 8
+code_sha256 = "6d376b59f167bbc8a5b557d46475d6fb207cf25862735afe3f3f7ee67d4d43b8"
+
+# ## The association half
+#
+# `esp_wifi_connect()` and `esp_wifi_disconnect()` are thin open-source wrappers that do nothing
+# but tail-call these two blob entries, so hooking the `_internal` pair is hooking the public API.
+#
+# **Only `probe2` links them.** `scan3`, `demo` and `official` link no `esp_wifi_connect` at all
+# (their symbol tables have no `esp_wifi_(dis)connect*` row), so those three images skip both rows
+# by name, exactly as the "skipped (not linked)" rule above provides for. `builds` therefore names
+# one build, which is every corpus build that has the symbol.
+#
+# The two skeletons are equal because the two functions differ only in the target of their one
+# `jal`, whose immediate the relocation mask zeroes. That is the mask working as specified: binding
+# also checks the name, the size and the section, and the two symbols are 88 bytes apart.
+[[hook]]
+name = "esp_wifi_connect_internal"
+handler = 17
+section = ".flash.text"
+
+[[variant]]
+builds = "probe2,probe_wifi_http"
+size = 88
+code_sha256 = "f4c783c0ffe1ce5813079bf058355f3d24a552eff18f776d867d06c11240af6c"
+
+[[hook]]
+name = "esp_wifi_disconnect_internal"
+handler = 18
+section = ".flash.text"
+
+[[variant]]
+builds = "probe2"
+size = 88
+code_sha256 = "f4c783c0ffe1ce5813079bf058355f3d24a552eff18f776d867d06c11240af6c"
+
+# ## The TX half of the data plane
+#
+# `esp_wifi_internal_tx(ifx, buffer, len)` is what lwIP's `wlanif` output hands every Ethernet
+# frame to. It is linked by all four Wi-Fi corpus builds and by `probe_wifi_http` with one (size,
+# hash) pair. The handler copies the frame out, records it
+# in the boundary pcap capture and gives it to the virtual LAN (`crate::lan::gateway`), whose
+# answers come back through the RX half; only an associated station's frame on `WIFI_IF_STA` is
+# modelled, and every other case is refused by name.
+#
+# `esp_wifi_internal_set_sta_ip(void)` is called by `esp_netif`'s `IP_EVENT_STA_GOT_IP` handler
+# once lwIP has a DHCP lease, so it is the next blob tripwire a successful lease reaches. It is 52
+# bytes in every build, and its skeleton differs per build for the reason the header gives (the
+# register allocation of an instruction in its first 32 bytes), hence four variants. The handler
+# records the instant and answers `ESP_OK`; its effect inside the blob is
+# unverified and nothing the guest reads depends on it.
+[[hook]]
+name = "esp_wifi_internal_tx"
+handler = 19
+section = ".flash.text"
+
+[[variant]]
+builds = "scan3,probe2,demo,official,probe_wifi_http"
+size = 50
+code_sha256 = "4af56241604e6732a8a6228f5e9df8b90a5b1357b84f790a28f5bb4aa79df32e"
+
+[[hook]]
+name = "esp_wifi_internal_set_sta_ip"
+handler = 20
+section = ".flash.text"
+
+[[variant]]
+builds = "scan3"
+size = 52
+code_sha256 = "8eeb3d879e3584c268215e91f176d7cbf25f224899d584c471f15e12ce4533d6"
+
+[[variant]]
+builds = "probe2"
+size = 52
+code_sha256 = "77d2af0880db0187714dd82083465569e4400b1172df65ff110d47dd68066f52"
+
+[[variant]]
+builds = "demo,official"
+size = 52
+code_sha256 = "227f1d66fa3ef6bcbfa0af574d7a62199e22d79a9dc631f22866c0897293891a"
+
+[[variant]]
+builds = "probe_wifi_http"
+size = 52
+code_sha256 = "2a7405a5f8a6ab726c1b255f2ac408eba6f053842d8f5b06e177cfba3be756fc"
+
+# ## Nested-call targets
+#
+# Resolved by name, never hooked. Each is required: an image that links the Wi-Fi driver but not
+# one of these cannot run the handlers, so the whole feature is `unsupported image` rather than a
+# handler failing at run time. An earlier prototype called exactly `xTaskCreatePinnedToCore`, `xQueueGenericCreate`,
+# `xQueueGenericSend`, `xQueueSemaphoreTake`, `vTaskDelete`, `vQueueDelete`, `esp_event_post` and
+# `esp_read_mac` from its Wi-Fi handlers. `xQueueGiveFromISR` and `vPortYieldFromISR` are the U4
+# magic ISR's calls, `esp_intr_alloc` routes the radio source to the magic ISR in U4
+# and `esp_intr_free` releases it at deinit.
+[[call]]
+name = "xTaskCreatePinnedToCore"
+
+[[call]]
+name = "xQueueGenericCreate"
+
+[[call]]
+name = "xQueueSemaphoreTake"
+
+[[call]]
+name = "xQueueGenericSend"
+
+[[call]]
+name = "xQueueGiveFromISR"
+
+[[call]]
+name = "vPortYieldFromISR"
+
+[[call]]
+name = "vTaskDelete"
+
+[[call]]
+name = "vQueueDelete"
+
+[[call]]
+name = "esp_event_post"
+
+[[call]]
+name = "esp_read_mac"
+
+[[call]]
+name = "esp_intr_alloc"
+
+[[call]]
+name = "esp_intr_free"
+
+# The two log functions: the handlers print the lines the blob would have printed by
+# calling the image's own `esp_log_timestamp` and `esp_log` (`log-lines.toml`, module `wifi`).
+[[call]]
+name = "esp_log"
+
+[[call]]
+name = "esp_log_timestamp"
+
+# The image's own allocator, which every RX buffer of the `[[heap]]` plan below comes out of and
+# goes back to. They are in `.iram0.text` in all four builds, which is
+# why the data plane can lend a buffer from the worker without a flash fetch.
+[[call]]
+name = "heap_caps_malloc"
+
+[[call]]
+name = "heap_caps_free"
+
+# ## Data symbols
+#
+# `s_wifi_inited` is the static init flag of `wifi_init.c` (a local symbol, one byte). The
+# handlers keep it written as the real functions do, so guest code that reads it agrees with the
+# HLE and a snapshot carries it in RAM.
+#
+# `WIFI_EVENT` is the event base `ESP_EVENT_DEFINE_BASE` puts in DROM: a `const char *`, so the
+# value to pass to `esp_event_post` is the pointer stored at this address, not the address itself,
+# and it must be read at the first post rather than at load, because the cache MMU does not map
+# flash yet when the image loads.
+
+[[data]]
+name = "s_wifi_inited"
+size = 1
+
+[[data]]
+name = "WIFI_EVENT"
+size = 4
+
+# ## The `wifi` worker
+#
+# The real driver's task, resolved statically and confirmed at run time: name `wifi`,
+# priority `configMAX_PRIORITIES - 2` = 23, and a stack of
+# `(feature_caps & WPA3_SAE ? 0x1800 : 0xC00) + (nano_enable ? 0 : 0x200)`, which is 6,656 B for
+# the corpus sdkconfig; the device's own line reads
+# `wifi:wifi driver task: <handle>, prio:23, stack:6656, core=0`. `min_stack` is that value: the
+# HLE creates the task itself, so it is what it asks for rather than a check on a caller's config.
+#
+# `poll_ms` is a 20 ms poll, as **time**, not ticks: 20 ticks
+# are 20 ms only at the 1 kHz FreeRTOS tick of the corpus builds, and `probe_wifi_http` is built at
+# `CONFIG_FREERTOS_HZ` 100, where 20 ticks are 200 ms. The core turns the time into the guest's own
+# ticks at every park, reading
+# the tick rate from the period the guest programmed into SYSTIMER comparator 0
+# (`pemu_hle::worker::WorkerProfile::poll_ticks_for`), so at 1 kHz it is still exactly 20 ticks and
+# every pinned corpus timing is unchanged.
+#
+# `max_scratch` is the largest scratch block a nested call from the worker task may use. The
+# worker's largest argument is an event payload: `wifi_event_sta_connected_t` is 48 bytes
+# (`esp_wifi_types_generic.h`, riscv32 ilp32), and 64 leaves room for the event-post frame.
+# Handlers entered at a hook keep the core's 128 B guard.
+#
+# `isr_source` is the interrupt-matrix source the U4 magic ISR is allocated on: 0,
+# `ETS_WIFI_MAC_INTR_SOURCE` (`crates/pemu-core/src/irq_source.rs`, `specs/irq-sources.toml`),
+# which is the source `esp_adapter.c`'s `_set_intr` routes for the real driver.
+# UNVERIFIED for the HLE worker itself: no silicon source exists for the emulator's own
+# choice. U4 is the default wake mode, so every test of `tests/milestones/m12.rs` runs the Wi-Fi
+# worker on this source.
+
+[worker]
+task_name = "wifi"
+priority = 23
+min_stack = 6656
+poll_ms = 20
+max_scratch = 64
+isr_source = 0
+
+# ## The driver
+#
+# `[driver]` is the ABI and the timing the handlers need. The sizes and offsets are those of the
+# IDF 5.5.3 headers compiled for riscv32 ilp32; the scan timing is class C.
+#
+# - `init_config_bytes` 152 with `magic` at 144, whose value `esp_wifi.h` fixes at 0x1F2F3F4F, and
+#   `init_config_dynamic_rx_buf_num_off` 52, the `int dynamic_rx_buf_num` the RX capacity is read
+#   from (the DWARF of the corpus `probe2` and `scan3` ELFs and of the
+#   `probe_wifi_http` build ELF, all 0x34; the heap header below);
+# - `ap_record_bytes` 92, the `wifi_ap_record_t` the scan returns: `bssid` at 0, `ssid` at 6
+#   (33 bytes, NUL terminated), `primary` (channel) at 39, `second` at 40, `rssi` at 44,
+#   `authmode` at 48, `pairwise_cipher` at 52, `group_cipher` at 56, `ant` at 60, the PHY bit
+#   field at 64, `country` at 68 and `bandwidth` at 84;
+# - `scan_done_bytes` 8, the `wifi_event_sta_scan_done_t` of `{status, number, scan_id}`;
+# - the scan sweep, **class A** from the device capture `device-wifi_facts-20260917T193712Z`: the
+#   driver's own defaults line reads `Reset scan defaults in ms : min,max,passive,chan_dwell
+#   :(0,120,360,30)`, and one undisturbed active scan sweeps channels 1 to 11 at 120 ms each and
+#   then 12, 13 and 14 at 360 ms each, taking 2,420 ms from `esp_wifi_scan_start` to `SCAN_DONE`.
+#   `scan_channels` 11 and `dwell_ms` 120 are the active half, `passive_channels` 3 and
+#   `passive_dwell_ms` 360 the passive half, and `scan_overhead_ms` 20 the difference between
+#   their sum (2,400 ms) and the measured 2,420 ms.
+# - the event ids are `wifi_event_t` of `esp_wifi_types_generic.h`: SCAN_DONE
+#   1, STA_START 2, STA_STOP 3, STA_CONNECTED 4, STA_DISCONNECTED 5.
+# - `event_start_first` 43 is the event the device posts immediately before `STA_START` inside
+#   `esp_wifi_start` (capture `device-wifi_facts-20260917T193712Z`, `WF|event|id=43` then
+#   `WF|event|id=2`; confirmed again by the association capture `m12-wifi-assoc-2026-09-22`, whose
+#   handler prints `seq=1|id=43` then `seq=2|id=2`, both before `RC|esp_wifi_start|0`). Its **name
+#   is no longer UNVERIFIED**: the `wifi_event_t` enumerators in the DWARF of the corpus `probe2`
+#   ELF give `WIFI_EVENT_NDP_TERMINATED` 42, **`WIFI_EVENT_HOME_CHANNEL_CHANGE` 43** and
+#   `WIFI_EVENT_STA_NEIGHBOR_REP` 44, which is the image's own debug information for the header it
+#   was compiled against, not a guess. It is not `WIFI_EVENT_WIFI_READY` (0).
+# - `start_ms` 39 is how long `esp_wifi_start` takes before its events (the capture's
+#   `WF|set_mode=0|t_ms=22` to `WF|event|id=43|t_ms=61`).
+#
+# ## The association half (class A from `m12-wifi-assoc-2026-09-22`)
+#
+# The capture drives one `esp_wifi_connect()` at an SSID no access point answers and records the
+# whole event stream. What it pins, and nothing beyond it:
+#
+# - `disconnected_bytes` 41 is `sizeof(wifi_event_sta_disconnected_t)`, with `ssid` at 0,
+#   `ssid_len` at 32, `bssid` at 33, `reason` at 39 and `rssi` at 40. Class A for this image set:
+#   the DWARF of the corpus `probe2` ELF carries the struct with exactly those member locations,
+#   and `probe2`'s own event handler reads offsets 39 and 40 to print its `EVT|DISCONNECTED` line.
+# - **Two** `STA_DISCONNECTED` events follow one `esp_wifi_connect` at an absent SSID, not one:
+#   `reason_no_ap_found` 201 (`WIFI_REASON_NO_AP_FOUND`) and then `reason_after_no_ap_found` 36
+#   (`WIFI_REASON_STA_LEAVING`; the names are the `wifi_err_reason_t` enumerators of the same
+#   DWARF). The probe's own summary line reports only the **last** reason, so a one-event model matches that summary and still
+#   contradicts the stream. Both events arrive before the calling task next runs, so they are
+#   queued at one instant, in this order.
+# - `connect_ms` 2420 is how long the device took from `esp_wifi_connect` to those two events.
+#   Measured from the capture's own log timestamps: `wifi:enable tsf` at 233 ms is the last line
+#   before the events of `esp_wifi_start`, and `wifi:flush txq`, the first line of the
+#   `esp_wifi_stop` the probe runs once the disconnects have arrived, is at 2,653 ms. It is
+#   therefore 2,420 ms to within the few milliseconds the untimestamped `RC|` lines hide, which is
+#   one full scan sweep (`scan_us()` above, also 2,420 ms): an association at an SSID nothing
+#   answers is the driver sweeping every channel for it and finding nothing. Class A with that
+#   arithmetic stated; a probe that timestamped its `RC|` lines would pin it exactly.
+#
+# ## The successful association (class A from `m12-wifi-assoc-success-2026-09-22`)
+#
+# `probe_wifi_assoc` against a WPA2-PSK 2.4 GHz access point on the attached Passport.
+# Its handler stamps every event with the microseconds since `esp_wifi_connect` returned:
+# `STA_CONNECTED` at 212,415 us, `IP_EVENT_STA_GOT_IP` at 1,226,388 us, and on the probe's own
+# `esp_wifi_disconnect` **one** `STA_DISCONNECTED` with reason 8, printed before
+# `RC|esp_wifi_disconnect|0`, then `STA_STOP` at the stop. What it pins here:
+#
+# - `connected_us` 212415: from the return of `esp_wifi_connect` to `STA_CONNECTED` reaching the
+#   handler. The handler's clock includes the event loop's own delivery, so the module arms its
+#   timer for this instant and the worker's hop to `esp_event_post` (`POST_US` plus the U5 poll)
+#   is an extra delay on top, class C, as for every other event of this module.
+# - `connected_bytes` 48 is `sizeof(wifi_event_sta_connected_t)`: `ssid` at 0, `ssid_len` at 32,
+#   `bssid` at 33, `channel` at 39, `authmode` (a 4-byte `wifi_auth_mode_t`) at 40 and `aid` (a
+#   `uint16_t`) at 44. **Class A for the layout**, from the DWARF of the corpus `probe2` ELF (the
+#   same source `wifi_event_sta_disconnected_t` comes from). **Not a single field value is
+#   measured**: the probe prints none of the payload, so what the handler fills is shape. `ssid`,
+#   `ssid_len`, `bssid`, `channel` and `authmode` are the scripted access point's own, which is
+#   what the payload means; `connected_aid` 1 is class C and has no source but the lowest value
+#   the IEEE 802.11 AID field allows (1 to 2007). The capture's own driver log prints the AID a
+#   real access point gave, which says only that the value is the AP's choice.
+# - `disconnected_bssid_off` 33 is the `bssid` of `wifi_event_sta_disconnected_t` (the same DWARF).
+# - `reason_assoc_leave` 8 is `WIFI_REASON_ASSOC_LEAVE` (the `wifi_err_reason_t` enumerator of the
+#   same DWARF): the reason of the one disconnect `esp_wifi_disconnect` gives an associated station.
+# - The four `sta_config_*` offsets are members of `wifi_sta_config_t` (184 bytes, DWARF of the
+#   corpus `probe2` ELF and of `probe_wifi_http`, which agree): `password` at 32 (64 bytes),
+#   `bssid_set` at 100, `channel` at 107, and `threshold.authmode` at 120 (`threshold`, a 12-byte
+#   `wifi_scan_threshold_t`, at 116 with its 4-byte `authmode` at 4). The driver reads them only to
+#   decide whether the one association the capture exercised applies; the password is compared,
+#   never copied out or printed.
+#
+# **What this profile still does not model, and refuses by name**: the capture made one WPA2-PSK
+# association with the right key and one clean leave. So a connect at a scripted access point whose
+# auth mode is neither `WIFI_AUTH_OPEN` (0) nor `WIFI_AUTH_WPA2_PSK` (3), whose auth mode is below
+# the station's `threshold.authmode`, whose key is not the configured password, or that the station
+# pins by BSSID or channel, is refused at the call; so are a connect while associated and a scan
+# while associated or while an association is being made. `esp_wifi_stop` while associated, which
+# `probe_wifi_http` does because it stops without disconnecting, is class A from the capture
+# `m12-wifi-stop-associated-2026-09-22` (`probe_wifi_assoc` built to stop while associated): one
+# reason-8 `STA_DISCONNECTED` ahead of `STA_STOP`, both before the call returns.
+# **`WIFI_AUTH_OPEN` is the one extension**, taken because `probe_wifi_http` joins an
+# open scripted access point: it uses the WPA2-PSK timing, which includes a four-way handshake an
+# open network does not make, so its `connected_us` is class C for an open network.
+# `IP_EVENT_STA_GOT_IP` is not this module's: it is lwIP's DHCP client over the data plane
+# (`esp_wifi_internal_tx` and the virtual LAN), and its timing is the guest's.
+
+[driver]
+init_config_bytes = 152
+init_config_magic = "0x1F2F3F4F"
+init_config_magic_off = 144
+init_config_dynamic_rx_buf_num_off = 52
+ap_record_bytes = 92
+scan_done_bytes = 8
+scan_channels = 11
+dwell_ms = 120
+passive_channels = 3
+passive_dwell_ms = 360
+scan_overhead_ms = 20
+start_ms = 39
+event_start_first = 43
+event_scan_done = 1
+event_sta_start = 2
+event_sta_stop = 3
+event_sta_connected = 4
+event_sta_disconnected = 5
+disconnected_bytes = 41
+disconnected_ssid_len_off = 32
+disconnected_reason_off = 39
+disconnected_rssi_off = 40
+connect_ms = 2420
+reason_no_ap_found = 201
+reason_after_no_ap_found = 36
+disconnected_bssid_off = 33
+connected_us = 212415
+connected_bytes = 48
+connected_ssid_len_off = 32
+connected_bssid_off = 33
+connected_channel_off = 39
+connected_authmode_off = 40
+connected_aid_off = 44
+connected_aid = 1
+reason_assoc_leave = 8
+sta_config_password_off = 32
+sta_config_bssid_set_off = 100
+sta_config_channel_off = 107
+sta_config_threshold_authmode_off = 120
+
+# ## The heap ledger (`crates/pemu-radio/src/heap_ledger.rs`)
+#
+# The replaced blob never runs, so the memory it would have held disappears and the guest sees a
+# heap larger than the device's. The ledger takes it back by making real nested `heap_caps_malloc`
+# calls into the image's own allocator, so the blocks are ordinary guest heap blocks the TLSF
+# walker counts. The rule is the ledger's and is not relaxed here: **a row is `count * element`
+# and nothing else**, `count` a capacity the device reported (class A) or one build's sdkconfig
+# value (class C, `config`), `element` the octets the specification gives one element, cited.
+#
+# Wi-Fi has exactly one row, and its lifetime is not BLE's. A BLE row is allocated at init and
+# freed at deinit. A dynamic RX buffer is lent per frame: the driver allocates it when a frame
+# arrives, passes it to the callback `esp_wifi_internal_reg_rxcb` registered, and owns it until
+# the netstack hands it back to `esp_wifi_internal_free_rx_buffer`. So `count` is
+# a **capacity**, not a number of blocks taken at once: it is how many buffers may be outstanding,
+# and the 33rd frame while 32 are out is dropped, which is the device's `DYNAMIC_RX_BUFFER_NUM`
+# behaviour. `element` is what one buffer must hold, so
+# `count * element` is still the bound the row declares.
+#
+# **The capacity is the guest's own value.** With `config = "corpus"` only an image of the shape
+# `log_lines = "verified"` marks would get a capacity, and `probe_wifi_http`, of another
+# `esp_wifi_init` shape, would get none and drop the DHCP offer. The count is in the guest's own
+# `wifi_init_config_t`, which `esp_wifi_init` receives: `WIFI_INIT_CONFIG_DEFAULT()` fills `dynamic_rx_buf_num` from
+# `CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM`, so the init handler reads it there
+# (`init_config_dynamic_rx_buf_num_off` 52 in `[driver]`) and the data plane lends at most that
+# many buffers. The offset is the DWARF of the image's own debug information, `DW_AT_data_member_
+# location` 0x34 of `dynamic_rx_buf_num` in the corpus `probe2` and `scan3` ELFs and in the
+# `probe_wifi_http` build ELF alike (an `int` after the 4-byte `osi_funcs` pointer and the 44-byte
+# `wpa_crypto_funcs_t`; `magic` at 0x90 and `byte_size` 0x98 agree with the rows above). So the
+# row applies to every image, `config` is `guest` rather than `corpus`, and `count` 32 stays as
+# the value the corpus builds' sdkconfig and `probe_wifi_http`'s both read, which the tests check
+# the guest-read value against. `config = "guest"` says so: the row is applied to every shape, and its runtime count is
+# the guest's. This was chosen over comparing the two sdkconfigs (they do agree: both have
+# `CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM 32`) because a value read from the guest holds for every
+# image, including one whose sdkconfig nobody has read, where a comparison holds for one pair.
+# A guest that asks for 0 buffers is refused by name at its first received frame: no capture shows
+# what the driver does with 0, and the profile does not guess.
+
+[[heap]]
+label = "dynamic_rx"
+count = 32
+count_class = "sdkconfig"
+config = "guest"
+count_source = "CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM, which WIFI_INIT_CONFIG_DEFAULT() puts in the guest's own wifi_init_config_t.dynamic_rx_buf_num (read at esp_wifi_init, offset 52); 32 in the four Wi-Fi corpus builds and in probe_wifi_http, the outstanding-RX-buffer capacity"
+element = 1514
+element_source = "one Ethernet II frame at the interface MTU: 6-octet destination, 6-octet source and 2-octet EtherType (IEEE 802.3 clause 3.1.1) plus the 1500-octet MTU of `wlanif.c:45-49`"

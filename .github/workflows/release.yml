@@ -1,0 +1,227 @@
+name: Release
+
+# Run by hand from the Actions tab on the default branch. It computes the next version from the
+# `v*` tags (or takes the one given), packages macOS arm64 and Windows x64 as that version,
+# tags the commit, publishes a GitHub Release with generated notes, the archives and their
+# SHA-256 sums, then deploys the released web bundle. Nothing is committed: the version is applied
+# inside each runner by `cargo xtask package --version`. The Windows package takes the wasm core
+# and the demo from the macOS package (`--payload-from`), so both carry one payload.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release, X.Y.Z (empty computes it from the latest tag and the bump)
+        required: false
+        type: string
+        default: ""
+      bump:
+        description: Part of the latest version to increase when no version is given
+        required: true
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  version:
+    name: Compute the version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.compute.outputs.version }}
+    steps:
+      - name: Refuse anything but the default branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]; then
+            echo "::error::a release is run from $DEFAULT_BRANCH, not $GITHUB_REF"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Test the version script
+        run: .github/scripts/release-version.test.sh
+
+      - id: compute
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_BUMP: ${{ inputs.bump }}
+        run: |
+          first=$(.github/scripts/workspace-version.sh Cargo.toml)
+          tags=$(gh api --paginate "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v" \
+            --jq '.[].ref | ltrimstr("refs/tags/")')
+          version=$(printf '%s\n' "$tags" |
+            .github/scripts/release-version.sh "$INPUT_VERSION" "$INPUT_BUMP" "$first")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "::notice::Releasing v$version from ${GITHUB_SHA::12}"
+
+  macos:
+    name: Package macOS arm64
+    needs: version
+    runs-on: macos-latest
+    timeout-minutes: 120
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: package
+          save-cache: "false"
+
+      - id: demo
+        uses: ./.github/actions/fetch-demo
+        with:
+          url: ${{ vars.DEMO_SITE_URL }}
+          sha256: ${{ vars.DEMO_BUNDLE_SHA256 }}
+
+      - name: cargo xtask package
+        env:
+          DEMO_DIR: ${{ steps.demo.outputs.dir }}
+          OUT: ${{ runner.temp }}/package
+        run: |
+          args=(--target aarch64-apple-darwin --out "$OUT" --version "$VERSION")
+          if [ -n "$DEMO_DIR" ]; then args+=(--demo "$DEMO_DIR"); fi
+          cargo xtask package "${args[@]}"
+
+      - name: Check the package is the clean commit at the release version
+        env:
+          PACKAGE: ${{ runner.temp }}/package/passportsim-${{ needs.version.outputs.version }}-macos-arm64
+        run: |
+          jq -e --arg v "$VERSION" '.version == $v and .dirty == false and .payload.embedded == true' \
+            "$PACKAGE/receipt.json" > /dev/null || {
+            echo "::error::the receipt records another version, a dirty checkout or a binary without its payload"
+            exit 1
+          }
+          reported=$("$PACKAGE/passportsim" --version)
+          echo "$reported"
+          [[ "$reported" == *" $VERSION"* ]] || { echo "::error::the binary reports another version"; exit 1; }
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: package-macos
+          path: |
+            ${{ runner.temp }}/package/passportsim-*-macos-arm64.tar.gz
+            ${{ runner.temp }}/package/passportsim-*-web.tar.gz
+          if-no-files-found: error
+
+  windows:
+    name: Package Windows x64
+    needs: [version, macos]
+    runs-on: windows-latest
+    timeout-minutes: 120
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: package
+          save-cache: "false"
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: package-macos
+          path: ${{ runner.temp }}/macos
+
+      - name: cargo xtask package --payload-from the macOS package
+        env:
+          MACOS: ${{ runner.temp }}/macos
+          OUT: ${{ runner.temp }}/package
+        run: |
+          # Relative archive names: GNU tar reads `D:\...` as a remote host.
+          (cd "$MACOS" && tar -xzf "passportsim-$VERSION-macos-arm64.tar.gz")
+          cargo xtask package --target x86_64-pc-windows-msvc --out "$OUT" --version "$VERSION" \
+            --payload-from "$MACOS/passportsim-$VERSION-macos-arm64"
+          reported=$("$OUT/passportsim-$VERSION-windows-x64/passportsim.exe" --version)
+          echo "$reported"
+          [[ "$reported" == *" $VERSION"* ]] || { echo "::error::the binary reports another version"; exit 1; }
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: package-windows
+          path: ${{ runner.temp }}/package/passportsim-*-windows-x64.zip
+          if-no-files-found: error
+
+  release:
+    name: Tag and publish the GitHub Release
+    needs: [version, macos, windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: package-*
+          path: dist
+          merge-multiple: true
+
+      - name: Tag the built commit
+        run: |
+          tag="v$VERSION"
+          # A re-run after the tag was pushed finds it on the built commit and keeps it.
+          if existing=$(git ls-remote --exit-code origin "refs/tags/$tag^{}"); then
+            if [ "${existing%%[[:space:]]*}" != "$GITHUB_SHA" ]; then
+              echo "::error::tag $tag already exists on another commit"
+              exit 1
+            fi
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" -m "PassportSim $VERSION" "$GITHUB_SHA"
+          git push origin "refs/tags/$tag"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          sha256sum -- *.tar.gz *.zip > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          gh release create "v$VERSION" --verify-tag --title "PassportSim $VERSION" \
+            --generate-notes --latest -- *.tar.gz *.zip SHA256SUMS.txt
+
+  deploy:
+    name: Deploy the released web bundle
+    needs: release
+    permissions:
+      contents: read
+    uses: ./.github/workflows/deploy-web.yml
+    with:
+      web_bundle_artifact: package-macos
+    secrets: inherit

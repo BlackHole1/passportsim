@@ -1,0 +1,5 @@
+# probe_wifi_http overrides on top of probes/common/sdkconfig.defaults.
+#
+# Nothing beyond the shared defaults: the Wi-Fi, lwIP and HTTP client defaults are what the probe
+# exercises. The network settings are the placeholders of main/Kconfig.projbuild and are never
+# set to a real SSID or password here.

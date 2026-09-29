@@ -1,0 +1,13 @@
+# probe_timing partition table.
+# The first three rows are the IDF "single app large" table every other probe uses, at the same
+# offsets. `scratch` is 256 KB at 0x500000. On the device's own table
+# that is unallocated space between the old `recovery` partition at 0x700000 and the leftovers at
+# 0x3FA000-0x41A000, and it read blank in the backup. It is clear of the device's `factory`
+# partition (0x10000-0x30FFFF), of cardid 0x356000-0x359FFF and of both
+# non-blank leftover runs. A device run still writes there: probes/README.md "Device runs".
+# The probe erases one 4 KB sector of `scratch` and nothing else.
+# Name,   Type, SubType, Offset,   Size,     Flags
+nvs,      data, nvs,     0x9000,   0x6000,
+phy_init, data, phy,     0xf000,   0x1000,
+factory,  app,  factory, 0x10000,  1500K,
+scratch,  data, 0x40,    0x500000, 0x40000,

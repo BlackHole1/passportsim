@@ -1,0 +1,107 @@
+ESP-ROM:esp32c3-api1-20210207
+Build:Feb  7 2021
+rst:0x1 (POWERON),boot:0x8 (SPI_FAST_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5830,len:0x1564
+load:0x403cbf10,len:0xc20
+load:0x403ce710,len:0x2ff8
+entry 0x403cbf1a
+I (1) boot: ESP-IDF v5.5.3 2nd stage bootloader
+I (4) boot: chip revision: v0.3
+I (4) boot: efuse block revision: v1.3
+I (6) boot.esp32c3: SPI Speed      : 80MHz
+I (6) boot.esp32c3: SPI Mode       : SLOW READ
+I (7) boot.esp32c3: SPI Flash Size : 8MB
+I (9) boot: Enabling RNG early entropy source...
+I (12) boot: Partition Table:
+I (12) boot: ## Label            Usage          Type ST Offset   Length
+I (13) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+I (14) boot:  1 phy_init         RF data          01 01 0000f000 00001000
+I (15) boot:  2 factory          factory app      00 00 00010000 00177000
+I (16) boot: End of partition table
+I (17) esp_image: segment 0: paddr=00010020 vaddr=3c020020 size=0840ch ( 33804) map
+I (22) esp_image: segment 1: paddr=00018434 vaddr=3fc8ba00 size=01734h (  5940) load
+I (24) esp_image: segment 2: paddr=00019b70 vaddr=40380000 size=064a8h ( 25768) load
+I (29) esp_image: segment 3: paddr=00020020 vaddr=42000020 size=12aach ( 76460) map
+I (39) esp_image: segment 4: paddr=00032ad4 vaddr=403864a8 size=05414h ( 21524) load
+I (43) esp_image: segment 5: paddr=00037ef0 vaddr=50000000 size=00020h (    32) load
+I (45) boot: Loaded app from partition at offset 0x10000
+I (45) boot: Disabling RNG early entropy source...
+I (52) cpu_start: Unicore app
+I (64) cpu_start: Pro cpu start user code
+I (64) cpu_start: cpu freq: 160000000 Hz
+I (64) app_init: Application information:
+I (65) app_init: Project name:     probe_clocks
+I (65) app_init: App version:      probe
+I (66) app_init: ELF file SHA256:  66e9d0e5f...
+I (66) app_init: ESP-IDF:          v5.5.3
+I (67) efuse_init: Min chip rev:     v0.3
+I (67) efuse_init: Max chip rev:     v1.99 
+I (67) efuse_init: Chip rev:         v0.3
+I (68) heap_init: Initializing. RAM available for dynamic allocation:
+I (69) heap_init: At 3FC8E020 len 00031FE0 (199 KiB): RAM
+I (69) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM
+I (70) heap_init: At 3FCDC710 len 00002950 (10 KiB): Retention RAM
+I (70) heap_init: At 50000020 len 00001FC8 (7 KiB): RTCRAM
+I (75) spi_flash: detected chip: gd
+I (75) spi_flash: flash io: dio
+I (76) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (76) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (79) main_task: Started on CPU0
+I (80) main_task: Calling app_main()
+PROBE|name=probe_clocks|schema=passport-emu/probe-line/1
+CLKCFG|cpu_hz=160000000|apb_hz=80000000|xtal_hz=40000000|rtc_slow_cal=3855053|tick_hz=1000
+Guru Meditation Error: Core  0 panic'ed (Interrupt wdt timeout on CPU0). 
+
+Core  0 register dump:
+MEPC    : 0x40382c84  RA      : 0x40381208  SP      : 0x3fc8f980  GP      : 0x3fc8c200  
+TP      : 0x3fc8faf0  T0      : 0x4005890e  T1      : 0x81350000  T2      : 0x00000000  
+S0/FP   : 0x00000000  S1      : 0x00040c00  A0      : 0x00040000  A1      : 0x00008000  
+A2      : 0x00000000  A3      : 0x80000000  A4      : 0x80000000  A5      : 0x00000000  
+A6      : 0xeb47b000  A7      : 0x0000003a  S2      : 0x00000008  S3      : 0x3fc8f9c8  
+S4      : 0x00000008  S5      : 0x00000001  S6      : 0x00000000  S7      : 0x00000000  
+S8      : 0x00000000  S9      : 0x00000000  S10     : 0x00000000  S11     : 0x00000000  
+T3      : 0x00000000  T4      : 0x00000000  T5      : 0x00000000  T6      : 0x00000000  
+MSTATUS : 0x00001880  MTVEC   : 0x40380001  MCAUSE  : 0x00000018  MTVAL   : 0x00000000  
+MHARTID : 0x00000000  
+
+Stack memory:
+3fc8f980: 0x00000007 0x00000001 0x00000008 0x40381208 0x00000000 0x00040c00 0x00000008 0x403812b2
+3fc8f9a0: 0x00000000 0x00040c00 0x3fc8ba40 0x00004c36 0x00000000 0x00040c00 0x00000000 0x42004ed4
+3fc8f9c0: 0x00000000 0x00000000 0xcd4a5100 0x00000001 0x00000001 0x00000140 0x00000004 0x00000050
+3fc8f9e0: 0x0000000a 0x00000028 0x00001400 0x00000000 0x00000000 0x00000000 0x000249e7 0x00000000
+3fc8fa00: 0x000002bc 0x00040c00 0x3fc8ba40 0x42004f54 0x00004c36 0x00040c00 0x3fc8ba40 0x42005144
+3fc8fa20: 0x00000000 0x00000000 0x00000000 0x60008000 0x00000000 0x3fc8fa78 0x3fc8fa78 0x00000000
+3fc8fa40: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x3fc8fa78 0x00000000 0x4200840a
+3fc8fa60: 0x000248f1 0x00000000 0x00000055 0x01938c20 0x00000000 0x00000000 0x000249b2 0x00000000
+3fc8fa80: 0x00000055 0x019404c0 0x00000000 0x00000000 0x00000000 0x00000003 0x3c023000 0x4201226a
+3fc8faa0: 0x00000000 0x00001388 0x00000001 0x00000000 0x00000000 0x00000000 0x00000000 0x403841a6
+3fc8fac0: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+3fc8fae0: 0x00000000 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0x00000150 0x3fc8f9a0 0x00000055
+3fc8fb00: 0x3fc8d310 0x3fc8d310 0x3fc8faf8 0x3fc8d308 0x00000018 0x00000000 0x00000000 0x3fc8faf8
+3fc8fb20: 0x00000000 0x00000001 0x3fc8eaf4 0x6e69616d 0x00000000 0x00000000 0x00000000 0x3fc8faf0
+3fc8fb40: 0x00000001 0x00000000 0x00000000 0x00000000 0x00000000 0x3fc8e638 0x3fc8e6a0 0x3fc8e708
+3fc8fb60: 0x00000000 0x00000000 0x00000001 0x00000000 0x00000000 0x00000000 0x42005e36 0x00000000
+3fc8fb80: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+3fc8fba0: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+3fc8fbc0: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+3fc8fbe0: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+3fc8fc00: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+3fc8fc20: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+3fc8fc40: 0x00000000 0x00000000 0x00000600 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8fc60: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8fc80: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8fca0: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8fcc0: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8fce0: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8fd00: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8fd20: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8fd40: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+3fc8fd60: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+
+
+
+ELF file SHA256: 66e9d0e5f
+
+Rebooting...

@@ -1,0 +1,62 @@
+{
+  "additionalProperties": false,
+  "description": "`scenario` arguments; exactly one of `file` and `inline`.",
+  "properties": {
+    "file": {
+      "description": "Scenario file or glob; quote it.",
+      "type": "string"
+    },
+    "inline": {
+      "description": "Scenario YAML text.",
+      "type": "string"
+    },
+    "instance": {
+      "description": "Instance id.",
+      "pattern": "^[pb][0-9]+$",
+      "type": "string"
+    },
+    "jobs": {
+      "description": "Instances the host may run in parallel (1).",
+      "maximum": 64,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "junit": {
+      "description": "JUnit path, relative and forward-slashed.",
+      "type": "string"
+    },
+    "op": {
+      "description": "What to do (run).",
+      "enum": [
+        "run",
+        "validate"
+      ],
+      "type": "string"
+    },
+    "stop_on_failure": {
+      "description": "Stop at the first failing step (true).",
+      "type": "boolean"
+    },
+    "strict": {
+      "description": "Strict exit codes: a caveat exits 7 rather than 10 (false).",
+      "type": "boolean"
+    },
+    "vars": {
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "boolean"
+        ]
+      },
+      "description": "`${var}` values.",
+      "type": "object"
+    },
+    "wall_budget_ms": {
+      "description": "Host budget in ms (600000).",
+      "minimum": 1000,
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}

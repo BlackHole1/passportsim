@@ -1,0 +1,88 @@
+# The hand-written half of the tripwire rule; the generated half is `blob-symbols.txt` in this
+# directory.
+#
+# A machine's tripwires are built per image:
+#
+#   blob-defined set  ∩  the image symbol table  −  hooked symbols  −  the coexistence allowlist
+#
+# plus the ROM radio entry points for every image, plus one access tripwire on the radio MMIO
+# ranges. This file holds the three parts of that rule that are not derived from the IDF archives
+# or from the image: the allowlist, the ROM prefixes and the radio ranges with their boot
+# allowance. `pemu-hle` compiles it in with `include_str!`, so no core crate reads a file.
+
+[coexistence]
+# Coexistence is the one radio component that is NOT replaced. `esp_coex_adapter_register`
+# and `coex_pre_init` run for real at boot for every image with coexistence linked, against
+# `radio_store`. An earlier prototype run confirmed both ran and made zero accesses to the radio
+# ranges, so they are subtracted from the tripwire set rather than armed.
+#
+# What they call runs too. The four names after them are the blob-defined functions the two entry
+# points reach through direct calls (`jal`, tail `j`, `auipc` + `jalr`) in both `pk` and
+# `official`, found by decoding the corpus app ELFs with `pemu-rv32`'s own decoder in
+# `crates/pemu-hle/tests/corpus_tripwires.rs`, which fails if the closure ever reaches an armed
+# function. `coex_pre_init` calls `coex_core_pre_init`, which calls `coex_schm_init` and
+# `coex_rom_osi_funcs_init`, which calls `coex_rom_data_init`. Every other function the walk
+# reaches is open-source newlib, VFS, ROM or a local blob helper and is not in the
+# blob-defined set. Calls through function-pointer tables are not followed by that walk.
+allow = [
+    "esp_coex_adapter_register",
+    "coex_pre_init",
+    "coex_core_pre_init",
+    "coex_schm_init",
+    "coex_rom_osi_funcs_init",
+    "coex_rom_data_init",
+]
+
+[rom]
+# The ROM `r_rwip_*` and `r_btdm_*` entry points are a tripwire for every image. Without them an
+# unbound BLE image, such as an ELF-less one, spins in `r_rwip_time_get` instead of stopping with a
+# diagnostic.
+prefixes = ["r_rwip_", "r_btdm_"]
+
+# The radio MMIO windows, from the `c3_devices!` table of `crates/pemu-soc-c3/src/periph/mod.rs`
+# (its `radio_store` rows). They are restated here because `pemu-hle` does not depend on
+# `pemu-soc-c3`, and a change to the table must be mirrored here.
+
+[[range]]
+name = "radio_fe2"
+base = 0x60005000
+size = 0x1000
+
+[[range]]
+name = "radio_fe"
+base = 0x60006000
+size = 0x1000
+
+[[range]]
+name = "radio_nrx"
+base = 0x6001CC00
+size = 0x400
+
+[[range]]
+name = "radio_bb"
+base = 0x6001D000
+size = 0x1000
+
+[[range]]
+name = "radio_ble"
+base = 0x60031000
+size = 0x1000
+
+[boot]
+# The only radio-range accesses of a whole boot are 14, all from `rtc_sleep_pu` in `rtc_init`
+# (read 0, write 0), spread over four registers, 1 to 3 accesses per page. Coexistence init touches
+# none. Anything else in a radio range, at any time, is `E_TRIPWIRE`.
+max_accesses = 14
+addresses = [0x600050F0, 0x60006090, 0x6001CCD4, 0x6001D054]
+names = [
+    "FE2_TX_INTERP_CTRL",
+    "FE_GEN_CTRL",
+    "NRXPD_CTRL",
+    "BBPD_CTRL",
+]
+
+# The BLE baseband register 0x6003101C is a tripwire, not a wait. ROM `r_rwip_time_get` spins on it
+# whenever controller code runs, so an access there must stop the run with a name rather than hang
+# it. It is covered by the `radio_ble` range above and is listed here only so a reader finds it.
+[note]
+ble_baseband_spin = 0x6003101C

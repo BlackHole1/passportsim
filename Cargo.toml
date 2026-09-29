@@ -1,0 +1,151 @@
+# Workspace manifest. A new third-party crate is a one-line change to [workspace.dependencies]
+# in a change of its own, with `cargo deny check` passing.
+
+[workspace]
+resolver = "3"
+members = [
+    "crates/pemu-core",
+    "crates/pemu-rv32",
+    "crates/pemu-macros",
+    "crates/pemu-soc-c3",
+    "crates/pemu-board",
+    "crates/pemu-loader",
+    "crates/pemu-hle",
+    "crates/pemu-radio",
+    "crates/pemu-machine",
+    "crates/pemu-introspect",
+    "crates/pemu-api",
+    "crates/pemu-planner",
+    "crates/pemu-host",
+    "crates/pemu-cli",
+    "crates/pemu-wasm",
+    "crates/pemu-testkit",
+    "crates/pemu-verify",
+    "xtask",
+    "tests/milestones",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.93"
+license = "MIT"
+publish = false
+
+[workspace.dependencies]
+# Workspace crates (layering: `cargo xtask layering`).
+pemu-core = { path = "crates/pemu-core" }
+pemu-rv32 = { path = "crates/pemu-rv32" }
+pemu-macros = { path = "crates/pemu-macros" }
+pemu-soc-c3 = { path = "crates/pemu-soc-c3" }
+pemu-board = { path = "crates/pemu-board" }
+pemu-loader = { path = "crates/pemu-loader" }
+pemu-hle = { path = "crates/pemu-hle" }
+pemu-radio = { path = "crates/pemu-radio" }
+pemu-machine = { path = "crates/pemu-machine" }
+pemu-introspect = { path = "crates/pemu-introspect" }
+pemu-api = { path = "crates/pemu-api" }
+pemu-planner = { path = "crates/pemu-planner" }
+pemu-host = { path = "crates/pemu-host" }
+pemu-cli = { path = "crates/pemu-cli" }
+pemu-wasm = { path = "crates/pemu-wasm" }
+pemu-testkit = { path = "crates/pemu-testkit" }
+pemu-verify = { path = "crates/pemu-verify" }
+
+# Third-party crates. Crates reachable from core crates keep only features that build for
+# wasm32-unknown-unknown.
+serde = { version = "1.0.229", default-features = false, features = ["std"] }
+postcard = { version = "1.1.3", default-features = false, features = ["use-std"] }
+# `pure` keeps blake3 free of its `cc` build script: a C or assembly build dependency needs
+# `ml64.exe` or a target C toolchain, which the Windows cross-check build from macOS does not have.
+blake3 = { version = "1.8.7", default-features = false, features = ["std", "pure"] }
+syn = { version = "3.0.5", features = ["full"] }
+quote = "1.0.47"
+proc-macro2 = "1.0.107"
+object = { version = "0.40.0", default-features = false, features = ["read_core", "elf", "std"] }
+sha2 = { version = "0.11.0", default-features = false, features = ["alloc"] }
+md-5 = { version = "0.11.0", default-features = false, features = ["alloc"] }
+smoltcp = { version = "0.14.0", default-features = false, features = [
+    "alloc",
+    "medium-ethernet",
+    "medium-ip",
+    "proto-ipv4",
+    "socket-tcp",
+    "socket-udp",
+    "socket-dhcpv4",
+    "socket-dns",
+] }
+gimli = { version = "0.34.0", default-features = false, features = ["read-all"] }
+addr2line = { version = "0.27.1", default-features = false, features = ["std", "fallible-iterator", "smallvec", "rustc-demangle"] }
+serde_json = "1.0.151"
+schemars = "1.2.2"
+# Native only (pemu-host, pemu-cli, xtask).
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time", "signal"] }
+axum = "0.8.9"
+tungstenite = "0.30.0"
+png = "0.18.1"
+# `xtask package` writes the `.tar.gz` and `.zip` archives in-process on both hosts. Already in
+# the graph through `png` with the same default features, so it adds no
+# crate to Cargo.lock.
+flate2 = "1.1.10"
+linkme = "0.3.37"
+clap = "4.6.6"
+toml = "1.1.6"
+getrandom = "0.4.3"
+# The Windows platform services and known folders: pemu-host and xtask take it in their
+# `cfg(windows)` target table only. The SetupAPI and communications features are not here: they
+# are allowed only behind feature `device`.
+windows-sys = { version = "0.61.2", features = [
+  "Win32_Foundation",
+  # The loopback connect of `platform::connect_loopback` (`SIO_TCP_INITIAL_RTO`).
+  "Win32_Networking_WinSock",
+  "Win32_Security",
+  "Win32_Security_Authorization",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Com",
+  "Win32_System_Console",
+  "Win32_System_Diagnostics_Debug",
+  "Win32_System_ErrorReporting",
+  "Win32_System_JobObjects",
+  "Win32_System_Memory",
+  "Win32_System_Registry",
+  "Win32_System_RemoteDesktop",
+  "Win32_System_StationsAndDesktops",
+  "Win32_System_SystemInformation",
+  "Win32_System_Threading",
+  "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
+] }
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+
+[profile.wasm-release]
+inherits = "release"
+panic = "abort"
+
+# The T1 and T2 test builds of `cargo xtask ci`: optimized like
+# release, so `cfg!(debug_assertions)` is off and the release-only exit legs run, but without fat
+# LTO and a single codegen unit, which made a cold T1 test build several minutes longer.
+[profile.ci-test]
+inherits = "release"
+lto = false
+codegen-units = 16
+
+# `cargo xtask` runs a debug build, and the hashed secret rules hash every window of every file.
+# Optimizing the hashing crates keeps a full-tree hook scan near 1 s instead of about 35 s.
+[profile.dev.package.sha2]
+opt-level = 3
+
+[profile.dev.package.digest]
+opt-level = 3
+
+[profile.dev.package.block-buffer]
+opt-level = 3
+
+[profile.dev.package.hybrid-array]
+opt-level = 3
+
+[profile.dev.package.pemu-api]
+opt-level = 3

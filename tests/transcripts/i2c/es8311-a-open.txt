@@ -1,0 +1,27 @@
+# ES8311 sequence A, `es8311_open`, as bus transactions.
+# Generated from specs/es8311-sequences.toml; crates/pemu-board/tests/es8311.rs checks they agree.
+
+R 18 0D FC
+W 18 0D FA
+W 18 44 08
+W 18 44 08
+W 18 01 30
+W 18 02 00
+W 18 03 10
+W 18 16 24
+W 18 04 10
+W 18 05 00
+W 18 0B 00
+W 18 0C 00
+W 18 10 1F
+W 18 11 7F
+W 18 00 80
+R 18 00 80
+W 18 00 80
+W 18 01 3F
+R 18 06 03
+W 18 06 03
+W 18 13 10
+W 18 1B 0A
+W 18 1C 6A
+W 18 44 08

@@ -1,0 +1,4 @@
+# probe_intc overrides on top of probes/common/sdkconfig.defaults.
+# The probe writes INTERRUPT_CORE0_CPU_INT_THRESH_REG and CPU_INT_TYPE_REG directly and restores
+# both; no configuration change is needed for that. The task watchdog stays on so a stuck spin
+# shows up as a watchdog line rather than a silent hang.

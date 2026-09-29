@@ -1,0 +1,36 @@
+{
+  "properties": {
+    "deterministic_so_far": {
+      "type": "boolean"
+    },
+    "idle_skip": {
+      "type": "boolean"
+    },
+    "insns": {
+      "type": "integer"
+    },
+    "instance": {
+      "type": "string"
+    },
+    "live_bridges": {
+      "type": "integer"
+    },
+    "mode": {
+      "type": "string"
+    },
+    "op": {
+      "type": "string"
+    },
+    "owner": {
+      "type": "string"
+    },
+    "speed": {},
+    "state": {
+      "type": "string"
+    },
+    "vt_us": {
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}

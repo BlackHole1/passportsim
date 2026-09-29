@@ -1,0 +1,56 @@
+# Block spec of the `apb_ctrl` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/apb_ctrl.rs.
+schema = 1
+block = "apb_ctrl"
+base = 0x6002_6000
+size = 0x1000
+class = "B"
+milestone = "M1"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h (DR_REG_SYSCON_BASE, old name APB_CTRL); size 0x1000 UNVERIFIED"
+
+# APB_CTRL (SYSCON in the IDF headers) carries RND_DATA, WIFI_CLK_EN and the clock gates. The
+# bootloader prints "Disabling RNG early entropy source" on its way past it, and another
+# emulator's run without it asserted in phy_init.
+# No busy-wait row: nothing on the boot path polls a status bit of this block.
+
+[[overrides]]
+register = "SYSCON_RND_DATA"
+field = "SYSCON_RND_DATA"
+value = "a word from the DetRng stream of this block, not a host random value"
+class = "C"
+provenance = "IDF soc/esp32c3/register/soc/syscon_reg.h (SYSCON_RND_DATA) and the TRM Random Number Generator chapter (entropy comes from the ADC and the RC oscillator on hardware, which the emulator does not model) and the DetRng design choice: determinism wins over entropy quality, so the value is a deliberate approximation (class C). Every run with the same seed reads the same sequence, which is what makes a boot reproducible"
+
+[[stable_read]]
+register = "SYSCON_WIFI_CLK_EN"
+provenance = "IDF soc/esp32c3/register/soc/syscon_reg.h: the clock-enable mask is plain storage the guest reads back through the clock code, so the value is a function of modeled state"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: SYSCON is in the digital domain, which every reset scope restores"
+
+[[reset_domains]]
+registers = "SYSCON_RND_DATA"
+scopes = []
+provenance = "IDF soc/esp32c3/register/soc/syscon_reg.h: RND_DATA is RO and has no stored value to restore; the DetRng stream behind it belongs to the rng snapshot section, not to this block's reset, so a reset does not rewind it. UNVERIFIED against hardware, where the entropy source keeps running"
+
+# The three registers the boot path touches beyond RND_DATA, all from rtc_sleep_pu in rtc_init.
+# The model stores them and acts on none of them, a declared approximation, so they are class C;
+# the block class B of the header belongs to the RNG and clock-gate path.
+[[overrides]]
+register = "SYSCON_WIFI_RST_EN"
+value = "stored; the write reaches nothing, because the emulator models no Wi-Fi or BT MAC to hold in reset"
+class = "C"
+provenance = "periph/radio_store.rs keeps every radio page as store plus tripwires at class U, so this register has no modeled block to reset; IDF soc/esp32c3/register/soc/syscon_reg.h gives it as plain R/W storage; crates/pemu-soc-c3/src/periph/apb_ctrl.rs records that every register of the block except SYSCON_RND_DATA is storage. Declared class C rationale"
+
+[[overrides]]
+register = "SYSCON_FRONT_END_MEM_PD"
+value = "stored; the radio front-end memories it powers down are not modeled, so the guest sees no difference"
+class = "C"
+provenance = "Boot touches the radio power-up path only through rtc_sleep_pu, which writes this register and four radio-page registers, and the emulator models no radio memory to power down; IDF soc/esp32c3/register/soc/syscon_reg.h. Declared class C rationale"
+
+[[overrides]]
+register = "SYSCON_MEM_POWER_UP"
+value = "stored; every emulated memory is always powered, so the power-up request has nothing to do"
+class = "C"
+provenance = "IDF soc/esp32c3/register/soc/syscon_reg.h. The emulator has no memory power domains at all, so the register can only be storage. Declared class C rationale"

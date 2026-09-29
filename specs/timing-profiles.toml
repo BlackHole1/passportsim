@@ -1,0 +1,516 @@
+# Timing profiles.
+#
+# One `[[constant]]` row per quantity the timing profile sets. `fast` is the default profile and
+# its values are the behaviour every golden, determinism row and text test was recorded under;
+# `device` is the profile the timing bands judge. Each `device` value states its basis: a device
+# capture and line, a first-principles derivation, the calibration fit (`pemu-verify calibrate`),
+# or a class C choice with its rationale and what would settle it.
+#
+# `pemu_core::clock::TimingProfile` parses the rows; `pemu-verify` reads the whole file. Profile
+# hashes are computed over the parsed values, never over these bytes.
+
+schema = "passportsim/timing-profiles/1"
+# Host-dependent rows carry their host: the USB rows were measured or chosen against a macOS USB
+# host.
+usb_host = "macos"
+
+[[constant]]
+name = "cpi_milli"
+unit = "cycles per instruction x 1000"
+fast = 1000
+device = 1000
+class = "A"
+basis = "The one cycle a retired instruction costs before the per-class rows add theirs, not fitted. device-probe_campaign_timing-20260924T234712Z-run1 lines 126, 127, 128 and 140 read with the probe's ELF: the loop alone (c.addi, c.bnez taken) is 4 cycles an iteration, eight c.addi add exactly 8, eight 32-bit bne not taken 8 and eight csrr 8 (1023, 3071, 3071 and 3071 cycles over 256 iterations), so the base is 1000. Before the per-class rows this row was one effective CPI fitted by the calibration fit to the reference boot (1.27 without a line account, 1.64 around the measured cache_fill_ps, fit RMS 3.74 ms, validation RMS 1.00 ms), which the boot's code needed and cache-resident loops overshot (probe_timing sha256_1m +26.3 %, probe_campaign_timing's warm loops +18 % and +21 %). Under the class rows the calibration fit solves for ble_enable_nvs_cal_ps alone: fit RMS 12.82 ms, validation RMS 1.97 ms, every phase inside its band; the bootloader's segment phases read +3 and +11 ms and the application's lvgl and gauge-to-BLE phases -4 and -26 ms, the DRAM contention the class rows leave in class C. A one-CPI fit over the class rows (min 1000) returns 1.12 at fit RMS 12.10 ms, which would put every kernel 12 % long, so it is not taken. sha256_1m reads +0.1 %. With the line fill overlapping the work after it: fit RMS 13.61 ms, validation RMS 1.89 ms, the segment phases +1 and +0 ms, the application's -5 and -30 ms"
+
+[[constant]]
+name = "cache_model"
+unit = "variant"
+fast = "cold_page"
+device = "fifo16k"
+class = "A"
+basis = "fifo16k, the 16 KB, 8-way, 32-byte-line cache of lru16k replacing first in, first out in each set. device-probe_campaign_timing-20260925T133649Z run1 and run2 (identical) lines 265 to 289 (TIME ways_*, read with the probe's ELF: n flash lines of one set called from IRAM, a cold pass then 64 passes): the EXTMEM IBUS and DBUS miss counters read FIFO's count on all 25 lines, cyclic n9 to n16 576, 640, 768 and 1024 (every policy), pseudo n9, n10, n12 and n16 100, 201, 439 and 812 (true LRU 182, 295, 533, 851; tree pseudo-LRU 155, 278, 523, 845), retouch_n10 (lines 0 to 7, 0, 1, 8, 9 a pass) 640 (LRU 512, tree pseudo-LRU 384, random 245 to 298), and ways_mixed_n9 320 IBUS plus 256 DBUS misses, so data reads and fetches share the ways. Under fifo16k the emulator's cycles on those lines read the device's within 0.13 % (lru16k read retouch_n10 167096 against 208619 and pseudo_n9 59384 against 32587), and the calibration fit reads RMS 2.32 ms (validation 1.87 ms; lru16k 12.21 and 1.89), lvgl task to lvgl ready 56 ms and gauge profile to ble init 315 ms against the device's 57 and 320 (lru16k 53 and 293). IDF esp32c3/rom/cache.h's tag item carries a 3-bit fifo_cnt. The earlier variant, lru16k, is the C3 cache as IDF v5.5.3 esp_rom cache.h and memory.ld.in:24 give it (16 KB, 8 ways, 32-byte lines, one cache for fetches and data loads), chosen over cold_page on the probe captures. Both fit the reference boot inside the bands (the calibration fit prints both: cold_page fit and validation RMS 2.76 and 1.82 ms at CPI 2.49, lru16k 3.71 and 2.00 ms at CPI 1.27), but cold_page's one effective CPI leaves probe_timing sha256_1m +120 % and flash_read_64k +20 %, probe_intc LAT +69 % and the probe_clocks WFI phases +33 % and +50 %; lru16k gives +0 % (sha_block_ps is derived there), -15 %, -14 %, -21 % and -22 %. A per-region CPI without the line account cannot: sha256_1m's flash-resident loop needs at most 1.40 cycles per instruction where the boot's flash-resident phases need 2.49. With the line fill measured (cache_fill_ps, 1.96 us) the refit lru16k CPI is 1.64: fit and validation RMS 3.74 and 0.94 ms (1.12 with the fitted usj_drain_ps); cold_page, re-run beside it, lands on its earlier values exactly (CPI 2.48, 2.81 us and 81 ms once usj_drain_ps is fitted)"
+
+[[constant]]
+name = "cache_fill_ps"
+unit = "ps per fill: under lru16k a 32-byte line's flash transfer, from its start to the last word; under cold_page the stall of a 4 KB page"
+fast = 0
+device = 1977500
+class = "A"
+basis = "device-probe_campaign_timing-20260925T042926Z run1 and run2 (identical cycle rows) lines 209 to 214 (TIME fill_work[80]_<use|nouse>_k<k>, read with the probe's ELF: one lw of word 0 of each of 128 cold 32-byte DROM lines with k inner iterations of work after each, then the same lines warm). Cold minus warm is 40068, 24234, 13312 and 13462 cycles at CPU 160 MHz with k 0, 32, 96 and 96 without a use, 19908 and 7296 at 80 MHz with k 0 and 48: the fill overlaps the work after it, which a whole-line stall cannot give (it read 40141 at every k). With cache_miss_cycles and cache_first_word_ps, least squares over the six lines (the loop's own cycles from the warm runs) gives 1977500 ps from the start of a line's transfer to its last word, every line within 0.73 % of its fill time; cache_data_cold (256 lines, line 58, not in the fit) is predicted within 0.1 %. A run of misses back to back is paced by it: a line every 10 cycles plus 1.9775 us, where the previous row charged 1.96 us a miss (device-probe_campaign_timing-20260924T155139Z, the least-squares miss over the cache_code_cold and cache_data_cold lines, the same pacing). First principles: 152 SPI clocks of a DIO read at 80 MHz, 1.9 us"
+
+[[constant]]
+name = "cache_stall_counts_cycles"
+unit = "bool"
+fast = 0
+device = 1
+class = "A"
+basis = "device-probe_campaign_timing-20260924T155139Z run1 and run2 lines 56 and 58: over the cold loops the cycle counter reads 20931 and 83506 cycles against 2086 and 8344 SYSTIMER ticks at 16 MHz, 10.03 and 10.01 cycles a tick, the 160 MHz clock, so the counter counts the cycles a fill stalls"
+
+[[constant]]
+name = "cache_first_word_ps"
+unit = "ps from the start of a line's flash transfer to the arrival of its first word; later words arrive evenly spaced up to cache_fill_ps"
+fast = 0
+device = 590000
+class = "A"
+basis = "The same six fill_work lines as cache_fill_ps, fitted together. A miss waits only for the word it needs (the CPU restarts early), and the words arrive in order from word 0: EXTMEM_ICACHE_AUTOLOAD_CTRL reads 0x8 (line 204: AUTOLOAD_DONE, its reset value, with AUTOLOAD_ENA clear, IDF v5.5.3 soc/esp32c3/register/soc/extmem_reg.h), so nothing is prefetched, and IDF leaves EXTMEM_CACHE_FLASH_WRAP_AROUND at its reset 0 on this chip (spi_flash/cache_utils.c enables the wrap only on S2, S3 and C2), so a burst starts at the line's first word. The loops work 96 and 48 iterations between misses, longer than a transfer, and pay 104 and 57 cycles a line at 160 and 80 MHz: 10 CPU cycles plus 0.59 us. Word 0 at 0.59 us and the line at 1.9775 us put the words 198 ns apart, 16 SPI clocks of a DIO read at 80 MHz. The probe reads word 0 only, so the in-order arrival of the later words is the IDF register's reading, not a measurement (class B inside the row). A fetch that enters a line waits for the word that ends its straight-line run there, its first unconditional control transfer or the line's end (cold::run_end): of the three fetch rules measured, the entry word alone leaves cold code short (probe_campaign_timing aes_cbc_16 -8.7 %, calibration fit RMS 18.09 ms), the whole line puts cache_code_cold (64 calls of three-word functions, each alone in its line, line 56) +5.8 % long, which silicon shows it does not wait for, and this rule reads cache_code_cold -0.8 % and aes_cbc_16 -5.8 % (calibration fit RMS 13.61 ms). Class C inside the row: which conditional branches leave the run is not known at the line's entry, and cold flash code reads about 6 % short under it (aes_cbc_16, the reset probe's boot1 app start); a capture of cold code lines with timed work between them (fill_work's fetch twin) would settle it"
+
+[[constant]]
+name = "cache_miss_cycles"
+unit = "CPU cycles a miss takes before its line's flash transfer starts"
+fast = 0
+device = 10
+class = "A"
+basis = "The same six fill_work lines, fitted with cache_fill_ps and cache_first_word_ps (10 of 8 to 12 tried). The part of a fill that scales with the CPU clock: a line every 326 cycles at 160 MHz and 168 at 80 MHz when the misses are back to back, and 104 and 57 cycles a miss when the work between misses outlasts the transfer, are both 10 CPU cycles plus a time the CPU clock does not move"
+
+[[constant]]
+name = "sha_block_ps"
+unit = "ps per 64-byte block"
+fast = 0
+device = 515000
+class = "B"
+basis = "device-probe_campaign_timing-20260924T234712Z-run1 line 143 (TIME sha256_64k_prefilled, mbedTLS SHA-256 in DMA mode over 64 KB already in RAM, 1024 blocks, 171079 cycles): the emulated work around the engine is 86607 cycles with this row at 0 under the per-class cycle rows, and the line moves 160.1 cycles a block per microsecond of the row (250575 at 1 us), so the device's cycles give 0.5152 us a block; 515000 reads 171087 (+0.005 %). Class B: the work around the engine is the class model's, whose DRAM residue is class C. With the overlapping line fill the line reads 169688 cycles against 169843 in the capture of the recorded build (device-probe_campaign_timing-20260925T042926Z-run1 line 143; 171079 in the older build's, the two builds 0.7 % apart on silicon), -0.09 %. Checked independently by probe_timing sha256_1m (device-probe_timing-20260923T101040Z, three runs, 106740 us mean, 16384 blocks with the fill loop): 106860 us, +0.1 %. Replaces 0.60 us, derived from sha256_1m at a fitted CPI of 1.27. Not identifiable from the boot: the bootloader's block mode overlaps each block with the next block's data loads, so no fit phase moves with it"
+
+[[constant]]
+name = "aes_block_ps"
+unit = "ps per 16-byte block"
+fast = 0
+device = 272800
+class = "A"
+basis = "device-probe_campaign_timing-20260924T155139Z run1 and run2 lines 62 and 63 (probe_campaign_timing TIME aes_cbc_4096 and aes_cbc_16384, mbedTLS AES-128-CBC through the DMA mode, the ciphertext FNV equal on both sides): 117 and 116 us for 256 blocks, 326 and 326 us for 1024, so 209.5 us over the 768 blocks between them, 0.2728 us a block. Both sizes take the driver's interrupt path, so the slope is the engine and its DMA and not the call around them; the model charges exactly aes_block_ps a block and nothing per size. The absolute times read 6 and 5 us short under it at the refit cpi_milli (111 and 321 us; 103 and 312 at a CPI of 1.27), the driver's interrupt and semaphore round trip the model runs faster. Replaces 0.372 us, the upper bound from IDF_PERFORMANCE_MIN_AES_CBC_THROUGHPUT_MBSEC 43. Charged per block of a typical-mode transform and of a DMA run; no boot anchor reaches AES, so the calibration fit does not move"
+
+[[constant]]
+name = "rsa_op_ps"
+unit = "ps per Montgomery multiplication of 64-word (2048-bit) operands; an operation charges its multiplication count scaled by the square of its word count (periph/rsa.rs, Time)"
+fast = 0
+device = 53644000
+class = "A"
+basis = "device-probe_campaign_timing-20260924T155139Z run1 and run2 lines 64 to 66 (probe_campaign_timing TIME rsa_modexp_*, one 2048-bit exponentiation through ESP-IDF's MPI HAL, search off, results equal on both sides): 35173669 cycles for 2^2047 + 1 with CONSTANT_TIME 1, 17597366 with 0, and 35156148 for the all-ones exponent with 0. Counted as periph/rsa.rs gives it (2L + 2 with CONSTANT_TIME 1, t + h + 1 with 0): 4098, 2050 and 4096 multiplications, and 8583.1 cycles (53.644 us) a multiplication reproduces all three within 0.012 %. TRM table 20.3-1 (3072 bits, Y = 65537, four option pairs) reads 1.5 to 3.9 % short under the same count with the square-of-length scaling. Was 0 with no capture; no boot anchor reaches RSA, so the calibration fit does not move"
+
+[[constant]]
+name = "flash_pp_ps"
+unit = "ps"
+fast = 0
+device = 700000000
+class = "C"
+basis = "NOR typical 0.7 ms, UNVERIFIED for the XMC part"
+
+[[constant]]
+name = "flash_se_ps"
+unit = "ps"
+fast = 0
+device = 45000000000
+class = "C"
+basis = "NOR typical 45 ms, UNVERIFIED for the XMC part. The probe_timing capture device-probe_timing-20260923T101040Z could not measure erase_4k (the device table has no scratch partition); what would settle it is probe_timing erase_4k on a device whose table carries one"
+
+[[constant]]
+name = "flash_be_ps"
+unit = "ps"
+fast = 0
+device = 150000000000
+class = "C"
+basis = "NOR typical 150 ms, UNVERIFIED for the XMC part"
+
+[[constant]]
+name = "flash_ce_ps"
+unit = "ps"
+fast = 0
+device = 20000000000000
+class = "C"
+basis = "NOR typical 20 s, UNVERIFIED for the XMC part"
+
+[[constant]]
+name = "spi1_clocked"
+unit = "bool"
+fast = 0
+device = 1
+class = "B"
+basis = "Cmd, addr, dummy and data cycles over the lines CTRL and USER select at the SPI_MEM_CLOCK rate (IDF soc/esp32c3/register/soc/spi_mem_reg.h); probe_timing flash_read_64k is its check"
+
+[[constant]]
+name = "spi2_clocked"
+unit = "bool"
+fast = 0
+device = 1
+class = "B"
+basis = "Bits over the SPI2 clock the guest programs (0x00001001 decodes to 40 MHz, design-facts fid-3.4 item 12)"
+
+[[constant]]
+name = "spi2_overhead_ps"
+unit = "ps per transaction"
+fast = 0
+device = 0
+class = "B"
+basis = "0: probe_timing spi2_153600 (device-probe_timing-20260923T101040Z, three runs, 30930 us mean) reproduces within 0.2 % without a per-transaction overhead"
+
+[[constant]]
+name = "i2c_clocked"
+unit = "bool"
+fast = 0
+device = 1
+class = "A"
+basis = "9 SCL periods per byte plus START and STOP at the period SCL_LOW_PERIOD, SCL_HIGH_PERIOD and CLK_CONF program (IDF soc/esp32c3/register/soc/i2c_reg.h). Class A: probe_campaign_timing's 20 one-byte reads of the ES8311 at 100 and 400 kHz (device-probe_campaign_timing-20260924T155139Z run1 lines 92 and 104, 9174 and 3044 us; run2 9173 and 3044) separate the bus from the CPU, 40.9 SCL periods plus 50.0 us per read on silicon, and the emulator reads 9094 and 3016 us, 40.5 periods plus 49.5 us: the clocked bus is the device's, and the 0.9 % left at both speeds is the CPU work around each read (the cpi_milli row). probe_timing i2c_read_100 is its check"
+
+[[constant]]
+name = "usj_drain_ps"
+unit = "ps per 64-byte IN packet"
+fast = 0
+device = 55500000
+class = "B"
+basis = "fit to probe_campaign_timing TIME usj_drain_16x64, device-probe_campaign_timing-20260924T155139Z run1 and run2 line 91: 2975 and 2898 us for 16 console lines of 64 bytes, each flushed, a macOS host reading (usb_host macos). Read with the probe's ELF: ESP-IDF's console writes each line's newline as CR LF, so a line is 65 bytes and two IN packets, the 64 bytes up to the CR (committed by the full FIFO) and the LF (committed by WR_DONE), and the writer waits for each: the LF for the full FIFO to drain, the next line's first byte for the LF packet. The emulator reads 1888 us with a 1 us drain (the CPU work at the committed cpi_milli) and 5089 us at the earlier chosen 125 us; 55.5 us reads 2940 against the runs' mean 2936, and the runs' spread is 54 to 57 us. Class B, not A: an effective host poll that absorbs the emulated CPU work around it, so it moves with cpi_milli (its one-CPI residual). Inside the 200 us text-safe ceiling (the ROM drops console characters above it)"
+
+[[constant]]
+name = "usj_enum_reset_ps"
+unit = "ps from a SYS_ class reset to the host's first SOF"
+fast = 0
+device = 258000000000
+class = "B"
+basis = "One sample against a macOS host (usb_host): device-probe_campaign_reset-20260924T164812Z-run1 boot2, the boot after the super-watchdog reset, waits WAIT waited_ms=140 for usb_serial_jtag_is_connected() (a 30 ms prime, then 10 ms polls; the IDF monitor reads the SOF bit at each 10 ms tick), so the host sent its first SOF about 120 to 140 ms after that boot reached app_main (the 232751Z runs 1 to 3 wait 140 as well). Fitted to that wait. esp_timer counts from its own init (SYSTIMER_RST, wiring::gates), so IDF's console waits its 50 ms flush timeout with the link down; with line fills that overlap the work after them the emulator reaches app_main 132.5 ms after the reset, and 253 to 262 ms print waited_ms=140; 258 is the middle. The device's own reset-to-app_main is measured (device-probe_campaign_reset-20260924T232751Z line 66, rtc_counter_us=128169 in run1, 128109 and 128151 in run2 and run3), which puts its first SOF 238 to 268 ms after the reset; 258 is inside, and the emulator's longer ROM and bootloader phase after the reset (7.1 ms before the overlapping fill; class C, specs/notes/silicon-campaign.md, the boot time base) is why the fit sits in the upper part. Host-dependent: the host notices the detach and enumerates the chip again, the chip does nothing"
+
+[[constant]]
+name = "usj_enum_wake_ps"
+unit = "ps from the USB link's return (deep-sleep wake, plug) to the host's first SOF"
+fast = 0
+device = 178000000000
+class = "B"
+basis = "One sample against a macOS host (usb_host): device-probe_campaign_reset-20260924T164812Z-run1 boot3, the boot after a deep sleep that GPIO0 ended at once, waits WAIT waited_ms=60 (the 232751Z runs 1 to 3 as well), so the first SOF came about 40 to 60 ms after that boot reached app_main. The link returns at the wake instant (crates/pemu-machine/src/sleep.rs), the emulator reaches app_main 134.6 ms after it (the IDF console waits its 50 ms flush timeout, as after the reset), and 171 to 184 ms print waited_ms=60; 178 is the middle. With line fills that overlap work, 173 to 182 ms print it, and 178 stays the middle. The device's wake instant is not measured (its RTC counter gives 137.9 ms from the SLEEP line to boot3's app_main, device-probe_campaign_reset-20260924T232751Z run1 lines 69 and 76, where the model reads 153.6), so the value carries the model's boot3 residue (class C, specs/notes/silicon-campaign.md, the boot time base). Also the plug-while-on delay, which no capture times. Host-dependent"
+
+[[constant]]
+name = "uart_paced"
+unit = "bool"
+fast = 0
+device = 1
+class = "A"
+basis = "UNVERIFIED: one byte per UART_CLKDIV baud period"
+
+[[constant]]
+name = "rtc_slow_hz"
+unit = "Hz"
+fast = 136000
+device = 144928
+class = "A"
+basis = "device-probe_clocks-20260917T120350Z line 57 CLKCFG rtc_slow_cal=3617562: 282622 XTAL cycles per 1024 slow cycles, 144928.6 Hz; the integer 144928 gives rtc_slow_cal 3617574 through the same RTCCALI arithmetic (3 ppm). fast keeps the nominal 136 kHz, which reads 3855053. The RC oscillator is not a constant of the chip: device-probe_campaign_timing-20260924T155139Z run1 and run2 line 70 (CAL rtc_mux, rtc_clk_cal over 1024 cycles about 1 s after boot) read 3588800 and 3586637, 146091 and 146179 Hz, 0.8 % faster than the probe_clocks capture and 0.06 % apart from each other. The value stays at the probe_clocks capture: that one is the boot-time calibration esp_clk_slowclk_cal_get returns, the value every RTC-time conversion of the firmware uses, and the one day's two later readings are a second sample of a quantity that moves by 0.8 % between days (or with the time since boot, which the captures cannot tell apart), not a correction of it. A deterministic model carries one rate; the spread of three boots on two days is 3586637 to 3617562"
+
+[[constant]]
+name = "ble_init_ps"
+unit = "ps"
+fast = 0
+device = 2140000000
+class = "A"
+basis = "device-probe_campaign_radio-20260924T155729Z run1 L62 TIME ble_init us=3757, run2 L62 us=3760 (the probe times esp_bt_controller_init around the call): mean 3758.5 us. The HLE's own guest work in the call (the four BLE_INIT lines, the worker semaphore and task, the interrupt allocation, the heap ledger) takes 1618 us on the emulator under the fifo16k cache and its line account, so the blob's remaining time is 2140 us, spent as a guest ets_delay_us busy-wait after the ledger (ModuleHost::set_busy_delays); the probe then reads 3758 us on the emulator. The lines come first in the call: dev:L68 to L72 put the first BLE_INIT line 5 ms before phy_init, more than the whole init takes"
+
+[[constant]]
+name = "ble_enable_ps"
+unit = "ps"
+fast = 0
+device = 39064000000
+class = "A"
+basis = "device-probe_campaign_radio-20260924T155729Z run1 L66 TIME ble_enable us=37542, run2 L66 us=41135: mean 39338.5 us, of which the HLE's own guest work (the ledger's enable block, the phy_init line) takes 274 us on the emulator, so 39064 us is spent as a busy-wait after the last enable line; the probe then reads 39338 us. The probe is built without CONFIG_ESP_PHY_CALIBRATION_AND_DATA_STORAGE, so this is the enable of an image that does not load its PHY calibration from NVS; ble_enable_nvs_cal_ps is the rest for one that does. Replaces a calibration fit of about 81 ms, which charged both to this row"
+
+[[constant]]
+name = "ble_enable_nvs_cal_ps"
+unit = "ps"
+fast = 0
+device = 40500000000
+class = "C"
+basis = "The part of pk's enable the campaign probe does not have. dev:L72-L73 (phy_init to pk_app ready, the reference boot) is 82 ms on silicon; the probe's enable (ble_enable_ps, 39.1 ms) and the guest path the emulator runs after it (NimBLE host init, the GATT table, the host task, the app task's battery read: about 2.4 ms, no waits) leave about 40.5 ms. The one configuration difference between pk and the probe on that path is CONFIG_ESP_PHY_CALIBRATION_AND_DATA_STORAGE (y in pk, n in the probe), which makes esp_phy_load_cal_and_init load the calibration from NVS (esp_phy_load_cal_data_from_nvs) and run the configured calibration instead of a full one (IDF v5.5.3 phy_init.c); no line on the path says a new calibration was saved. Applied only to an image that links esp_phy_load_cal_data_from_nvs. Derived at microsecond precision: the emulated phy_init-to-ready interval is set to 82.0 ms, the middle of the device's 81-to-83 ms tick quantization, and the calibration fit from a neutral start returns 40 ms, inside its 1 ms quantum (41 ms under the overlapping line fill, within the test's 5 %; 40.5 kept). Class C because the reference boot is slow: the other boots of the same pk build logged in device/golden/logs read phy_init to ready 49 to 60 ms, which would leave 8 to 19 ms. What would settle it: a probe built with the PHY calibration storage on, timing esp_bt_controller_enable"
+
+[[constant]]
+name = "ble_disable_ps"
+unit = "ps"
+fast = 0
+device = 658000000
+class = "A"
+basis = "device-probe_campaign_radio-20260924T155729Z run1 L71 TIME ble_disable us=668, run2 L71 us=662: mean 665 us; the HLE's own guest work (giving back the ledger's enable block) takes 7 us, so 658 us is spent as a busy-wait; the probe then reads 665 us"
+
+[[constant]]
+name = "ble_deinit_ps"
+unit = "ps"
+fast = 0
+device = 946000000
+class = "A"
+basis = "device-probe_campaign_radio-20260924T155729Z run1 L73 TIME ble_deinit us=1034, run2 L73 us=1034; the HLE's own guest work (giving back the ledger's init blocks, esp_intr_free, vTaskDelete, vQueueDelete) takes 88 us under the fifo16k cache (98 us under lru16k), so 946 us is spent as a busy-wait; the probe then reads 1034 us"
+
+[[constant]]
+name = "taken_branch_cycles"
+unit = "cycles beyond one per instruction"
+fast = 0
+device = 2
+class = "A"
+basis = "device-probe_campaign_timing-20260924T234712Z-run1 lines 126 and 128 (TIME cpi_empty 1023, cpi_branch_not_taken 3071 cycles), read with the probe's ELF: the loop alone is c.addi and a c.bnez taken back to an aligned c.addi, 4 cycles an iteration, so a taken branch is 3 (1 plus 2); eight 32-bit bne not taken add exactly 8 (1 each). Line 129 (cpi_branch_taken 9214) is 8 beq taken to the next instruction, 3 each plus the split_redirect_cycles row for the seven whose target is a 32-bit beq at 2 mod 4, to the cycle"
+
+[[constant]]
+name = "jump_cycles"
+unit = "cycles beyond one per instruction"
+fast = 0
+device = 1
+class = "A"
+basis = "device-probe_campaign_timing-20260924T234712Z-run1 line 130 (cpi_jump 5119): eight c.j to the next instruction cost 16 cycles an iteration over the loop, 2 each (1 plus 1); line 131 (cpi_call_ret 11262): a 32-bit jal to a c.ret leaf and the ret back cost 2 each with the split_redirect_cycles row for the seven returns that land on a 32-bit jal at 2 mod 4 and for the loop head, to the cycle. The ret (a jalr) costs what a jal does"
+
+[[constant]]
+name = "split_redirect_cycles"
+unit = "cycles beyond one per instruction"
+fast = 0
+device = 1
+class = "A"
+basis = "device-probe_campaign_timing-20260924T234712Z-run1 lines 129, 131, 135, 138, 139 and 141 (branch_taken, call_ret, load_flash, mul, div, mmio_read): every kernel whose loop head, or whose body's redirect target, is a 32-bit instruction at pc = 2 mod 4 reads one cycle more a redirect; a 16-bit target at 2 mod 4 (alu, jump) and a 32-bit one at an aligned pc (branch_not_taken, csr_read, mmio_write) read none, and neither does the first iteration, which the csrr before the loop falls into. Charged to the target instruction when it was reached by a taken branch, a jump or mret (mret's redirect is class C, no kernel times it)"
+
+[[constant]]
+name = "load_use_cycles"
+unit = "cycles beyond one per instruction"
+fast = 0
+device = 1
+class = "A"
+basis = "device-probe_campaign_timing-20260924T234712Z-run1 lines 135 and 136 (cpi_load_flash 3326, cpi_load_flash_use 7167): eight lw from a warm DROM line cost 1 each, and eight lw; c.add using it cost 3 a pair, so the instruction right after a load that reads its destination waits 1. Taken to hold for DRAM and MMIO loads and for a store whose data or address is the loaded register (class C inside the row: no kernel separates them)"
+
+[[constant]]
+name = "div_base_cycles"
+unit = "cycles beyond one a div, divu, rem or remu costs before max(clz(|b|) - clz(|a|), 0) + 1 more for dividend a and divisor b"
+fast = 0
+device = 13
+class = "B"
+basis = "device-probe_campaign_timing-20260925T042926Z-run1 lines 189 and 190 (TIME cpi_x_div_q0 31744, cpi_x_div_by1 70656; 8 div t0, t1, t2 a loop of 256 at an aligned head, whose loop alone and base cycles are 3072): 7 / 1000000 costs 15 cycles, 1000000 / 1 costs 34; and device-probe_campaign_timing-20260924T234712Z-run1 line 139 (cpi_div 66814): 1000000 / 7 costs 32. One cycle, 13, and one more per quotient bit a divider that normalises both operands iterates over (1, 20 and 18) reproduces all three to the cycle; so does the quotient's bit count, and the operand form is taken because the divider knows it before it starts. Magnitudes for div and rem; a zero divisor, rem and the unsigned forms follow the same rule unmeasured (class B). Replaces div_cycles 31, one operand pair's"
+
+[[constant]]
+name = "mulh_cycles"
+unit = "cycles beyond one a mulh, mulhsu or mulhu costs"
+fast = 0
+device = 4
+class = "B"
+basis = "device-probe_campaign_timing-20260925T042926Z-run1 line 191 (TIME cpi_x_mulhu 11264: 8 mulhu t0, t0, t1 a loop of 256 at an aligned head, whose loop alone and base cycles are 3072): 5 cycles each, 4 beyond the base, where mul costs the base alone (cpi_mul). mulh and mulhsu are not timed and are taken to cost what mulhu does (class B)"
+
+[[constant]]
+name = "mmio_cpu_cycles"
+unit = "CPU cycles every access to a peripheral (MMIO) page takes besides its APB cycles, one of them the instruction's own; all of an access to a block off the APB path"
+fast = 0
+device = 2
+class = "A"
+basis = "device-probe_campaign_timing-20260925T042926Z-run1 lines 193, 195, 200 and 201 and device-probe_campaign_timing-20260924T234712Z-run1 line 142, read with the probe's ELF (the cpi_mmio_read and cpi_mmio_write kernels, whose loop alone and base cycles are 3326 and 3071): a GPIO read costs 6 CPU cycles at CPU 160 MHz and 4 at 80 (13821 and 9470), a GPIO write 8 and 5 (17407 and 11263), with APB at 80 MHz both times. A fixed 2 CPU cycles plus 2 APB cycles a read and 3 a write fits all four, where all-APB rows predicted 3 and 4 at 80 MHz (7422 and 9215). An EXTMEM_ICACHE_CTRL read (line 195, 5374) costs 2 cycles at 160 MHz, to the cycle: the cache controller's block (EXTMEM, 0x600C_4000, 4 KB) is off the APB path and pays this row alone; its write is taken to cost the same (class B inside the row)"
+
+[[constant]]
+name = "mmio_load_apb_cycles"
+unit = "APB cycles a load from an APB peripheral page takes beyond mmio_cpu_cycles; the CPU pays that many APB periods rounded up to whole CPU cycles"
+fast = 0
+device = 2
+class = "B"
+basis = "With mmio_cpu_cycles: GPIO_IN and SYSTIMER_CONF read in 6 CPU cycles at CPU 160 MHz (device-probe_campaign_timing-20260925T042926Z-run1 lines 193 and 194, 13821 each) and GPIO_IN in 4 at CPU 80 MHz (line 200, 9470), 2 CPU cycles and 2 APB cycles, to the cycle at 80 MHz. At 160 MHz the kernel reads one cycle more an iteration than the row (255 of 13821, -1.8 %): its iteration is an odd number of CPU cycles, and the first read of the next waits for an APB clock edge, a phase the class table does not carry (class C). Was 3 APB cycles in all, which read 7422 at 80 MHz. GPIO's and SYSTIMER's number, applied to every APB block (class B: the others are not timed). The TRM places the interrupt controller's registers in the APB range (1.5.3); EXTMEM is not (mmio_cpu_cycles)"
+
+[[constant]]
+name = "mmio_store_apb_cycles"
+unit = "APB cycles a store to an APB peripheral page takes beyond mmio_cpu_cycles, charged as mmio_load_apb_cycles is"
+fast = 0
+device = 3
+class = "B"
+basis = "With mmio_cpu_cycles: sw of 0 to GPIO_OUT_W1TC costs 8 CPU cycles at CPU 160 MHz (device-probe_campaign_timing-20260924T234712Z-run1 line 142, 17407; 20260925T042926Z line 142, 17408) and 5 at CPU 80 MHz (20260925T042926Z line 201, 11263): 2 CPU cycles and 3 APB cycles, to the cycle at both clocks; the store is not posted. Was 4 APB cycles in all, which read 9215 at 80 MHz. GPIO's number, applied to every APB block (class B)"
+
+[[constant]]
+name = "sram_bank_cycles"
+unit = "cycles an 8-byte code chunk costs when the fetch finds its SRAM bank held by a dense run of data accesses, code and data both in SRAM Block 1"
+fast = 0
+device = 1
+class = "B"
+basis = "device-probe_campaign_timing-20260925T100555Z run1 and run2 (identical) lines 236 to 253 (TIME dres_<load|store>_c<cc>, read with the probe's ELF: eight lw or sw t0, 0(a0) and a 32-bit addi and bnez, a 40-byte loop of 256 iterations from Block 1 IRAM at 0x40382508 plus 8 to 64 bytes, the word in Block 1 DRAM at 0x3fc8f840 plus 0 to 64): 3583 cycles when (code offset + data offset) / 8 is even and 3839 when odd, loads and stores alike, against 3071 for the loop alone; the model reads 3583 and 3838 (one iteration at the loop's edge uncharged). SRAM Block 1 is two banks interleaved on address bit 3; an aligned 8-byte code chunk is one bank's, and while every cycle since the previous chunk was fetched held its bank with a data access the fetch waits one cycle: the loop's five chunks alternate banks from the head's, so three cost one when the word shares the head's bank and two when it does not. The same rule gives the original kernels (lines 132 and 137, 3838 each: ram_word at 0x3fc8f8e8 in the head's bank of cpi_load_dram and in the other of cpi_store_dram, whose head is at 0x40381942) and the gap-0 loops (lines 160 and 164: 3838) to the cycle, their Block 1 placements (lines 144, 147, 148 and 151: 3583 and 4094 at 0x3fc8f8e0 and 0x3fc9c900) and the 80 MHz twins (lines 198 and 199: 3583 and 4094) within one cycle, and the first capture's 3583 and 4094 (device-probe_campaign_timing-20260924T234712Z-run1 lines 132 and 137: ram_word at 0x3fc8de20, bit 3 clear, in a scratch rebuild of that build, where the rule charges 2 and 3 cycles an iteration); with the data in Block 2 (lines 152 to 159, 168 to 175) or the code in flash (the cpi_flash_* lines) the kernels read the loop alone. Class C inside the row: loops whose accesses leave the fetch a free cycle, where the rule charges nothing, read more on five rows (cpi_at_load_dram_use and _use_gap1 +1 and +4 cycles an iteration with the word at 0x3fc8f8e0, lines 145 and 146, and so the original twins in the first capture; the gap-3 loops +1, lines 163 and 167; cpi_x_load_store_data +1, line 192), left at their residue"
+
+[[constant]]
+name = "adc_conversion_ps"
+unit = "ps from the rising edge of APB_SARADC_ONETIME_START to the done bit of a one-shot conversion"
+fast = 0
+device = 26240000
+class = "B"
+basis = "device-probe_campaign_regs-20260926T024930Z-run1.clean.log line 429 (TIME adc_oneshot_read: 64 one-shot reads of ADC1 channel 0 at 12 dB through IDF v5.5.3 adc_oneshot_read, the unit set up as the driver sets it, APB_ADC_CLKM_CONF 0x0040400f and FSM_WAIT 0x00640805 at lines 399 and 397) reads 3029 us and 484360 cycles, 47.3 us a read. With the conversion at 0 the emulator read 1352 us and 216122 cycles: the driver's CPU work at the committed cycle costs (the lock, the clock and calibration setup with its three regi2c read-modify-writes, the 3 us esp_rom_delay_us that lets the controller see onetime_start, the done poll). The rest, 26.2 us a read, is charged from the rising edge of onetime_start to the done bit. 26.24 us reads 3026 us and 484026 cycles (-0.1 % and -0.07 %): the driver polls INT_RAW in a loop of 13 cycles, so the time of the 64 reads moves in steps of 832 cycles, and the next step (26.3 us) reads 3031 us and 484858 cycles. At the driver's clock, the 80 MHz APB divided by 16, 26.24 us is 131 cycles of the 5 MHz controller clock, of which FSM_WAIT's standby (100), reset (8) and power-up (5) waits would make 113 and the sampling and the 12-bit conversion the rest; that split is a reading, UNVERIFIED. Class B: one capture, the whole residue of the read, which also takes in anything else on the path the model times as zero (the regi2c BUSY bit reads 0 at once, specs/blocks/regi2c.toml), at one clock setting: the time does not scale with the divider or the FSM counts (class C inside the row; no corpus image changes them). fast keeps 0, the same-access completion of g3-adc-read-path"
+
+# Calibration plan (`pemu_verify::calibrate`). The `[[fit]]` rows are the constants the
+# least-squares fit solves for; `start` is where it starts, `step` the forward-difference step,
+# `quantum` the rounding of the committed value. The `[[anchor]]` rows are device lines of
+# dev:L4-L80 (the reference boot, `device/boot_log.bin`, last boot, normalized), in boot order,
+# with the device timestamp. The role belongs to the phase that ends at the anchor: `fit` phases
+# are minimised, `validation` phases are judged against their timing bands, and no phase is both,
+# so a fit is never judged by the phases it was fitted to. The first anchor has no phase and is
+# judged by its absolute band.
+
+[[fit]]
+name = "ble_enable_nvs_cal_ps"
+start = 0
+step = 20000000000
+min = 0
+max = 500000000000
+quantum = 1000000000
+
+[[anchor]]
+name = "bootloader banner"
+line = "2nd stage bootloader"
+dev = "L14"
+device_ms = 24
+role = "validation"
+
+[[anchor]]
+name = "segment 0"
+line = "esp_image: segment 0:"
+dev = "L29"
+device_ms = 27
+role = "validation"
+
+[[anchor]]
+name = "segment 1"
+line = "esp_image: segment 1:"
+dev = "L30"
+device_ms = 50
+role = "fit"
+
+[[anchor]]
+name = "segment 2"
+line = "esp_image: segment 2:"
+dev = "L31"
+device_ms = 53
+role = "validation"
+
+[[anchor]]
+name = "segment 3"
+line = "esp_image: segment 3:"
+dev = "L32"
+device_ms = 60
+role = "validation"
+
+[[anchor]]
+name = "segment 4"
+line = "esp_image: segment 4:"
+dev = "L33"
+device_ms = 177
+role = "fit"
+
+[[anchor]]
+name = "segment 5"
+line = "esp_image: segment 5:"
+dev = "L34"
+device_ms = 188
+role = "validation"
+
+[[anchor]]
+name = "loaded app"
+line = "boot: Loaded app from partition"
+dev = "L35"
+device_ms = 196
+role = "validation"
+
+[[anchor]]
+name = "pro cpu start"
+line = "cpu_start: Pro cpu start user code"
+dev = "L38"
+device_ms = 205
+role = "validation"
+
+[[anchor]]
+name = "flash chip"
+line = "spi_flash: detected chip"
+dev = "L54"
+device_ms = 208
+role = "validation"
+
+[[anchor]]
+name = "main task"
+line = "main_task: Started on CPU0"
+dev = "L58"
+device_ms = 210
+role = "validation"
+
+[[anchor]]
+name = "bsp_i2c"
+line = "bsp_i2c: I2C 就绪"
+dev = "L61"
+device_ms = 211
+role = "validation"
+
+[[anchor]]
+name = "backlight"
+line = "bsp_disp: 背光 LEDC 就绪"
+dev = "L62"
+device_ms = 342
+role = "validation"
+
+[[anchor]]
+name = "lvgl task"
+line = "LVGL: Starting LVGL task"
+dev = "L64"
+device_ms = 343
+role = "validation"
+
+[[anchor]]
+name = "lvgl ready"
+line = "bsp_lvgl: LVGL 就绪"
+dev = "L65"
+device_ms = 400
+role = "fit"
+
+[[anchor]]
+name = "gauge found"
+line = "bsp_batt: 检测到 CW2017"
+dev = "L66"
+device_ms = 402
+role = "validation"
+
+[[anchor]]
+name = "gauge profile"
+line = "bsp_batt: 优特利 520mAh profile 已匹配"
+dev = "L67"
+device_ms = 438
+role = "validation"
+
+[[anchor]]
+name = "ble init"
+line = "BLE_INIT: BT controller compile version"
+dev = "L68"
+device_ms = 758
+role = "fit"
+
+[[anchor]]
+name = "phy init"
+line = "phy_init: phy_version"
+dev = "L72"
+device_ms = 763
+role = "validation"
+
+[[anchor]]
+name = "app ready"
+line = "pk_app: ready:"
+dev = "L73"
+device_ms = 845
+role = "fit"
+
+# The `app ready -> buttons` phase carries a delta band derived from silicon, not the default
+# 5 ms floor. The phase is 6 ms on dev:L73 to L78 (845 to 851), but
+# the same app build (each log's `ELF file SHA256` line equals `boot_log.bin`'s) reads it
+# differently from boot to boot: an LVGL render lands inside the phase or not. The 13 logged
+# silicon boots of that build under the data root, each log's full boot, read (`pk_app: ready`
+# to `bsp_btn: 按键就绪`, ms):
+#   device/boot_log.bin                              845 -> 851   6  (the reference, dev:L73-L78)
+#   device/golden/logs/audit-boot-console.log        814 -> 828  14
+#   device/golden/logs/audit-final-boot.log          814 -> 828  14
+#   device/golden/logs/audit-pre-reset-drain.log     820 -> 829   9
+#   device/golden/logs/device-capture-selftest.log   818 -> 827   9
+#   device/golden/logs/device-open-test-first.log    816 -> 829  13
+#   device/golden/logs/device-open-test-second.log   813 -> 825  12
+#   device/golden/logs/device-open-test2-A1.log      816 -> 825   9
+#   device/golden/logs/device-open-test2-baseline_A.log 816 -> 825 9
+#   device/golden/logs/device-open-test2-reset_C.log 816 -> 829  13
+#   device/golden/logs/device-pre.log                823 -> 826   3
+#   device/golden/logs/device-pre.predrain.log       821 -> 825   4
+#   device/golden/logs/passport-keys-restored.log    816 -> 825   9
+# (all 13 timestamp sequences are distinct, so no boot is counted twice). Silicon itself spans
+# 3 to 14 ms, 3 below and 8 above the reference, so the band is 8 ms either side of the 6: the
+# widest distance of a real boot from the reference, the smallest band every logged boot of this
+# build passes. The default 5 ms would fail 5 of the 13 silicon boots (12, 13, 13, 14, 14). No
+# timing constant was moved for it; under U4 the emulator reads 13 ms.
+[[anchor]]
+name = "buttons"
+line = "bsp_btn: 按键就绪"
+dev = "L78"
+device_ms = 851
+role = "validation"
+delta_band_ms = 8
+band_basis = "13 logged silicon boots of the reference build read 3 to 14 ms against the reference 6 (comment above); the widest distance from the reference is 8 ms"
+
+[[anchor]]
+name = "link state"
+line = "pk_app: link state -1 -> 0"
+dev = "L80"
+device_ms = 1097
+role = "validation"

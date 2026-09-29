@@ -1,0 +1,455 @@
+# Block spec of the `gpio` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/gpio.rs.
+schema = 1
+block = "gpio"
+base = 0x6000_4000
+size = 0x1000
+class = "B"
+milestone = "M1"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h (GPIO, including STRAP); size 0x1000 UNVERIFIED. The window also holds the sigma-delta base at offset 0xF00 (gpio_sd has no c3_devices! row of its own)"
+
+# Functional emulation needs GPIO_OUT bit 20 (the LCD DC line, sampled by the panel) and the
+# strap value; line-level modeling of the SPI, I2C, I2S and LEDC pins is not needed
+# (boards/ai-passport.toml wires the board by peripheral). The BSP installs no GPIO ISR, so IRQ
+# source 16 can stay unconnected (UNVERIFIED: no public source states it).
+
+# The strap value. GPIO_STRAPPING is RO and latched at chip or system reset, so it is a
+# reset-value override, not a writable register.
+[[overrides]]
+register = "GPIO_STRAP"
+field = "GPIO_STRAPPING"
+value = 0x0A
+class = "A"
+provenance = "device banner boot:0xa (SPI_FAST_FLASH_BOOT) (device reference boot log, identity masked). Class A because a device capture fixes it. The meaning of bit 1 is UNVERIFIED (the TRM Chip Boot Control chapter maps b0 GPIO2, b2 GPIO8 and b3 GPIO9; b1 is undocumented and set on this board)"
+
+# The value a USB Serial/JTAG download reset latches instead (0x06, class A) is a row of
+# specs/blocks/usj.toml, where the download flag that selects it lives.
+
+# Same register, the two values that must never appear, kept as rows so a future board variant
+# cannot introduce them silently.
+[[overrides]]
+register = "GPIO_STRAP"
+field = "GPIO_STRAPPING"
+value = "never 0x_3 (low nibble 3)"
+class = "A"
+provenance = "The bundled ROM ELF: boot_prepare at 0x400498ee prints and hangs forever when GPIO_STRAP & 0xF == 3"
+
+[[stable_read]]
+register = "GPIO_STRAP"
+provenance = "IDF soc/esp32c3/register/soc/gpio_reg.h (GPIO_STRAPPING, RO) and the TRM Chip Boot Control chapter: RO and latched at reset, so the read value is a function of the configured board alone"
+
+[[stable_read]]
+register = "GPIO_OUT"
+provenance = "IDF hal/esp32c3/include/hal/gpio_ll.h gpio_ll_set_level and boards/ai-passport.toml (LCD DC on GPIO20): the guest sets and clears bit 20 through W1TS and W1TC and the panel model samples it, so the level is a function of modeled state"
+
+[[stable_read]]
+register = "GPIO_ENABLE"
+provenance = "IDF hal/esp32c3/include/hal/gpio_ll.h: gpio_ll_output_enable and _disable toggle the DC output enable in the LCD pre- and post-callbacks, so the value is a function of modeled state"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: the GPIO block is in the digital domain, which every reset scope restores"
+
+[[reset_domains]]
+registers = "GPIO_STRAP"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: chip, system and core resets re-latch GPIO_STRAP, and a CPU reset (the CPU0_ causes) resets the CPU core only and keeps the latched value. The core-reset causes (0x03, 0x05, 0x07-0x09, 0x15, 0x16) are what ResetScope::Core encodes here; a CPU0_ reset keeps it by not reaching the block at all (ResetFanout::CpuAndPms), not by a domain mask. Cause 0x15 re-latches the download strap if the USJ download flag is set, else the board strap 0x0A (specs/notes/usj-download-strap.md usj-strap-device, a device capture)"
+
+# The four write-one aliases of GPIO_OUT and GPIO_ENABLE. The model folds each alias into its
+# target register, zeroes the alias as the device does, and publishes the changed pins to the board
+# (crates/pemu-soc-c3/src/wiring/gpio.rs), so they carry the class of the registers they drive.
+[[overrides]]
+register = "GPIO_OUT_W1TS"
+value = "the written mask is ORed into GPIO_OUT, the alias itself reads 0, and only the pins whose level changed reach the board"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/gpio_reg.h (W1TS and W1TC alias GPIO_OUT); IDF hal/esp32c3/include/hal/gpio_ll.h (the panel samples GPIO_OUT bit 20, the LCD DC line, which gpio_ll_set_level drives through these aliases); the board wiring of boards/ai-passport.toml. Tests: periph::gpio::tests::the_w1ts_and_w1tc_aliases_drive_the_output_and_its_enable and wiring::gpio::tests::only_changed_pins_reach_the_board"
+
+[[overrides]]
+register = "GPIO_OUT_W1TC"
+value = "the written mask is cleared in GPIO_OUT, the alias itself reads 0, and only the pins whose level changed reach the board"
+class = "B"
+provenance = "the same rule and the same two tests as GPIO_OUT_W1TS"
+
+[[overrides]]
+register = "GPIO_ENABLE_W1TS"
+value = "the written mask is ORed into GPIO_ENABLE, the alias itself reads 0, and the new output enable reaches the board"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/gpio_ll.h (gpio_ll_output_enable toggles the DC output enable in the LCD pre- and post-callbacks, through this alias); the same two tests as GPIO_OUT_W1TS"
+
+[[overrides]]
+register = "GPIO_ENABLE_W1TC"
+value = "the written mask is cleared in GPIO_ENABLE, the alias itself reads 0, and the new output enable reaches the board"
+class = "B"
+provenance = "IDF hal/esp32c3/include/hal/gpio_ll.h and the same two tests as GPIO_OUT_W1TS"
+
+# The GPIO matrix and the per-pin configuration. One rule per array rather than one row per
+# register: every register of each array behaves the same way in this model, which is storage.
+# The board is wired pin by pin in boards/ai-passport.toml and every peripheral signal
+# reaches its board model directly, so nothing decodes a matrix selector. That is a deliberate
+# approximation of a real crossbar, hence class C rather than the block class B.
+[[overrides]]
+registers = "GPIO_FUNC*_IN_SEL_CFG"
+value = "stored; the input crossbar is not decoded, because every emulated peripheral input comes from its board model rather than from a routed pin"
+class = "C"
+provenance = "Line-level modeling of the SPI, I2C, I2S and LEDC pins is not needed; only GPIO_OUT bit 20 and the strap matter: boards/ai-passport.toml, which wires the board by peripheral rather than by pin. crates/pemu-soc-c3/src/wiring/gpio.rs samples board inputs straight into GPIO_IN. Declared class C rationale. Retired by: if any signal is ever routed through the matrix, that is, if a peripheral input of a corpus image comes from a pin these selectors name rather than from its board model, these rows return to U or are promoted to B with a decoded crossbar behind them"
+
+# The reset values of the input selectors. The device capture
+# device-probe_campaign_regs-20260924T164141Z-run1.clean.log reads all 128 after the boot: 45 hold
+# 0x1F, the constant-0 input, and 53, 54 (I2C SCL and SDA in) and 74 hold 0x1E, the constant-1
+# input (IDF soc/esp32c3/include/soc/gpio_pins.h:13-14), where the TRM (register 5.16) and the IDF
+# header give 0x0; the other 79 read 0, as the CSV has them, and 6 reads the bootloader's plain
+# write 0x5E. No boot write sets the 48 below: the ROM's gpio_bypass_matrix_in clears
+# GPIO_SIG0_IN_SEL and GPIO_SIG1_IN_SEL by read-modify-write, which keeps the selector field, and
+# nothing else of the boot touches them before the probe reads them (an MMIO trace of the
+# emulator's run of the same image). Each row keeps the class C of the glob row above, because the
+# crossbar is still not decoded; the value itself is class A inside the row
+# (tests/milestones/campaign.rs t1_campaign_regs_rows_match_the_device_capture).
+
+[[overrides]]
+register = "GPIO_FUNC0_IN_SEL_CFG"
+field = "GPIO_FUNC0_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 71 (REG|gpio.GPIO_FUNC0_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC1_IN_SEL_CFG"
+field = "GPIO_FUNC1_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 72 (REG|gpio.GPIO_FUNC1_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC2_IN_SEL_CFG"
+field = "GPIO_FUNC2_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 73 (REG|gpio.GPIO_FUNC2_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC3_IN_SEL_CFG"
+field = "GPIO_FUNC3_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 74 (REG|gpio.GPIO_FUNC3_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC7_IN_SEL_CFG"
+field = "GPIO_FUNC7_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 78 (REG|gpio.GPIO_FUNC7_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC8_IN_SEL_CFG"
+field = "GPIO_FUNC8_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 79 (REG|gpio.GPIO_FUNC8_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC9_IN_SEL_CFG"
+field = "GPIO_FUNC9_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 80 (REG|gpio.GPIO_FUNC9_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC10_IN_SEL_CFG"
+field = "GPIO_FUNC10_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 81 (REG|gpio.GPIO_FUNC10_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC11_IN_SEL_CFG"
+field = "GPIO_FUNC11_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 82 (REG|gpio.GPIO_FUNC11_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC12_IN_SEL_CFG"
+field = "GPIO_FUNC12_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 83 (REG|gpio.GPIO_FUNC12_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC13_IN_SEL_CFG"
+field = "GPIO_FUNC13_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 84 (REG|gpio.GPIO_FUNC13_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC14_IN_SEL_CFG"
+field = "GPIO_FUNC14_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 85 (REG|gpio.GPIO_FUNC14_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC15_IN_SEL_CFG"
+field = "GPIO_FUNC15_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 86 (REG|gpio.GPIO_FUNC15_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC16_IN_SEL_CFG"
+field = "GPIO_FUNC16_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 87 (REG|gpio.GPIO_FUNC16_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC17_IN_SEL_CFG"
+field = "GPIO_FUNC17_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 88 (REG|gpio.GPIO_FUNC17_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC18_IN_SEL_CFG"
+field = "GPIO_FUNC18_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 89 (REG|gpio.GPIO_FUNC18_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC19_IN_SEL_CFG"
+field = "GPIO_FUNC19_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 90 (REG|gpio.GPIO_FUNC19_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC28_IN_SEL_CFG"
+field = "GPIO_FUNC28_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 99 (REG|gpio.GPIO_FUNC28_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC29_IN_SEL_CFG"
+field = "GPIO_FUNC29_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 100 (REG|gpio.GPIO_FUNC29_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC30_IN_SEL_CFG"
+field = "GPIO_FUNC30_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 101 (REG|gpio.GPIO_FUNC30_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC31_IN_SEL_CFG"
+field = "GPIO_FUNC31_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 102 (REG|gpio.GPIO_FUNC31_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC32_IN_SEL_CFG"
+field = "GPIO_FUNC32_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 103 (REG|gpio.GPIO_FUNC32_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC33_IN_SEL_CFG"
+field = "GPIO_FUNC33_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 104 (REG|gpio.GPIO_FUNC33_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC34_IN_SEL_CFG"
+field = "GPIO_FUNC34_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 105 (REG|gpio.GPIO_FUNC34_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC35_IN_SEL_CFG"
+field = "GPIO_FUNC35_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 106 (REG|gpio.GPIO_FUNC35_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC40_IN_SEL_CFG"
+field = "GPIO_FUNC40_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 111 (REG|gpio.GPIO_FUNC40_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC41_IN_SEL_CFG"
+field = "GPIO_FUNC41_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 112 (REG|gpio.GPIO_FUNC41_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC42_IN_SEL_CFG"
+field = "GPIO_FUNC42_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 113 (REG|gpio.GPIO_FUNC42_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC45_IN_SEL_CFG"
+field = "GPIO_FUNC45_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 116 (REG|gpio.GPIO_FUNC45_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC51_IN_SEL_CFG"
+field = "GPIO_FUNC51_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 122 (REG|gpio.GPIO_FUNC51_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC52_IN_SEL_CFG"
+field = "GPIO_FUNC52_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 123 (REG|gpio.GPIO_FUNC52_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC53_IN_SEL_CFG"
+field = "GPIO_FUNC53_IN_SEL"
+value = 0x1E
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 124 (REG|gpio.GPIO_FUNC53_IN_SEL_CFG val=0x0000001e, the constant-1 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC54_IN_SEL_CFG"
+field = "GPIO_FUNC54_IN_SEL"
+value = 0x1E
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 125 (REG|gpio.GPIO_FUNC54_IN_SEL_CFG val=0x0000001e, the constant-1 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC63_IN_SEL_CFG"
+field = "GPIO_FUNC63_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 134 (REG|gpio.GPIO_FUNC63_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC64_IN_SEL_CFG"
+field = "GPIO_FUNC64_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 135 (REG|gpio.GPIO_FUNC64_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC65_IN_SEL_CFG"
+field = "GPIO_FUNC65_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 136 (REG|gpio.GPIO_FUNC65_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC66_IN_SEL_CFG"
+field = "GPIO_FUNC66_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 137 (REG|gpio.GPIO_FUNC66_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC67_IN_SEL_CFG"
+field = "GPIO_FUNC67_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 138 (REG|gpio.GPIO_FUNC67_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC68_IN_SEL_CFG"
+field = "GPIO_FUNC68_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 139 (REG|gpio.GPIO_FUNC68_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC74_IN_SEL_CFG"
+field = "GPIO_FUNC74_IN_SEL"
+value = 0x1E
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 145 (REG|gpio.GPIO_FUNC74_IN_SEL_CFG val=0x0000001e, the constant-1 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC77_IN_SEL_CFG"
+field = "GPIO_FUNC77_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 148 (REG|gpio.GPIO_FUNC77_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC78_IN_SEL_CFG"
+field = "GPIO_FUNC78_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 149 (REG|gpio.GPIO_FUNC78_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC79_IN_SEL_CFG"
+field = "GPIO_FUNC79_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 150 (REG|gpio.GPIO_FUNC79_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC80_IN_SEL_CFG"
+field = "GPIO_FUNC80_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 151 (REG|gpio.GPIO_FUNC80_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC97_IN_SEL_CFG"
+field = "GPIO_FUNC97_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 168 (REG|gpio.GPIO_FUNC97_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC98_IN_SEL_CFG"
+field = "GPIO_FUNC98_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 169 (REG|gpio.GPIO_FUNC98_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC99_IN_SEL_CFG"
+field = "GPIO_FUNC99_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 170 (REG|gpio.GPIO_FUNC99_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+register = "GPIO_FUNC100_IN_SEL_CFG"
+field = "GPIO_FUNC100_IN_SEL"
+value = 0x1F
+class = "C"
+provenance = "device capture device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 171 (REG|gpio.GPIO_FUNC100_IN_SEL_CFG val=0x0000001f, the constant-0 input). TRM register 5.16 and the IDF header give reset 0x0, which the capture refutes"
+
+[[overrides]]
+registers = "GPIO_FUNC*_OUT_SEL_CFG"
+value = "stored; the output crossbar is not decoded, because every emulated peripheral output reaches its board model directly"
+class = "C"
+provenance = "boards/ai-passport.toml, the same rule as GPIO_FUNC*_IN_SEL_CFG. The one pin a modeled peripheral shares with GPIO, the LCD DC line on GPIO20, is driven through GPIO_OUT and not through a matrix selector. Declared class C rationale. Retired by: if any signal is ever routed through the matrix, that is, if a peripheral output of a corpus image reaches its pin through one of these selectors rather than through its board model, these rows return to U or are promoted to B with a decoded crossbar behind them"
+
+[[overrides]]
+registers = "GPIO_PIN*"
+value = "stored; the per-pin interrupt type, the wakeup enable and the pad hold are not acted on"
+class = "C"
+provenance = "The BSP installs no GPIO ISR, so IRQ source 16 can stay unconnected (UNVERIFIED: no public source states it); periph/gpio.rs keeps GPIO_STATUS as plain storage for the same reason. Declared class C rationale. Retired by: if an image ever installs a GPIO ISR, so that a pin edge has to raise IRQ source 16, or holds a pad across a sleep, these rows return to U or are promoted to B with the per-pin interrupt and hold logic behind them"

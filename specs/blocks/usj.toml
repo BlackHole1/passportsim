@@ -1,0 +1,114 @@
+# Block spec of the `usj` row of `c3_devices!` (crates/pemu-soc-c3/src/periph/mod.rs).
+# Model: crates/pemu-soc-c3/src/periph/usj.rs.
+schema = 1
+block = "usj"
+base = 0x6004_3000
+size = 0x1000
+class = "A"
+milestone = "M1"
+provenance = "base IDF soc/esp32c3/register/soc/reg_base.h (USB_SERIAL_JTAG); size 0x1000 UNVERIFIED"
+
+# The device console is USJ, so the golden console text comes through this block and its text
+# path is class A. Everything else about it (line state, descriptors, detach) is class B.
+# Without SOF generation the IDF connection monitor declares a disconnect and the console dies:
+# IDF esp_driver_usb_serial_jtag/src/usb_serial_jtag_connection_monitor.c waits
+# ALLOWED_NO_SOF_TICKS + 1 tick periods (3 ms at a 1 kHz tick) for a SOF. Nothing in the model
+# depends on the exact count.
+
+[[wait]]
+id = "usj.in_ep_data_free"
+kind = "wait"
+seed = true
+register = "USB_SERIAL_JTAG_EP1_CONF"
+field = "USB_SERIAL_JTAG_SERIAL_IN_EP_DATA_FREE"
+trigger = "write a byte to USB_SERIAL_JTAG_EP1, or flush the endpoint with WR_DONE"
+expect = "read USB_SERIAL_JTAG_SERIAL_IN_EP_DATA_FREE == 1 while the IN FIFO has room"
+within = { fast = "same_access", device = "55.5us, one IN drain" }
+polled_at = ["usb_uart_tx_one_char", "usb_serial_jtag_write_bytes"]
+images = ["official", "pk"]
+milestone = "M1"
+provenance = "The bundled ROM's usb_uart_tx_one_char (0x4004e3be) polls USB_SERIAL_JTAG_EP1_CONF 0x6004_3004 bit 1, bounded at 5000 polls; board-path seed row. The ROM poll is bounded, so a model that never frees the FIFO loses console text instead of hanging: the golden console test is what catches it. Device column: the committed packet waits one modeled host poll (pemu-machine USJ_DRAIN_PS, timing-profiles usj_drain_ps), and the same bounded poll caps that constant, measured at 200us over the probe_intc and probe_clocks images before text is lost. The poll is fitted to 55.5us from probe_campaign_timing TIME usj_drain_16x64 (device-probe_campaign_timing-20260924T155139Z line 91; the usj_drain_ps basis)"
+
+[[stable_read]]
+register = "USB_SERIAL_JTAG_EP1_CONF"
+provenance = "DATA_FREE is a function of the modeled host-side drain. Under the `fast` profile the emulator performs it synchronously into the HostIo ring, so the value is stable within the access. Under `device` it is stable only until the modeled IN drain event, which is what lets a driver-mode TX burst observe host backpressure in U3; the drain interval is the machine's (pemu-machine USJ_DRAIN_PS)"
+
+[[stable_read]]
+register = "USB_SERIAL_JTAG_IN_EP1_ST"
+provenance = "The endpoint state is a function of the modeled FIFO occupancy"
+
+[[reset_domains]]
+registers = "*"
+scopes = ["chip", "system", "core"]
+provenance = "IDF soc/reset_reasons.h reset terminology: USJ is in the digital domain, which every reset scope restores. The USB host connection state is outside the SoC and survives an MCU reset, which is what makes a DTR/RTS line reset observable; that state lives in the host-side model, not in a register row here. The download flag and the last line state are not host state: they are the chip-level state machine of TRM Table 30.3-2, so the model keeps them across every reset except the Chip-scope one of a power cycle. Clearing the line latch with the flag is UNVERIFIED and follows the emulator's default that line state resets to 0 on re-enumeration. A SYS_ class reset (0x0F, 0x10, 0x12, 0x13) is the exception to the surviving connection: device capture device-probe_campaign_reset-20260924T164812Z-run1 shows '[capture: link down 296 ms]' after the super-watchdog reset and boot2 waiting waited_ms=140 for the host, while the capture's own RTS reset (0x15) kept the link (boot1 waited_ms=30, the monitor's floor). So the model restarts enumeration from a SYS_ reset with the timing profile's usj_enum_reset_ps (periph::usj::UsjModel::reset_to); class B for 0x12, UNVERIFIED for the other three"
+
+# Classes of the modeled registers: the console text path is class A (the golden console text is
+# a device capture), the rest B (spec plus IDF low-level driver) or C where the model is a declared
+# approximation.
+
+# The strap a download reset latches: the USJ download flag is set by esptool's USB-JTAG-serial
+# (RTS, DTR) sequence, and the reset of cause 0x15 that follows latches GPIO_STRAP from
+# it instead of from the board strap 0x0A of specs/blocks/gpio.toml.
+[[overrides]]
+register = "*"
+value = "a reset of cause 0x15 with the download flag set latches GPIO_STRAP = 0x06, boot:0x6 (DOWNLOAD(USB/UART0)); without the flag the board strap 0x0A"
+class = "A"
+provenance = "device capture: on ESP-ROM esp32c3-eco7-20230720 a USB-JTAG-serial download reset prints rst:0x15 (USB_UART_CHIP_RESET),boot:0x6 (DOWNLOAD(USB/UART0)) and a hard reset prints boot:0xa (SPI_FAST_FLASH_BOOT). Class A because a device capture fixes it. An earlier draft value of 0x02 is contradicted by the ROM (specs/notes/usj-download-strap.md, the section on the superseded value)"
+
+[[overrides]]
+register = "USB_SERIAL_JTAG_EP1"
+value = "write appends to the IN FIFO while SERIAL_IN_EP_DATA_FREE, read pops one OUT byte; a byte written to a full endpoint is dropped"
+class = "A"
+provenance = "IDF soc/esp32c3/register/soc/usb_serial_jtag_reg.h (EP1); the bundled ROM's usb_uart_tx_one_char writes the byte and drops it after a bounded poll; golden console text"
+
+[[overrides]]
+register = "USB_SERIAL_JTAG_INT_RAW"
+value = "SOF once per emulated millisecond while enumerated; SERIAL_IN_EMPTY level-like; SERIAL_OUT_RECV_PKT latched per OUT packet and cleared only by INT_CLR; IN_TOKEN_REC_IN_EP1 on a drain; USB_BUS_RESET on enumeration; the JTAG bits, the error bits and the two zero-payload bits stay 0"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/usb_serial_jtag_reg.h interrupt bits; the model's level-like set is SERIAL_IN_EMPTY and SERIAL_IN_EP_DATA_FREE only, so SERIAL_OUT_RECV_PKT is a per-packet event (the header: high when the OUT endpoint received one packet) and an ISR that clears it without draining the whole FIFO does not see it again; the SOF bit is the whole connection signal the firmware has (IDF esp_driver_usb_serial_jtag/src/usb_serial_jtag_connection_monitor.c); the JTAG endpoint is LATER, and so are OUT_EP1_ZERO_PAYLOAD (b10) and OUT_EP2_ZERO_PAYLOAD (b11), which are neither JTAG nor error bits and which no firmware path reads (UNVERIFIED: no public source states it)"
+
+[[overrides]]
+register = "USB_SERIAL_JTAG_INT_ST"
+value = "INT_RAW and INT_ENA, driving interrupt source 26"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/usb_serial_jtag_reg.h (ST = RAW and ENA drives ETS_USB_SERIAL_JTAG_INTR_SOURCE); specs/irq-sources.toml source 26"
+
+[[overrides]]
+register = "USB_SERIAL_JTAG_INT_ENA"
+value = "read/write enable mask"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/usb_serial_jtag_reg.h INT_RAW/ST/ENA/CLR"
+
+[[overrides]]
+register = "USB_SERIAL_JTAG_INT_CLR"
+value = "write-trigger clear of INT_RAW, after which the level-like raw bits are re-evaluated"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/usb_serial_jtag_reg.h (SERIAL_IN_EMPTY is high while the IN endpoint is empty, so after INT_CLR it sets again if the condition still holds)"
+
+[[overrides]]
+register = "USB_SERIAL_JTAG_CONF0"
+value = "stored; with USB_PAD_ENABLE clear, or the D+ pull-up forced off by PAD_PULL_OVERRIDE and DP_PULLUP clear, the host sees a disconnect and SOF stops"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/usb_serial_jtag_reg.h CONF0 (enumeration needs USB_PAD_ENABLE and DP_PULLUP)"
+
+[[overrides]]
+register = "USB_SERIAL_JTAG_FRAM_NUM"
+value = "SOF_FRAME_INDEX advances by one per emulated SOF and freezes while detached; the generated field is 11 bits, so it wraps at 2048"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/usb_serial_jtag_reg.h:325 (frame index of the received SOF, +1 per emulated SOF); FRAME_NUM freezing while detached (U0) is the emulator's rule, UNVERIFIED. Width: the IDF bitpos comment at usb_serial_jtag_reg.h:325 writes [11:0] while its _S and _V macros give 11 bits, and the device agrees with the macros: device-probe_campaign_regs-20260924T164141Z-run1.clean.log line 400 samples it 420 times 10 ms apart, never above 2047 (over_2047=0), wrapping twice and moving every time, as the emulator does (tests/milestones/campaign.rs t1_campaign_regs_rows_match_the_device_capture). The largest value sampled, 2046 on the device and 2041 here, is where the 10 ms samples fall against the host's SOF phase, not a model fact. No capture covers the freeze while detached, so the row stays B"
+
+[[overrides]]
+register = "USB_SERIAL_JTAG_IN_EP1_ST"
+value = "IN_EP1_STATE reads 1 (idle); WR_ADDR and RD_ADDR stay 0 rather than tracking the FIFO fill"
+class = "C"
+provenance = "IDF soc/esp32c3/register/soc/usb_serial_jtag_reg.h IN_EP0..3_ST (the read and write addresses of the IN endpoints); a declared approximation, because no firmware path reads them (UNVERIFIED: no public source states it)"
+
+[[overrides]]
+register = "USB_SERIAL_JTAG_OUT_EP1_ST"
+value = "OUT_EP1_REC_DATA_CNT is the OUT FIFO byte count; the state and address fields stay 0"
+class = "B"
+provenance = "IDF soc/esp32c3/register/soc/usb_serial_jtag_reg.h OUT_EP0..2_ST (OUT_EP1_REC_DATA_CNT = OUT FIFO byte count). Width UNVERIFIED, the same comment-versus-macro conflict as USB_SERIAL_JTAG_FRAM_NUM: the IDF bitpos comment at usb_serial_jtag_reg.h:511 writes OUT_EP1_REC_DATA_CNT[23:16] (8 bits) while its macros give shift 16 width 7, and the macros win. Harmless either way, because the count never exceeds the 64-byte packet (usb_serial_jtag_reg.h, EP1)"
+
+[[stable_read]]
+register = "USB_SERIAL_JTAG_OUT_EP1_ST"
+provenance = "The byte count is a function of the modeled OUT FIFO, which only a journaled host packet or a guest read changes"

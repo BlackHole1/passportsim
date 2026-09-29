@@ -1,0 +1,32 @@
+{
+  "properties": {
+    "applied": {
+      "type": "object"
+    },
+    "frames": {
+      "type": "integer"
+    },
+    "instance": {
+      "type": "string"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "pages": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "tag": {
+      "type": "object"
+    },
+    "vt_us": {
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}

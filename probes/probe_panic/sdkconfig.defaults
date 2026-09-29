@@ -1,0 +1,5 @@
+# probe_panic overrides on top of probes/common/sdkconfig.defaults.
+#
+# Print the register dump and reboot at once: the panic text is the oracle artifact
+# (IDF `esp_system/panic.c`), and the reboot is what lets the second boot report the panic reset reason.
+CONFIG_ESP_SYSTEM_PANIC_PRINT_REBOOT=y

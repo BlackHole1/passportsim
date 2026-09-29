@@ -1,0 +1,38 @@
+{
+  "properties": {
+    "channels": {
+      "type": "integer"
+    },
+    "chunks": {
+      "type": "integer"
+    },
+    "effects": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "first_seq": {
+      "type": "integer"
+    },
+    "frames": {
+      "type": "integer"
+    },
+    "fs": {
+      "type": "integer"
+    },
+    "instance": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "until_vt_us": {
+      "type": "integer"
+    },
+    "vt_us": {
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}
