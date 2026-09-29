@@ -4,6 +4,8 @@
 import { type ReactNode } from "react";
 import { Kbd } from "../../ui/kbd";
 import { cn } from "../../ui/lib/utils";
+import { Spinner } from "../../ui/spinner";
+import { downloading, downloadText } from "../download";
 import { LABEL_GUTTER_PX } from "../layout";
 import { DEMO_IMAGE } from "../load";
 import { runsNothing } from "../loader";
@@ -110,23 +112,46 @@ function SimpleStatus() {
   const header = useStore(page.header);
   const stopped = useStore(page.stop) !== null;
   const empty = runsNothing(useStore(page.loader.store));
+  const boot = useStore(page.boot);
   const demo = header.image === DEMO_IMAGE;
-  const state = empty ? "empty" : stopped ? "stopped" : header.running ? "running" : "paused";
+  // Until its machine first runs, the page has nothing that could be paused.
+  const state = empty
+    ? "empty"
+    : boot.starting
+      ? boot.failure !== null || boot.download?.error !== undefined
+        ? "failed"
+        : "starting"
+      : stopped
+        ? "stopped"
+        : header.running
+          ? "running"
+          : "paused";
+  const word = state === "starting" && downloading(boot.download) ? downloadText(t, boot.download) : t(`status.${state}`);
   return (
-    <div className="sim-status flex max-w-full flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm" role="status">
+    <div
+      aria-busy={state === "starting" ? "true" : undefined}
+      className="sim-status flex max-w-full flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm"
+      role="status"
+    >
       <span className="inline-flex items-center gap-2" data-running={header.running ? "true" : "false"} data-state={state}>
-        <span
-          aria-hidden="true"
-          className={cn(
-            "size-2 rounded-full",
-            state === "running" && "bg-foreground",
-            (state === "paused" || state === "empty") && "border border-muted-foreground",
-            state === "stopped" && "bg-destructive",
-          )}
-        />
-        <span className={cn("font-medium", stopped && "text-destructive-foreground")}>{t(`status.${state}`)}</span>
+        {state === "starting" ? (
+          <Spinner aria-hidden="true" aria-label={undefined} className="size-3.5 text-muted-foreground" role={undefined} />
+        ) : (
+          <span
+            aria-hidden="true"
+            className={cn(
+              "size-2 rounded-full",
+              state === "running" && "bg-foreground",
+              (state === "paused" || state === "empty") && "border border-muted-foreground",
+              (state === "stopped" || state === "failed") && "bg-destructive",
+            )}
+          />
+        )}
+        <span className={cn("font-medium tabular-nums", (stopped || state === "failed") && "text-destructive-foreground")} data-status-text="">
+          {word}
+        </span>
       </span>
-      {empty ? null : (
+      {empty || boot.starting ? null : (
         <>
           <span className="max-w-64 truncate text-muted-foreground" data-image={header.image} title={header.image}>
             {demo ? t("status.demo") : header.image}

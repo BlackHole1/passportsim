@@ -1,11 +1,12 @@
 // Simple mode's log: the page's own steps and the device's serial output as two captioned blocks,
-// since a legend did not tell them apart. Page lines are steps that happened; there is no progress
-// bar.
+// since a legend did not tell them apart. Page lines are steps that happened; a download's line
+// counts its bytes in place.
 
 import { TerminalSquareIcon } from "lucide-react";
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { Card } from "../../ui/card";
 import { cn } from "../../ui/lib/utils";
+import { downloadText } from "../download";
 import type { Translate } from "../i18n";
 import { humanSize } from "../load";
 import type { ProgressLine, ProgressStep } from "../loader";
@@ -55,6 +56,8 @@ export function stepText(t: Translate, step: ProgressStep): string {
       return t("step.machineError", { detail: step.detail });
     case "refused":
       return t("step.refused", { command: step.command, error: step.error });
+    case "download":
+      return downloadText(t, step.progress);
   }
   return "";
 }

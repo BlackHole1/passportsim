@@ -95,6 +95,7 @@ export function Firmware() {
   const t = useT();
   const mode = useStore(page.prefs).mode;
   const loader = useStore(page.loader.store);
+  const boot = useStore(page.boot);
   const files = useRef<HTMLInputElement>(null);
   const directory = useRef<HTMLInputElement>(null);
 
@@ -259,7 +260,7 @@ export function Firmware() {
           <span className={cn("min-w-24 flex-1 truncate text-sm", empty ? "text-muted-foreground" : "font-medium")} title={loader.image}>
             {empty ? t("firmware.none") : onDemo ? t("status.demo") : loader.image}
           </span>
-          {loading ? <Spinner aria-label={t("firmware.loading")} className="size-4 text-muted-foreground" /> : null}
+          {loading || (boot.starting && boot.failure === null && !empty) ? <Spinner aria-label={t("firmware.loading")} className="size-4 text-muted-foreground" /> : null}
           {backToDemo}
         </div>
         {failed ? (

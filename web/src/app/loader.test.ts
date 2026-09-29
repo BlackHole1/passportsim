@@ -267,6 +267,36 @@ describe("the progress lines (simple mode's log)", () => {
     expect(stepText(t, { kind: "ready", name: "a" })).toBe("Machine reset: a is running");
   });
 
+  test("a download is one line, updated in place as its bytes arrive, and the next download a new one", () => {
+    const loader = loaderFor();
+    loader.loader.begin({ kind: "demo" });
+    loader.loader.download({ what: "core", received: 0, total: null, done: false });
+    loader.loader.download({ what: "core", received: 3_000_000, total: 7_000_000, done: false });
+    const seq = loader.steps().at(-1)?.seq;
+    loader.loader.download({ what: "core", received: 7_000_000, total: 7_000_000, done: true });
+    loader.loader.download({ what: "firmware", received: 7_500_000, total: 24_700_000, done: false });
+    const steps = loader.steps();
+    expect(steps.map((line) => line.step.kind)).toEqual(["demo", "download", "download"]);
+    expect(steps[1]?.seq).toBe(seq);
+    expect(steps.map((line) => stepText(t, line.step))).toEqual([
+      "Starting the bundled demo firmware",
+      "Downloaded the emulator core (7.0 MB)",
+      "Downloading the demo firmware 7.5 / 24.7 MB (30%)",
+    ]);
+  });
+
+  test("a failed boot is what a retry boots again", async () => {
+    let fail = true;
+    const loader = loaderFor(() => (fail ? Promise.reject(new Error("could not download the emulator core")) : Promise.resolve()));
+    await loader.loader.offer({ root: null, files: [{ path: "a.bin", size: 0x20_000, read: () => Promise.resolve(mergedBin()) }] });
+    expect(loader.state()).toBe("error");
+    fail = false;
+    await loader.loader.retry();
+    expect(loader.seen.map((image) => image.name)).toEqual(["a", "a"]);
+    expect(loader.state()).toBe("loaded");
+    expect(loader.image()).toBe("a");
+  });
+
   test("a refused drop ends its lines with a stop, and says why", async () => {
     const loader = loaderFor();
     await loader.loader.offer({ root: null, files: [{ path: "notes.txt", size: 2, read: () => Promise.resolve(new Uint8Array([1, 2])) }] });

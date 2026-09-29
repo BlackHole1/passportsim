@@ -130,14 +130,25 @@ describe("the built Worker bundle", () => {
 
       const worker = new Worker(join(dir, "worker.js"), { type: "module" });
       try {
+        // The core's download reports come first, then the boot's answer.
+        const downloads: FromWorker[] = [];
         const first = await Promise.race([
           new Promise<FromWorker>((settle) => {
-            worker.onmessage = (event: MessageEvent<FromWorker>) => settle(event.data);
+            worker.onmessage = (event: MessageEvent<FromWorker>) => {
+              if (event.data.type === "download") {
+                downloads.push(event.data);
+              } else {
+                settle(event.data);
+              }
+            };
             worker.postMessage({ type: "boot", config: "{}" });
           }),
           Bun.sleep(10_000).then(() => ({ type: "error", message: "no answer" }) as FromWorker),
         ]);
         expect(first).toEqual({ type: "ready", abiVersion: ABI_VERSION });
+        expect(downloads[0]).toEqual({ type: "download", what: "core", received: 0, total: null, done: false });
+        expect(downloads.at(-1)).toMatchObject({ type: "download", what: "core", done: true });
+        expect(downloads.at(-1)).not.toHaveProperty("error");
       } finally {
         worker.terminate();
       }

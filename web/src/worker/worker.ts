@@ -19,6 +19,7 @@ import { openDisplay, type Display } from "../gl/display";
 import type { DisplayState } from "../gl/sink";
 import { AttachClient, type AttachEvent } from "./attach";
 import { CoreError, WasmCore, type CoreAsset, type CoreExports, type EmulatorCore } from "./core";
+import { countedResponse, DownloadReporter, readCounted, type DownloadListener, type DownloadProgress } from "./download";
 import { ABI_VERSION, ButtonId, FRAME_HEIGHT, FRAME_WIDTH, LoadKind } from "./layout";
 import {
   atomicsYielder,
@@ -176,6 +177,11 @@ export type FromWorker =
   | { readonly type: "audioTrace"; readonly entry: AudioTraceEntry }
   | { readonly type: "attach"; readonly event: AttachEvent }
   /**
+   * A file the boot `token` downloads: posted when it is asked for, as its bytes arrive (throttled,
+   * `download.ts`), and once when it is done or failed. Always before that boot's `ready` or `error`.
+   */
+  | ({ readonly type: "download"; readonly token?: string } & DownloadProgress)
+  /**
    * The pacing loop threw: the machine runs no further until the page boots one again. Unlike
    * `error`, which is a refusal the machine outlives.
    */
@@ -231,6 +237,8 @@ export type CoreLoader = (
   config: string,
   image?: Uint8Array,
   assets?: readonly CoreAsset[],
+  /** Told the byte counts of whatever the load downloads (the core, the bundled firmware). */
+  onDownload?: DownloadListener,
 ) => EmulatorCore | Promise<EmulatorCore>;
 
 export type DisplayOpener = (
@@ -619,7 +627,9 @@ export function startWorker(
       displayCanvas = message.canvas;
       displayState = display.state;
     }
-    const core = await loadCore(message.config, message.image, message.assets);
+    const core = await loadCore(message.config, message.image, message.assets, (progress) => {
+      post({ type: "download", ...progress, ...(message.token === undefined ? {} : { token: message.token }) });
+    });
     let sab: SharedArrayBuffer | undefined;
     let captureSab: SharedArrayBuffer | undefined;
     let inputSab: SharedArrayBuffer | undefined;
@@ -880,11 +890,12 @@ export async function loadBundledCore(
   image?: Uint8Array,
   firmwareUrl: (fw: string) => string | null = () => null,
   extra: readonly CoreAsset[] = [],
+  onDownload: DownloadListener = () => {},
 ): Promise<EmulatorCore> {
-  const module = await WebAssembly.instantiateStreaming(fetch(url), {});
+  const module = await instantiateCore(url, onDownload);
   const assets: CoreAsset[] = [];
   // A page that loaded an image sends its own assets; `fw` is then only the name it shows.
-  const firmware = image ?? (extra.length > 0 ? null : await fetchFirmware(config, firmwareUrl));
+  const firmware = image ?? (extra.length > 0 ? null : await fetchFirmware(config, firmwareUrl, onDownload));
   if (firmware) {
     assets.push({ kind: LoadKind.MergedFlash, bytes: firmware });
   }
@@ -900,9 +911,29 @@ export function bundledFirmwareUrl(fw: string, workerScriptUrl: string): string 
   return FIRMWARE_ID.test(fw) ? new URL(`./${fw}.pebundle`, workerScriptUrl).href : null;
 }
 
+/**
+ * Fetches and instantiates the core, compiling while it streams in, with its bytes counted into
+ * `onDownload`. A failure after the last byte (a compile error) is not reported as the download's.
+ */
+async function instantiateCore(url: string, onDownload: DownloadListener): Promise<WebAssembly.WebAssemblyInstantiatedSource> {
+  const reporter = new DownloadReporter("core", onDownload, () => performance.now());
+  reporter.start();
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`the emulator core \`${CORE_FILE}\` is not served (HTTP ${response.status})`);
+    }
+    return await WebAssembly.instantiateStreaming(countedResponse(response, reporter), {});
+  } catch (error) {
+    reporter.fail(error);
+    throw error;
+  }
+}
+
 async function fetchFirmware(
   config: string,
   firmwareUrl: (fw: string) => string | null,
+  onDownload: DownloadListener,
 ): Promise<Uint8Array | null> {
   let fw: unknown;
   try {
@@ -917,14 +948,21 @@ async function fetchFirmware(
   if (url === null) {
     return null;
   }
-  const response = await fetch(url);
-  if (!response.ok) {
-    // A development bundle ships no demo image.
-    throw new Error(
-      `the firmware bundle for \`${fw}\` is not served (${response.status}); a development build ships no demo image, so drop a merged bin or .pebundle`,
-    );
+  const reporter = new DownloadReporter("firmware", onDownload, () => performance.now());
+  reporter.start();
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      // A development bundle ships no demo image.
+      throw new Error(
+        `the firmware bundle for \`${fw}\` is not served (${response.status}); a development build ships no demo image, so drop a merged bin or .pebundle`,
+      );
+    }
+    return await readCounted(response, reporter);
+  } catch (error) {
+    reporter.fail(error);
+    throw error;
   }
-  return new Uint8Array(await response.arrayBuffer());
 }
 
 export const CORE_FILE = "pemu_wasm.wasm";
@@ -940,13 +978,14 @@ export function bundledCoreUrl(workerScriptUrl: string): string {
 // Starts the Worker only when this module is the Worker's entry; a test imports it without side effects.
 const scope = globalThis as unknown as Partial<WorkerScope> & { importScripts?: unknown };
 if (typeof scope.postMessage === "function" && "onmessage" in scope) {
-  startWorker(scope as WorkerScope, (config, image, assets) =>
+  startWorker(scope as WorkerScope, (config, image, assets, onDownload) =>
     loadBundledCore(
       bundledCoreUrl(import.meta.url),
       config,
       image,
       (fw) => bundledFirmwareUrl(fw, import.meta.url),
       assets,
+      onDownload,
     ),
   );
 }

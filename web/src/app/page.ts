@@ -21,6 +21,7 @@ import {
   UsbController,
   type CardContext,
 } from "./controllers";
+import type { DownloadProgress } from "./download";
 import { EventLog, type HostEventIn } from "./events";
 import { buildIdOf, formatVirtualTime, headerModel, type HeaderModel, type LeaseOwner } from "./header";
 import { buildFieldsOf, FirmwareHistory, type HistoryBackend } from "./history";
@@ -116,6 +117,19 @@ export interface SkinSnapshot {
   readonly inputDisabled: boolean;
 }
 
+/**
+ * Where the machine the page asked for stands until it first runs: the status line and the glass
+ * show this, never "paused", while there is no machine yet.
+ */
+export interface BootView {
+  /** A boot was asked for and its machine has not run yet. */
+  readonly starting: boolean;
+  /** Why that boot failed; the glass offers a retry. */
+  readonly failure: string | null;
+  /** The download that boot is waiting for, or the last one it finished. */
+  readonly download: DownloadProgress | null;
+}
+
 /** A box of the guest's screen to outline over the glass (the UI tree tab's hover). */
 export interface Highlight {
   readonly rect: GuestRect;
@@ -128,6 +142,7 @@ export interface PageModel {
   readonly header: Store<HeaderModel>;
   readonly skin: Store<SkinSnapshot>;
   readonly stop: Store<MachineStop | null>;
+  readonly boot: Store<BootView>;
   /** Bumped each time a machine comes up, so what a card learned about the last one is dropped. */
   readonly generation: Store<number>;
   readonly highlight: Store<Highlight | null>;
@@ -180,6 +195,8 @@ export interface PageActions {
   downloadFromHistory(id: string, file?: string): Promise<void>;
   /** Boots the running image again from reset, the way out of a stop that cannot continue. */
   restart(): void;
+  /** Boots again what failed to boot: the image whose boot failed, else the demo. */
+  retry(): void;
   logRefusal(command: string, error: string): void;
   serialWrite(channel: SerialChannel, text: string): void;
   setConsoleFilter(source: string): void;
@@ -229,6 +246,8 @@ export interface Page {
   ready(token?: string): void;
   /** A Worker-level error. One from a boot the page no longer waits on is ignored as stale. */
   workerError(message: string, token?: string): void;
+  /** The Worker's byte counts of a file the boot `token` downloads; a stale boot's are ignored. */
+  download(progress: DownloadProgress, token?: string): void;
   readonly loader: Loader;
   /** The bundled demo is not served, so the page waits for a firmware with the controls off. */
   noDemo(): void;
@@ -294,6 +313,8 @@ export function createPage(deps: PageDeps): Page {
     inputDisabled: false,
   });
   const stop = new Store<MachineStop | null>(null);
+  // The page boots the demo as soon as it is up, so it starts out starting; `noDemo` says otherwise.
+  const boot = new Store<BootView>({ starting: true, failure: null, download: null });
   const generation = new Store(0);
   const highlight = new Store<Highlight | null>(null);
   const taps = new Version();
@@ -355,11 +376,19 @@ export function createPage(deps: PageDeps): Page {
       return;
     }
     running = worker.kind !== "Paused";
+    started();
     if (running) {
       stop.set(null);
     }
     deps.toWorker({ type: "mode", mode: worker });
     refreshHeader();
+  };
+
+  /** The machine is up and paced: from here the status says running or paused. */
+  const started = () => {
+    if (boot.get().starting) {
+      boot.update((current) => ({ ...current, starting: false, failure: null }));
+    }
   };
 
   const holds = new ButtonHolds();
@@ -423,6 +452,7 @@ export function createPage(deps: PageDeps): Page {
       ports ? [ports.audioPort, ports.capturePort] : [],
     );
     loader.progress({ kind: "boot", name, assets: assets?.length ?? 0 });
+    boot.set({ starting: true, failure: null, download: null });
     image = name;
     buildId = null;
     nowPs = 0n;
@@ -596,6 +626,7 @@ export function createPage(deps: PageDeps): Page {
   });
   const showStop = (parsed: MachineStop) => {
     running = false;
+    started();
     stop.set(parsed);
     if (parsed.vtPs !== null) {
       nowPs = parsed.vtPs;
@@ -692,6 +723,9 @@ export function createPage(deps: PageDeps): Page {
     restart: () => {
       void loader.restart();
     },
+    retry: () => {
+      void loader.retry();
+    },
     logRefusal: (command, error) => {
       loader.progress({ kind: "refused", command, error });
     },
@@ -722,6 +756,7 @@ export function createPage(deps: PageDeps): Page {
     header,
     skin,
     stop,
+    boot,
     generation,
     highlight,
     taps,
@@ -780,6 +815,9 @@ export function createPage(deps: PageDeps): Page {
         return;
       }
       empty = false;
+      if (boot.get().failure !== null) {
+        boot.update((current) => ({ ...current, failure: null }));
+      }
       // The new machine's byte cursors restart at zero. Cleared here, not when the load is posted,
       // because the Worker is still draining the old machine's serial ring then.
       consoleModel.clear();
@@ -793,8 +831,14 @@ export function createPage(deps: PageDeps): Page {
       const load = booting;
       booting = null;
       load?.resolve();
-      void setPace("resume", { kind: "Wall", rate: 1 });
       const asked = machine;
+      // A refused resume still leaves a machine that is up, and then paused.
+      void setPace("resume", { kind: "Wall", rate: 1 }).then(() => {
+        if (asked === machine) {
+          started();
+          refreshHeader();
+        }
+      });
       void reader.tryCall("status", {}).then((output) => {
         if (asked === machine) {
           buildId = buildIdOf(output?.json);
@@ -806,6 +850,9 @@ export function createPage(deps: PageDeps): Page {
       if (booting !== null && token !== undefined && booting.token !== token) {
         return;
       }
+      if (boot.get().starting) {
+        boot.update((current) => ({ ...current, failure: message }));
+      }
       const load = booting;
       booting = null;
       if (load !== null) {
@@ -815,6 +862,16 @@ export function createPage(deps: PageDeps): Page {
       loader.progress({ kind: "machine-error", detail: message });
       loader.say("error", { kind: "machine", detail: message });
     },
+    download(progress, token) {
+      if (booting !== null && token !== undefined && booting.token !== token) {
+        return;
+      }
+      if (!boot.get().starting) {
+        return;
+      }
+      boot.update((current) => ({ ...current, download: progress }));
+      loader.download(progress);
+    },
     loader,
     noDemo() {
       loader.noDemo();
@@ -822,6 +879,7 @@ export function createPage(deps: PageDeps): Page {
         // A dropped image got there first.
         return;
       }
+      boot.set({ starting: false, failure: null, download: null });
       empty = true;
       image = "";
       refreshHeader();

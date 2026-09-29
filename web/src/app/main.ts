@@ -216,6 +216,18 @@ export function start(): Page {
           delete mount.dataset.attached;
         }
         break;
+      case "download":
+        page.download(
+          {
+            what: message.what,
+            received: message.received,
+            total: message.total,
+            done: message.done,
+            ...(message.error === undefined ? {} : { error: message.error }),
+          },
+          message.token,
+        );
+        break;
       case "error":
         page.workerError(message.code ? `${message.code}: ${message.message}` : message.message, message.token);
         break;

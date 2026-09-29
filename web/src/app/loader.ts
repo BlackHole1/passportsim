@@ -1,8 +1,9 @@
 // The image loader as page state. Every refusal is stated on the page, never thrown at the
-// console. Progress lines are steps that have happened, stamped with the page clock; there is no
-// estimated progress. The view mirrors the state as `data-loader-state` and `data-loader-image`
+// console. Progress lines are steps that have happened, stamped with the page clock; a download's
+// line is the one that changes in place, with the bytes counted so far, and nothing is estimated. The view mirrors the state as `data-loader-state` and `data-loader-image`
 // for Playwright.
 
+import type { DownloadProgress } from "./download";
 import { dropFromTransfer, WALK_LIMIT } from "./drop";
 import { carriesAppElf, loadDrop, type Drop, type LoadedImage, type LoadStep } from "./load";
 import type { MachineStop } from "./stop";
@@ -32,7 +33,9 @@ export type ProgressStep =
   | { readonly kind: "failed" }
   | { readonly kind: "stopped"; readonly stop: MachineStop; readonly vt: string }
   | { readonly kind: "machine-error"; readonly detail: string }
-  | { readonly kind: "refused"; readonly command: string; readonly error: string };
+  | { readonly kind: "refused"; readonly command: string; readonly error: string }
+  /** The core or the demo firmware downloading, done or failed; one line updated as bytes arrive. */
+  | { readonly kind: "download"; readonly progress: DownloadProgress };
 
 export interface ProgressLine {
   readonly seq: number;
@@ -65,10 +68,14 @@ export interface Loader {
   run(image: LoadedImage): Promise<void>;
   say(state: LoaderState, message: LoaderMessage | null): void;
   progress(step: ProgressStep): void;
+  /** A download's progress: replaces the line of the same download while it is the last one. */
+  download(progress: DownloadProgress): void;
   begin(step: ProgressStep): void;
   backToDemo(): Promise<void>;
   noDemo(): void;
   restart(): Promise<void>;
+  /** Boots again the image whose boot failed, or the demo when none did. */
+  retry(): Promise<void>;
   watchDrops(zone: EventTarget): void;
 }
 
@@ -90,6 +97,8 @@ export function createLoader(handlers: LoaderHandlers, demoImage: string): Loade
     steps: [],
   });
   let current: LoadedImage | null = null;
+  /** The image whose boot failed last, for {@link Loader.retry}; cleared by any boot that succeeds. */
+  let failed: LoadedImage | null = null;
   let seq = 0;
   let startedAt = handlers.now();
 
@@ -101,6 +110,17 @@ export function createLoader(handlers: LoaderHandlers, demoImage: string): Loade
     seq += 1;
     const line: ProgressLine = { seq, atMs: Math.max(0, handlers.now() - startedAt), step };
     store.update((current) => ({ ...current, steps: [...current.steps, line].slice(-PROGRESS_LIMIT) }));
+  };
+
+  const download = (report: DownloadProgress): void => {
+    const last = store.get().steps.at(-1);
+    const step: ProgressStep = { kind: "download", progress: report };
+    if (last?.step.kind !== "download" || last.step.progress.what !== report.what || last.step.progress.done) {
+      progress(step);
+      return;
+    }
+    const line: ProgressLine = { seq: last.seq, atMs: Math.max(0, handlers.now() - startedAt), step };
+    store.update((current) => ({ ...current, steps: [...current.steps.slice(0, -1), line] }));
   };
 
   const begin = (step: ProgressStep): void => {
@@ -134,10 +154,12 @@ export function createLoader(handlers: LoaderHandlers, demoImage: string): Loade
     try {
       await handlers.onImage(image);
     } catch (error) {
+      failed = image;
       progress({ kind: "failed" });
       say("error", { kind: "not-booted", name: image.name, detail: error instanceof Error ? error.message : String(error) });
       return;
     }
+    failed = null;
     current = image;
     store.update((snapshot) => ({ ...snapshot, image: image.name, elf: carriesAppElf(image) }));
     say("loaded", { kind: "running", name: image.name, notes: image.notes });
@@ -155,6 +177,7 @@ export function createLoader(handlers: LoaderHandlers, demoImage: string): Loade
       say("error", { kind: "not-booted", name: demoImage, detail: error instanceof Error ? error.message : String(error) });
       return;
     }
+    failed = null;
     current = null;
     store.update((snapshot) => ({ ...snapshot, image: demoImage, elf: true }));
     say("loaded", { kind: "running", name: demoImage, notes: [] });
@@ -187,6 +210,7 @@ export function createLoader(handlers: LoaderHandlers, demoImage: string): Loade
     run,
     say,
     progress,
+    download,
     begin,
     backToDemo,
     noDemo() {
@@ -199,6 +223,16 @@ export function createLoader(handlers: LoaderHandlers, demoImage: string): Loade
       say("empty", { kind: "no-demo" });
     },
     restart,
+    async retry() {
+      if (failed === null) {
+        await backToDemo();
+        return;
+      }
+      const image = failed;
+      startedAt = handlers.now();
+      store.update((snapshot) => ({ ...snapshot, steps: [] }));
+      await boot(image);
+    },
     watchDrops(zone) {
       // Without both handlers the browser navigates to the dropped file, losing the session.
       zone.addEventListener("dragover", (event) => {

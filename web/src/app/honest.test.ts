@@ -126,6 +126,100 @@ describe("a machine that stopped by itself", () => {
   });
 });
 
+describe("a page whose machine is not up yet", () => {
+  const state = (mount: HTMLElement) => mount.querySelector(".sim-status [data-state]")?.getAttribute("data-state");
+  const statusText = (mount: HTMLElement) => mount.querySelector(".sim-status [data-status-text]")?.textContent;
+
+  test("says it is starting, then what it downloads and how far, on the status, the glass and the log; never paused", async () => {
+    const { page, mount } = mountPage();
+    await settle();
+    expect(state(mount)).toBe("starting");
+    expect(statusText(mount)).toBe("Starting");
+    expect(mount.querySelector("[data-glass-boot]")?.getAttribute("data-glass-boot")).toBe("starting");
+    expect(mount.querySelector("[data-glass-boot]")?.textContent).toContain("Starting the emulator");
+    // No virtual time or speed for a machine that does not exist.
+    expect(mount.querySelector(".sim-status [data-speed]")).toBeNull();
+
+    page.download({ what: "core", received: 7_036_068, total: 7_036_068, done: true }, "demo");
+    page.download({ what: "firmware", received: 7_500_000, total: 24_700_000, done: false }, "demo");
+    await settle();
+    expect(state(mount)).toBe("starting");
+    expect(statusText(mount)).toBe("Downloading the demo firmware 7.5 / 24.7 MB (30%)");
+    const glass = mount.querySelector("[data-glass-boot]");
+    expect(glass?.getAttribute("data-glass-boot")).toBe("firmware");
+    expect(glass?.textContent).toContain("Downloading the demo firmware");
+    expect(glass?.querySelector("[data-glass-amount]")?.textContent).toBe("7.5 / 24.7 MB (30%)");
+    expect(glass?.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("30");
+    expect(pageLines(mount).slice(-2)).toEqual([
+      expect.stringContaining("Downloaded the emulator core (7.0 MB)"),
+      expect.stringContaining("Downloading the demo firmware 7.5 / 24.7 MB (30%)"),
+    ]);
+
+    // Without a length the bytes are shown alone, with no bar.
+    page.download({ what: "firmware", received: 9_000_000, total: null, done: false }, "demo");
+    await settle();
+    expect(statusText(mount)).toBe("Downloading the demo firmware 9.0 MB");
+    expect(mount.querySelector('[data-glass-boot] [role="progressbar"]')).toBeNull();
+
+    page.download({ what: "firmware", received: 24_700_000, total: 24_700_000, done: true }, "demo");
+    page.ready("demo");
+    await settle();
+    expect(state(mount)).toBe("running");
+    expect(mount.querySelector("[data-glass-boot]")).toBeNull();
+  });
+
+  test("a stale boot's download is not shown", async () => {
+    const { page, mount, toWorker } = mountPage();
+    page.ready("demo");
+    await settle();
+    void page.loader.backToDemo();
+    await settle();
+    await settle();
+    const boot = toWorker.filter((message) => (message as { type?: string }).type === "boot").at(-1) as { token: string };
+    page.download({ what: "firmware", received: 1_000_000, total: 2_000_000, done: false }, "demo");
+    await settle();
+    expect(statusText(mount)).toBe("Starting");
+    page.download({ what: "firmware", received: 1_000_000, total: 2_000_000, done: false }, boot.token);
+    await settle();
+    expect(statusText(mount)).toBe("Downloading the demo firmware 1.0 / 2.0 MB (50%)");
+  });
+
+  test("a failed download says why and retries the boot", async () => {
+    const { page, mount, toWorker } = mountPage();
+    await settle();
+    page.download({ what: "firmware", received: 3_000_000, total: 24_700_000, done: true, error: "network error" }, "demo");
+    page.workerError("network error", "demo");
+    await settle();
+    expect(state(mount)).toBe("failed");
+    expect(statusText(mount)).toBe("Not started");
+    const glass = mount.querySelector("[data-glass-boot]");
+    expect(glass?.getAttribute("data-glass-boot")).toBe("failed");
+    expect(glass?.textContent).toContain("The emulator could not start");
+    expect(glass?.textContent).toContain("Could not download the demo firmware: network error");
+
+    const before = toWorker.length;
+    (glass?.querySelector('[data-action="retry"]') as HTMLButtonElement).click();
+    await settle();
+    await settle();
+    const boot = toWorker.slice(before).find((message) => (message as { type?: string }).type === "boot") as { token: string; config: string };
+    expect(boot.config).toBe(JSON.stringify({ fw: "official" }));
+    expect(state(mount)).toBe("starting");
+    expect(mount.querySelector("[data-glass-boot]")?.getAttribute("data-glass-boot")).toBe("starting");
+    page.ready(boot.token);
+    await settle();
+    await settle();
+    expect(state(mount)).toBe("running");
+  });
+
+  test("a page served without the demo is empty, not starting", async () => {
+    const { page, mount } = mountPage();
+    page.noDemo();
+    await settle();
+    expect(state(mount)).toBe("empty");
+    expect(mount.querySelector("[data-glass-boot]")).toBeNull();
+  });
+});
+
 describe("an image loaded without its ELF", () => {
   function mergedBin(): Uint8Array {
     const bytes = new Uint8Array(0x20_000);
