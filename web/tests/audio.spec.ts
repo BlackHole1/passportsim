@@ -5,7 +5,9 @@
 //
 // Skips: `fake-media-chromium-only` for the capture tests on WebKit (it has no fake capture
 // device); the install hint of `browsers.ts` for a missing browser; `bun-not-on-path` when the
-// probe cannot be bundled.
+// probe cannot be bundled; `host-not-real-time` for the underrun and overflow counts when the
+// host's audio clock or timers did not keep to the wall clock (a hosted CI runner with no audio
+// device), measured by `realTimeGap`.
 
 import { expect, test as base, type Page } from "@playwright/test";
 import { spawnSync } from "node:child_process";
@@ -13,7 +15,9 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { OVERFLOW_FILL_MS, UNDERRUN_FILL_MS } from "../src/audio/levels";
 import { browserGaps } from "./harness";
+import { descendants, holdFullSpeed, processTable } from "./processCpu";
 import { serveDir, type StaticServer } from "./staticServer";
 import type { CaptureResult, PlaybackResult, ToneSegment } from "./audioProbe";
 
@@ -88,6 +92,11 @@ async function openProbe(page: Page, isolated: boolean): Promise<void> {
   // A user gesture, for engines whose AudioContext starts suspended until one.
   await page.click("#go");
   expect(await page.evaluate(() => globalThis.crossOriginIsolated)).toBe(isolated);
+  // As `harness.ts` `openPage`: Windows 11 runs a browser with no visible window under EcoQoS,
+  // whose late timers would starve the ring.
+  if (process.platform === "win32") {
+    holdFullSpeed(descendants(processTable(), process.pid));
+  }
 }
 
 async function play(page: Page, segments: ToneSegment[], at: number[]): Promise<PlaybackResult> {
@@ -111,6 +120,30 @@ function expectTone(heard: PlaybackResult["heard"][number] | undefined, hz: numb
   expect(Math.abs((heard?.rms ?? 0) - TONE_RMS) / TONE_RMS, `rms ${heard?.rms}`).toBeLessThan(0.1);
 }
 
+/** What the fill check allows for sampling the clock between device callbacks. */
+const FILL_MARGIN_MS = 10;
+
+/**
+ * Why the underrun and overflow counts of `result` measure the host rather than the worklet, or
+ * null. They hold only while the ring stays between the worklet's floor and ceiling, and the fill
+ * that the pushes and the audio clock imply leaves that band only when the page's timers or the
+ * audio clock ran late or in bursts, as on a hosted runner with no audio device and shared CPUs.
+ */
+function realTimeGap(result: PlaybackResult): string | null {
+  const { lowMs, highMs } = result.impliedFill;
+  const floor = UNDERRUN_FILL_MS + FILL_MARGIN_MS;
+  const ceiling = OVERFLOW_FILL_MS - FILL_MARGIN_MS;
+  if (lowMs >= floor && highMs <= ceiling) {
+    return null;
+  }
+  const ms = (value: number) => `${Math.round(value)} ms`;
+  return (
+    `host-not-real-time: the pushes and the audio clock put the ring between ${ms(lowMs)} and ${ms(highMs)}, ` +
+    `outside ${ms(floor)} to ${ms(ceiling)} (the pacing keeps 100 to 120 ms), ` +
+    `so the counters ${JSON.stringify(result.counters)} measure the host, not the worklet`
+  );
+}
+
 for (const isolated of [true, false]) {
   const transport = isolated ? "the shared ring" : "the transferred MessagePort";
 
@@ -123,6 +156,8 @@ for (const isolated of [true, false]) {
     expectTone(result.heard[0], 440);
     // Everything was played, the tail under the 10 ms floor included.
     expect(result.consumedEnd).toBe("14400");
+    const gap = realTimeGap(result);
+    test.skip(gap !== null, gap ?? "");
     expect(result.counters?.underruns).toBe(1);
     expect(result.counters?.overflows).toBe(0);
   });

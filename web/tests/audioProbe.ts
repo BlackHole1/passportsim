@@ -30,6 +30,19 @@ export interface Heard {
   readonly rms: number;
 }
 
+/**
+ * The ring fill, in ms of guest audio, that the probe's own pushes and the context's clock imply
+ * while the pushes last: what was pushed minus what the clock says has played since the first
+ * push. The pacing keeps it between 100 and 120 ms, plus one device callback (10 to 40 ms), since
+ * `currentTime` moves a callback at a time. It leaves that band only when the page's timers or the
+ * audio clock did not keep to the wall clock. On the shared ring it steps with the real fill; on
+ * the transferred port, message delivery can lower the real fill without it showing here.
+ */
+export interface ImpliedFill {
+  readonly lowMs: number;
+  readonly highMs: number;
+}
+
 export interface PlaybackResult {
   readonly isolated: boolean;
   readonly contextRate: number;
@@ -37,6 +50,7 @@ export interface PlaybackResult {
   readonly consumedEnd: string;
   readonly heard: Heard[];
   readonly counters: PlaybackCounters | null;
+  readonly impliedFill: ImpliedFill;
 }
 
 export interface CaptureResult {
@@ -50,6 +64,9 @@ export interface CaptureResult {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const AMPLITUDE = 8_000;
+
+/** How long the playback engine may take to send its first report after `resume`. */
+const ENGINE_WAIT_MS = 5_000;
 
 function measure(analyser: AnalyserNode, rate: number, atMs: number): Heard {
   const window = new Float32Array(analyser.fftSize);
@@ -110,11 +127,37 @@ async function playback(segments: ToneSegment[], measureAtMs: number[]): Promise
     host.attach({});
   }
   await host.resume();
+  // A guest streams into a worklet that is already rendering. Until its first report the engine
+  // may not exist yet (the options message has not reached the audio thread, or the output has not
+  // opened), and the clock would run with nothing consuming.
+  const ready = performance.now();
+  while (counters === null) {
+    if (performance.now() - ready > ENGINE_WAIT_MS) {
+      throw new Error(`the playback worklet sent no report within ${ENGINE_WAIT_MS} ms of resume (context ${context.state})`);
+    }
+    await sleep(5);
+  }
 
   const start = performance.now();
+  const clockAtStart = context.currentTime;
   const heard: Heard[] = [];
   const pending = [...measureAtMs].sort((a, b) => a - b);
+  // From the end of the lead to the last push; before, the lead is going in, and after, the ring
+  // drains.
+  let pushedMs = 0;
+  let pacing = false;
+  let lowMs = Infinity;
+  let highMs = -Infinity;
+  const observeFill = () => {
+    if (!pacing) {
+      return;
+    }
+    const playedMs = (context.currentTime - clockAtStart) * 1000;
+    lowMs = Math.min(lowMs, pushedMs - playedMs);
+    highMs = Math.max(highMs, pushedMs - playedMs);
+  };
   const listen = () => {
+    observeFill();
     const now = performance.now() - start;
     while (pending.length > 0 && (pending[0] ?? Infinity) <= now) {
       heard.push(measure(analyser, context.sampleRate, pending.shift() ?? now));
@@ -139,8 +182,12 @@ async function playback(segments: ToneSegment[], measureAtMs: number[]): Promise
           samples[frame * 2 + 1] = Math.round(20_000 * Math.sin((2 * Math.PI * 3_000 * n) / segment.rate));
         }
       }
-      pushed += transport.push(samples);
+      observeFill();
+      const accepted = transport.push(samples);
+      pushed += accepted;
+      pushedMs += (accepted * 1000) / segment.channels / segment.rate;
       wallMs += 20;
+      pacing = wallMs >= 0;
       // Pace on the wall clock, not on the timer's promise, so late timers do not stretch the song.
       while (performance.now() - start < wallMs) {
         listen();
@@ -148,6 +195,7 @@ async function playback(segments: ToneSegment[], measureAtMs: number[]): Promise
       }
     }
   }
+  pacing = false;
   while (pending.length > 0) {
     listen();
     await sleep(2);
@@ -160,6 +208,7 @@ async function playback(segments: ToneSegment[], measureAtMs: number[]): Promise
     consumedEnd: transport.consumedSamples().toString(),
     heard,
     counters,
+    impliedFill: { lowMs, highMs },
   };
   await host.close();
   return result;
