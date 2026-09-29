@@ -45,6 +45,10 @@ export function Header() {
     if (!node) {
       return;
     }
+    const badge = document.querySelector(".emulator-badge");
+    if (badge) {
+      badge.textContent = t("header.badge");
+    }
     const place = () => {
       const right = node.getBoundingClientRect().right;
       document.documentElement.style.setProperty("--badge-left", `${Math.round(right + 10)}px`);
@@ -54,7 +58,7 @@ export function Header() {
     return () => {
       window.removeEventListener("resize", place);
     };
-  }, [prefs.locale]);
+  }, [prefs.locale, t]);
 
   const ThemeIcon = THEME_ICON[prefs.theme];
   return (

@@ -68,7 +68,7 @@ export function AudioCard() {
           onChange={(next) => update({ source: next })}
           options={audio.MIC_SOURCES.map((option) => ({
             value: option.id,
-            label: option.id,
+            label: t(`audio.sourceName.${option.id}`),
             title: t(`audio.source.${option.id}`),
           }))}
           value={source}
