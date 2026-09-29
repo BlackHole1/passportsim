@@ -189,7 +189,7 @@ Main thread (React)          Emulator Worker (wasm core)           AudioWorklet
 ```
 
 - **运行时。** 核心在一个专用 Worker 中单线程运行。页面跨源隔离时，各 JavaScript 部分之间使用 SharedArrayBuffer 环形缓冲区，否则回退到 `postMessage`。所有浏览器引擎的定时器精度都较粗，因此 Worker 用 `Atomics.wait` 等待，用 `Atomics.waitAsync` 让出(缺少它时用 MessageChannel)。
-- **界面。** React 配合内置的 coss ui 组件(MIT)和 Tailwind，不使用 CDN，构建产物是扁平的(`index.html`、`styles.css`、`main.js`、`worker.js`、`worklet.js`)。简洁模式显示设备、固件卡片和日志；高级模式增加运行控制、控制台、UI 树、事件、检查、保真度和环境卡片。支持英文、简体中文、日文和法文；首次访问时跟随系统语言。
+- **界面。** React 配合内置的 coss ui 组件(MIT)和 Tailwind，不使用 CDN，构建产物是扁平的(`index.html`、`styles.css`、`main.js`、`worker.js`、`worklet.js`，以及 `web/public/` 中的三个图标)。简洁模式显示设备、固件卡片和日志；高级模式增加运行控制、控制台、UI 树、事件、检查、保真度和环境卡片。支持英文、简体中文、日文和法文；首次访问时跟随系统语言。
 - **设备视图**使用 FoloToy 的 AI Passport 正面产品照片(见 `THIRD_PARTY.md`)，模拟的屏幕叠加在照片中的屏幕位置，侧面按键就是操作控件(几何参数在 `web/src/app/skinGeometry.ts` 中)。缩放可选适应窗口，或 60 x 95 mm 机身的 100、140、180 %；栏宽足够时适应窗口不会低于 140 %，以保证固件文字清晰可读。屏幕上始终显示 `Emulator` 标记，避免截图被误认为是真机照片。按键发送按下和松开两个边沿，至少保持 80 ms 客户机时间。
 - **每个控件都调用一个注册表命令**，每条记录的操作都可以复制为命令行命令或场景步骤。
 - **数据不离开浏览器。** 页面只对自身文件发出 GET 请求。固件、快照、截图和固件历史(IndexedDB，最多 12 条或 160 MiB)都保存在本地。

@@ -3,16 +3,16 @@
 //! ```text
 //! passportsim-<ver>-<os-arch>/       passportsim-<ver>-web/
 //!   passportsim[.exe]                  index.html  styles.css  main.js  worker.js  worklet.js
-//!   receipt.json                        pemu_wasm.wasm
-//!   LICENSE  THIRD_PARTY.md             official.pebundle          (when embedded)
-//!   docs/quickstart.md                  LICENSE  THIRD_PARTY.md
-//!   docs/deploy-cloudflare.md           licenses/esp-rom-elfs.LICENSE
-//!   docs/commands/*.md  docs/errors.md  licenses/esp-rom-elfs.NOTICE
-//!   skills/passportsim/**               licenses/official-demo.LICENSE  (when embedded)
-//!   assets/rom/{LICENSE,NOTICE,pins.toml}  licenses/official-demo.NOTICE  (when embedded)
-//!   payload/schema/**                   install.sh  install.ps1
-//!   payload/web/**                      wrangler.jsonc  _headers  .assetsignore
-//!   payload/firmware/**   (when embedded)
+//!   receipt.json                       favicon.svg  favicon-32.png  apple-touch-icon.png
+//!   LICENSE  THIRD_PARTY.md            pemu_wasm.wasm
+//!   docs/quickstart.md                 official.pebundle          (when embedded)
+//!   docs/deploy-cloudflare.md          LICENSE  THIRD_PARTY.md
+//!   docs/commands/*.md  docs/errors.md licenses/esp-rom-elfs.LICENSE
+//!   skills/passportsim/**              licenses/esp-rom-elfs.NOTICE
+//!   assets/rom/{LICENSE,NOTICE,pins.toml}  licenses/official-demo.LICENSE  (when embedded)
+//!   payload/schema/**                  licenses/official-demo.NOTICE  (when embedded)
+//!   payload/web/**                     install.sh  install.ps1
+//!   payload/firmware/**   (when embedded)  wrangler.jsonc  _headers  .assetsignore
 //!   docs/secrets.md
 //!   docs/i18n/{zh-CN,ja,fr}/{quickstart,secrets,deploy-cloudflare}.md
 //! ```
@@ -64,13 +64,17 @@ pub fn target_shape(target: &str) -> Result<(&'static str, &'static str), String
 }
 
 /// Files `bun run build` publishes (`web/package.json`). `worklet.js` is the audio worklet
-/// `main.js` loads; without it a packaged page has no audio.
-const WEB_FILES: [&str; 5] = [
+/// `main.js` loads; without it a packaged page has no audio. The three icons are the ones
+/// `index.html` links.
+const WEB_FILES: [&str; 8] = [
     "index.html",
     "styles.css",
     "main.js",
     "worker.js",
     "worklet.js",
+    "favicon.svg",
+    "favicon-32.png",
+    "apple-touch-icon.png",
 ];
 
 /// The wasm core's name, which `web/src/worker/worker.ts` asks for beside `worker.js`.

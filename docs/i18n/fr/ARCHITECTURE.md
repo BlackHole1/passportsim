@@ -375,8 +375,8 @@ Main thread (React)          Emulator Worker (wasm core)           AudioWorklet
   attend donc avec `Atomics.wait` et cède la main avec `Atomics.waitAsync` (MessageChannel quand il
   manque).
 - **Interface.** React avec des composants coss ui intégrés au dépôt (MIT) et Tailwind, sans CDN, et
-  un build à plat (`index.html`, `styles.css`, `main.js`, `worker.js`, `worklet.js`). Le mode
-  simple montre l'appareil, une carte firmware et un journal ; le mode avancé ajoute le contrôle de
+  un build à plat (`index.html`, `styles.css`, `main.js`, `worker.js`, `worklet.js` et les trois
+  icônes de `web/public/`). Le mode simple montre l'appareil, une carte firmware et un journal ; le mode avancé ajoute le contrôle de
   l'exécution, la console, l'arbre de l'interface, les événements, l'inspection, la fidélité et les
   cartes d'environnement. Anglais, chinois simplifié, japonais et français ; la première visite suit
   la langue du système.

@@ -95,3 +95,21 @@ describe("the built bundle", () => {
     }
   }, 30_000);
 });
+
+describe("the files index.html names", () => {
+  test("are copied by the build and shipped in every package", async () => {
+    const html = await Bun.file(join(WEB, "public", "index.html")).text();
+    const named = [...html.matchAll(/\b(?:href|src)="\.\/([^"]+)"/g)].map((match) => match[1] ?? "");
+    expect(named).toContain("favicon.svg");
+    const script = JSON.parse(await Bun.file(join(WEB, "package.json")).text()).scripts.build as string;
+    const layout = await Bun.file(join(WEB, "..", "xtask", "src", "package", "layout.rs")).text();
+    const list = /const WEB_FILES: \[&str; \d+\] = \[([^\]]*)\]/.exec(layout)?.[1] ?? "";
+    const shipped = [...list.matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+    for (const file of named) {
+      // Built by a step of its own, or copied from `public/`.
+      const built = ["main.js", "styles.css"].includes(file);
+      expect(built || script.includes(`cp public/${file} dist/`)).toBe(true);
+      expect(shipped).toContain(file);
+    }
+  });
+});

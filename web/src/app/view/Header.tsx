@@ -10,12 +10,19 @@ import { LOCALE_NAMES, LOCALES, isLocale } from "../i18n";
 import { isMode, isThemeChoice, THEME_CHOICES, type ThemeChoice } from "../prefs";
 import { usePage, useStore, useT } from "./hooks";
 
+/**
+ * The project mark (`docs/images/logo.svg`, also `public/favicon.svg`). Its colours are the mark's
+ * own in both themes; the name beside it follows the theme, which the wordmark's fixed text could not.
+ */
 function Logo() {
   return (
-    <svg aria-hidden="true" className="size-6 shrink-0 text-foreground" fill="none" viewBox="0 0 24 24">
-      <rect height="20" rx="3.5" stroke="currentColor" strokeWidth="1.75" width="14" x="5" y="2" />
-      <rect fill="currentColor" height="8" rx="1" width="8" x="8" y="6" />
-      <rect fill="currentColor" height="1.75" rx="0.875" width="4" x="10" y="17" />
+    <svg aria-hidden="true" className="brand-mark size-7 shrink-0" viewBox="0 0 128 128">
+      <rect fill="#ef492e" height="128" width="128" />
+      <rect fill="#1b1b19" height="86" width="23" x="24" y="22" />
+      <rect fill="#1b1b19" height="23" width="49" x="53" y="22" />
+      <rect fill="#1b1b19" height="25" width="23" x="79" y="51" />
+      <rect fill="#1b1b19" height="26" width="23" x="53" y="82" />
+      <path d="M53 51 L72 63 L53 75 Z" fill="#f4efe5" />
     </svg>
   );
 }

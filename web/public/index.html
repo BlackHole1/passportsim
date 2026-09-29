@@ -9,6 +9,13 @@
     -->
     <title>PassportSim</title>
     <meta name="color-scheme" content="light dark" />
+    <!--
+      The PNG carries `sizes`, so a browser that reads SVG icons picks the SVG. Relative URLs, like
+      the rest of the page, so the UI works under any path.
+    -->
+    <link rel="icon" href="./favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
     <link rel="stylesheet" href="./styles.css" />
     <script>
       // The theme is applied before the first paint, so a dark page never flashes white. The same

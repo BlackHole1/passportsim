@@ -483,6 +483,10 @@ mod tests {
         assert_eq!(content_type("main.js"), "text/javascript; charset=utf-8");
         assert_eq!(content_type("styles.css"), "text/css; charset=utf-8");
         assert_eq!(content_type("pemu_wasm.wasm"), "application/wasm");
+        // The page's icons (`web/public/index.html`).
+        assert_eq!(content_type("favicon.svg"), "image/svg+xml");
+        assert_eq!(content_type("favicon-32.png"), "image/png");
+        assert_eq!(content_type("apple-touch-icon.png"), "image/png");
         assert_eq!(content_type("official.pebundle"), OCTET_STREAM);
         assert_eq!(content_type("no-extension"), OCTET_STREAM);
     }

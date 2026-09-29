@@ -330,9 +330,9 @@ Main thread (React)          Emulator Worker (wasm core)           AudioWorklet
   fallback otherwise. Timers are coarse in every engine, so the Worker waits with `Atomics.wait`
   and yields with `Atomics.waitAsync` (MessageChannel when that is missing).
 - **UI.** React with vendored coss ui components (MIT) and Tailwind, no CDN, and a flat build
-  (`index.html`, `styles.css`, `main.js`, `worker.js`, `worklet.js`). Simple mode shows the device,
-  a firmware card and a log; advanced mode adds run control, console, UI tree, events, inspect,
-  fidelity and environment cards. English, Simplified Chinese, Japanese and French; the first
+  (`index.html`, `styles.css`, `main.js`, `worker.js`, `worklet.js` and the three icons from
+  `web/public/`). Simple mode shows the device, a firmware card and a log; advanced mode adds run
+  control, console, UI tree, events, inspect, fidelity and environment cards. English, Simplified Chinese, Japanese and French; the first
   visit follows the system locale.
 - **The device view** is FoloToy's front product photo of the AI Passport (see `THIRD_PARTY.md`),
   with the emulated glass over the photo's screen and the side buttons as the controls

@@ -968,6 +968,9 @@ fn the_package_carries_everything_it_documents() {
         "payload/web/main.js",
         "payload/web/worklet.js",
         "payload/web/styles.css",
+        "payload/web/favicon.svg",
+        "payload/web/favicon-32.png",
+        "payload/web/apple-touch-icon.png",
         "payload/web/pemu_wasm.wasm",
     ];
     if matches!(
@@ -1247,6 +1250,9 @@ fn the_web_bundle_is_servable_and_carries_the_same_demo_as_the_package() {
         "main.js",
         "worker.js",
         "worklet.js",
+        "favicon.svg",
+        "favicon-32.png",
+        "apple-touch-icon.png",
         "pemu_wasm.wasm",
     ] {
         assert!(
@@ -1542,6 +1548,9 @@ fn synthetic_inputs(dir: &Path) -> PathBuf {
         "main.js",
         "worker.js",
         "worklet.js",
+        "favicon.svg",
+        "favicon-32.png",
+        "apple-touch-icon.png",
     ] {
         std::fs::write(dir.join(name), name).unwrap();
     }
@@ -1906,12 +1915,15 @@ const READY_LINE: &str = "main: 就绪:Display=1 Button=1 Audio=1 Battery=1";
 /// The merged image an `idf.py` build directory of `official` holds.
 const MERGED_IMAGE: &str = "FoloToy-AI-Passport-8MB.bin";
 
-const WEB_FILES: [&str; 6] = [
+const WEB_FILES: [&str; 9] = [
     "index.html",
     "styles.css",
     "main.js",
     "worker.js",
     "worklet.js",
+    "favicon.svg",
+    "favicon-32.png",
+    "apple-touch-icon.png",
     "pemu_wasm.wasm",
 ];
 

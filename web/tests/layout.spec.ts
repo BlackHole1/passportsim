@@ -63,6 +63,36 @@ test("a first visit sees the device fitted, over 140 %, in both modes on a lapto
   }
 });
 
+test("the header shows the project mark, and every icon the page links loads under isolation", async ({ page }) => {
+  await openPage(page, 1280, 900, "simple");
+  const mark = await page.locator(".app-header .brand-mark").boundingBox();
+  expect(mark?.width).toBeGreaterThanOrEqual(24);
+  expect(mark?.width).toBe(mark?.height);
+  await expect(page.locator(".app-header .brand")).toContainText("PassportSim");
+
+  // Loaded as images by the page itself, so the cross-origin isolation headers apply to them.
+  const icons = await page.evaluate(async () => {
+    const links = [...document.querySelectorAll<HTMLLinkElement>('link[rel="icon"], link[rel="apple-touch-icon"]')];
+    return Promise.all(
+      links.map(async (link) => {
+        const response = await fetch(link.href);
+        const image = new Image();
+        image.src = link.href;
+        const loaded = await image.decode().then(
+          () => image.naturalWidth > 0,
+          () => false,
+        );
+        return { href: link.getAttribute("href"), status: response.status, type: response.headers.get("content-type"), loaded };
+      }),
+    );
+  });
+  expect(icons).toEqual([
+    { href: "./favicon-32.png", status: 200, type: "image/png", loaded: true },
+    { href: "./favicon.svg", status: 200, type: "image/svg+xml", loaded: true },
+    { href: "./apple-touch-icon.png", status: 200, type: "image/png", loaded: true },
+  ]);
+});
+
 test("the header switches mode and language, and both survive a reload", async ({ page }) => {
   // Not `openPage`: its pinned preferences would be written again on the reload.
   await page.setViewportSize({ width: 1280, height: 900 });

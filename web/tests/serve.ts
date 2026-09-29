@@ -26,6 +26,8 @@ const TYPES: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
   ".wasm": "application/wasm",
   ".json": "application/json",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
   ".pebundle": "application/octet-stream",
 };
 
