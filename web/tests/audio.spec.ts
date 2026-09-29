@@ -7,7 +7,7 @@
 // device); the install hint of `browsers.ts` for a missing browser; `bun-not-on-path` when the
 // probe cannot be bundled; `no-audio-output` for the playback tests when the browser starts no
 // audio clock (Firefox on a hosted Windows runner, which has no audio device); `host-not-real-time`
-// for the underrun and overflow counts and the pitch of the rate-change test when the host's audio
+// for the pitch, level and underrun and overflow counts of the playback tests when the host's audio
 // clock or timers did not keep to the wall clock (a hosted CI runner with no audio device), measured
 // by `realTimeGap`.
 
@@ -151,6 +151,16 @@ function realTimeGap(result: PlaybackResult): string | null {
   );
 }
 
+/**
+ * Skips the rest of a playback test when `realTimeGap` finds the ring left its band: an underrun
+ * puts silence in the measured window and an overflow drops samples from it, so the pitch and level
+ * measure the host too.
+ */
+function skipUnlessRealTime(result: PlaybackResult): void {
+  const gap = realTimeGap(result);
+  test.skip(gap !== null, gap ?? "");
+}
+
 for (const isolated of [true, false]) {
   const transport = isolated ? "the shared ring" : "the transferred MessagePort";
 
@@ -160,11 +170,10 @@ for (const isolated of [true, false]) {
 
     expect(result.isolated).toBe(isolated);
     expect(result.pushed).toBe(14_400);
-    expectTone(result.heard[0], 440);
     // Everything was played, the tail under the 10 ms floor included.
     expect(result.consumedEnd).toBe("14400");
-    const gap = realTimeGap(result);
-    test.skip(gap !== null, gap ?? "");
+    skipUnlessRealTime(result);
+    expectTone(result.heard[0], 440);
     expect(result.counters?.underruns).toBe(1);
     expect(result.counters?.overflows).toBe(0);
   });
@@ -172,9 +181,10 @@ for (const isolated of [true, false]) {
   test(`playback over ${transport} plays the left slot of a stereo stream`, async ({ page }) => {
     await openProbe(page, isolated);
     const result = await play(page, [{ rate: 24_000, channels: 2, hz: 660, ms: 600 }], [400]);
+    expect(result.consumedEnd).toBe(String(2 * 14_400));
+    skipUnlessRealTime(result);
     // The right slot is a 3 kHz tone at more than twice the level; none of it may be heard.
     expectTone(result.heard[0], 660);
-    expect(result.consumedEnd).toBe(String(2 * 14_400));
   });
 
   test(`playback over ${transport} follows a rate change inside one stream`, async ({ page }) => {
@@ -188,9 +198,7 @@ for (const isolated of [true, false]) {
       [450, 1_150],
     );
     expect(result.counters?.straySamples).toBe(0);
-    // An underrun or overflow in a window puts a gap or a jump in its zero crossings.
-    const gap = realTimeGap(result);
-    test.skip(gap !== null, gap ?? "");
+    skipUnlessRealTime(result);
     // Played at the wrong rate, the second segment would sound at 587 Hz (880 * 16 / 24).
     expectTone(result.heard[0], 440);
     expectTone(result.heard[1], 880);
