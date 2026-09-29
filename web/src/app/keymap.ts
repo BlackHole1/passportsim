@@ -1,5 +1,5 @@
-// The keyboard map: every device control has a key, so a user without a pointer reaches UP, OK,
-// DOWN and POWER. Whether a key belongs to the device or a text field is decided here, so the
+// The keyboard map: every device control has a key, so a user without a pointer reaches UP, DOWN,
+// OK and POWER. Whether a key belongs to the device or a text field is decided here, so the
 // console input's Enter never presses OK.
 
 import type { ButtonName } from "../api/commands";

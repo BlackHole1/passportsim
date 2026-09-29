@@ -25,9 +25,9 @@ describe("the glass", () => {
 });
 
 describe("the side buttons", () => {
-  test("UP, OK and DOWN are on the right edge top to bottom; POWER on the left", () => {
+  test("UP, DOWN and OK are on the right edge top to bottom; POWER on the left", () => {
     const right = EDGE_CONTROLS.filter((control) => control.edge === "right");
-    expect(right.map((control) => control.id)).toEqual(["up", "ok", "down"]);
+    expect(right.map((control) => control.id)).toEqual(["up", "down", "ok"]);
     expect(EDGE_CONTROLS.filter((control) => control.edge === "left").map((control) => control.id)).toEqual(["power"]);
     const ys = right.map((control) => control.box.y);
     expect([...ys].sort((a, b) => a - b)).toEqual(ys);

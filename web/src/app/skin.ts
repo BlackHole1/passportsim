@@ -12,10 +12,11 @@ export interface LadderButton {
   readonly ariaLabel: string;
 }
 
+/** The ladder buttons in the device's order, top to bottom (`skinGeometry.ts` `EDGE_CONTROLS`). */
 export const LADDER_BUTTONS: readonly LadderButton[] = [
   { id: "up", button: ButtonId.Up, label: "UP", ariaLabel: "Up button" },
-  { id: "ok", button: ButtonId.Ok, label: "OK", ariaLabel: "OK button" },
   { id: "down", button: ButtonId.Down, label: "DOWN", ariaLabel: "Down button" },
+  { id: "ok", button: ButtonId.Ok, label: "OK", ariaLabel: "OK button" },
 ];
 
 /**

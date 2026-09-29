@@ -54,17 +54,24 @@ test.describe("the device view", () => {
     const k = (box?.width ?? 0) / 558;
     expect(Math.abs(screen.x - (box?.x ?? 0) - 103 * k)).toBeLessThanOrEqual(1);
     expect(Math.abs(screen.width - 284 * k)).toBeLessThanOrEqual(1);
-    // UP, OK and DOWN on the right edge top to bottom, POWER on the left, each reaching out to its name.
+    // UP, DOWN and OK on the right edge top to bottom, POWER on the left, each reaching out to its name.
     const edge = async (id: string) => (await page.locator(`[data-device-body] [data-control=${id}]`).boundingBox())!;
-    const [up, ok, down, power] = [await edge("up"), await edge("ok"), await edge("down"), await edge("power")];
+    const [up, down, ok, power] = [await edge("up"), await edge("down"), await edge("ok"), await edge("power")];
     const left = box?.x ?? 0;
     const right = left + (box?.width ?? 0);
-    for (const control of [up, ok, down]) {
+    for (const control of [up, down, ok]) {
       expect(control.x).toBeLessThan(right);
       expect(control.x + control.width).toBeGreaterThan(right);
     }
-    expect(up.y).toBeLessThan(ok.y);
-    expect(ok.y).toBeLessThan(down.y);
+    expect(up.y).toBeLessThan(down.y);
+    expect(down.y).toBeLessThan(ok.y);
+    await expect(page.locator("[data-device-body] [data-control=down]")).toContainText("DOWN");
+    await expect(page.locator("[data-device-body] [data-control=ok]")).toContainText("OK");
+    // The tab order follows the device, top to bottom.
+    const order = await page
+      .locator("[data-device-body] [data-control]")
+      .evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-control")));
+    expect(order).toEqual(["up", "down", "ok", "power"]);
     expect(power.x).toBeLessThan(left);
     expect(power.x + power.width).toBeGreaterThan(left);
     // The badge stays on screen, so a screenshot of the device is never taken for a photo.

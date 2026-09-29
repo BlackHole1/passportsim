@@ -6,7 +6,7 @@
 //
 // | Control | Driven | Checked by |
 // |---|---|---|
-// | buttons | pointerdown and pointerup on the UP, OK and DOWN keys of the skin | three `input` rows in the Events tab, and the selection moving on the glass |
+// | buttons | pointerdown and pointerup on the UP, DOWN and OK keys of the skin | three `input` rows in the Events tab, and the selection moving on the glass |
 // | battery and charger | the SOC slider and the Charger checkbox | an `env` row, two cable `input` rows, the USB strip following, and the card showing no refusal |
 // | microphone source | the Mic source select | a `mic_set` row, and the card showing no refusal |
 // | console | the console input box | a `serial` row carrying the line, and the card showing no refusal |

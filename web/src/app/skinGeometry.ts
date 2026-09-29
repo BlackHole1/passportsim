@@ -33,11 +33,15 @@ export const SCREEN_MM: MmBox = mm(103, 118 + (378 - (284 * 4) / 3) / 2, 284, (2
 
 export const SCREEN_RADIUS_MM = 31 * MM_PER_PX;
 
-/** UP, OK and DOWN on the right edge at a 138 px pitch, POWER on the left level with UP. */
+/**
+ * UP, DOWN and OK on the right edge top to bottom at a 138 px pitch, POWER on the left level with
+ * UP. The order is FoloToy's own ("UP, DOWN, OK"), and the one the ladder's codes rise in
+ * (`boards/ai-passport.toml` `[buttons]`: up 3, down 394, ok 782).
+ */
 export const EDGE_CONTROLS: readonly EdgeControl[] = [
   { id: "up", edge: "right", box: mm(540, 127, 18, 92) },
-  { id: "ok", edge: "right", box: mm(540, 265, 18, 92) },
-  { id: "down", edge: "right", box: mm(540, 403, 18, 92) },
+  { id: "down", edge: "right", box: mm(540, 265, 18, 92) },
+  { id: "ok", edge: "right", box: mm(540, 403, 18, 92) },
   { id: "power", edge: "left", box: mm(0, 128, 18, 90) },
 ];
 

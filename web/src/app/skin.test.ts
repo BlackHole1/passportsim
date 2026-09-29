@@ -10,9 +10,9 @@ import {
 import { PANEL_HEIGHT, PANEL_WIDTH } from "./scale";
 
 describe("the ladder buttons", () => {
-  test("the skin draws UP, OK and DOWN, and each maps to a distinct ButtonId", () => {
-    expect(LADDER_BUTTONS.map((b) => b.label)).toEqual(["UP", "OK", "DOWN"]);
-    expect(LADDER_BUTTONS.map((b) => b.button)).toEqual([ButtonId.Up, ButtonId.Ok, ButtonId.Down]);
+  test("the skin draws UP, DOWN and OK, and each maps to a distinct ButtonId", () => {
+    expect(LADDER_BUTTONS.map((b) => b.label)).toEqual(["UP", "DOWN", "OK"]);
+    expect(LADDER_BUTTONS.map((b) => b.button)).toEqual([ButtonId.Up, ButtonId.Down, ButtonId.Ok]);
     expect(new Set(LADDER_BUTTONS.map((b) => b.button)).size).toBe(3);
   });
 
