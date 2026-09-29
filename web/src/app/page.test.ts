@@ -383,7 +383,7 @@ describe("the NFC card", () => {
     const app = mountPage();
 
     query(app.mount, '[data-action="ndef-add"]').click();
-    await settle();
+    await settleUntil(() => app.mount.querySelectorAll(".ndef-list li").length === 1);
     expect(app.calls("nfc_tag")[0]?.args).toEqual({
       ndef: [{ type: "uri", uri: "https://example.com/p" }],
     });
@@ -392,7 +392,7 @@ describe("the NFC card", () => {
     expect(list.querySelectorAll("li")).toHaveLength(1);
 
     buttonNamed(list, "remove").click();
-    await settle();
+    await settleUntil(() => app.calls("nfc_tag").length === 2);
     expect(app.calls("nfc_tag")[1]?.args).toEqual({ ndef: [] });
   });
 
@@ -663,7 +663,7 @@ describe("Copy as CLI, Copy as scenario step and Record scenario", () => {
     const pane = query(app.mount, "#pane-events");
     const [row, released] = [...pane.querySelectorAll('tbody tr[data-source="ui"]')] as HTMLElement[];
     fire(query(row!, '[data-copy="cli"]'), "click");
-    await settle();
+    await settleUntil(() => query(pane, '[data-export="status"]').textContent !== "");
     const output = query(pane, '[data-export="output"]') as HTMLTextAreaElement;
     expect(output.value).toBe("passportsim input ok press");
     expect(query(pane, '[data-export="status"]').textContent).toContain("no clipboard");
