@@ -71,16 +71,15 @@ With `make`, pass arguments as variables: `make run PORT=8080`, `make cli ARGS="
 
 The page is available in English, Chinese, Japanese and French, in light and dark themes.
 
-<table>
-  <tr>
-    <td width="50%"><img src="docs/images/web-simple-dark.png" alt="Simple mode in Chinese and the dark theme, right after a firmware was loaded"></td>
-    <td width="50%"><img src="docs/images/web-advanced-console.png" alt="Advanced mode with the serial console"></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>Loading your own firmware</sub></td>
-    <td align="center"><sub>Advanced mode and the serial console</sub></td>
-  </tr>
-</table>
+<div align="center">
+<img src="docs/images/web-advanced.png" alt="Advanced mode with the serial console and every device card" width="900">
+<br><sub>Advanced mode: run control, the serial console, and the cards for battery, USB, audio, Wi-Fi, Bluetooth, NFC and snapshots</sub>
+</div>
+
+<div align="center">
+<img src="docs/images/web-simple-dark.png" alt="Simple mode in Chinese and the dark theme, right after a firmware was loaded" width="900">
+<br><sub>Loading your own firmware</sub>
+</div>
 
 ## From the command line
 

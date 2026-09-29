@@ -75,16 +75,15 @@ Avec `make`, les arguments passent par des variables : `make run PORT=8080`,
 
 La page existe en français, anglais, chinois et japonais, en thème clair et sombre.
 
-<table>
-  <tr>
-    <td width="50%"><img src="../../images/web-simple-dark.png" alt="Mode simple en chinois et en thème sombre, juste après le chargement d'un firmware"></td>
-    <td width="50%"><img src="../../images/web-advanced-console.png" alt="Mode avancé avec la console série"></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>Charger votre propre firmware</sub></td>
-    <td align="center"><sub>Le mode avancé et la console série</sub></td>
-  </tr>
-</table>
+<div align="center">
+<img src="../../images/web-advanced.png" alt="Mode avancé avec la console série et toutes les cartes de l'appareil" width="900">
+<br><sub>Le mode avancé : contrôle de l'exécution, console série et cartes batterie, USB, audio, Wi-Fi, Bluetooth, NFC et instantanés</sub>
+</div>
+
+<div align="center">
+<img src="../../images/web-simple-dark.png" alt="Mode simple en chinois et en thème sombre, juste après le chargement d'un firmware" width="900">
+<br><sub>Charger votre propre firmware</sub>
+</div>
 
 ## En ligne de commande
 

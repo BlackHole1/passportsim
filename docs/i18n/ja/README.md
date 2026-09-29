@@ -65,16 +65,15 @@ just run      # ビルドして Web UI を http://127.0.0.1:4173/ で開く
 
 日本語、英語、中国語、フランス語に対応し、ライトテーマとダークテーマを選べます。
 
-<table>
-  <tr>
-    <td width="50%"><img src="../../images/web-simple-dark.png" alt="中国語・ダークテーマのシンプルモード、ファームウェアを読み込んだ直後"></td>
-    <td width="50%"><img src="../../images/web-advanced-console.png" alt="アドバンスモードとシリアルコンソール"></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>自分のファームウェアを読み込む</sub></td>
-    <td align="center"><sub>アドバンスモードとシリアルコンソール</sub></td>
-  </tr>
-</table>
+<div align="center">
+<img src="../../images/web-advanced.png" alt="シリアルコンソールとすべてのデバイスカードを表示したアドバンスモード" width="900">
+<br><sub>アドバンスモード：実行制御、シリアルコンソール、バッテリー、USB、オーディオ、Wi-Fi、Bluetooth、NFC、スナップショットのカード</sub>
+</div>
+
+<div align="center">
+<img src="../../images/web-simple-dark.png" alt="中国語・ダークテーマのシンプルモード、ファームウェアを読み込んだ直後" width="900">
+<br><sub>自分のファームウェアを読み込む</sub>
+</div>
 
 ## コマンドラインで使う
 

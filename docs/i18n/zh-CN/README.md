@@ -65,16 +65,15 @@ just run      # 构建并打开网页界面 http://127.0.0.1:4173/
 
 界面支持中文、英文、日文和法文，以及浅色和深色主题。
 
-<table>
-  <tr>
-    <td width="50%"><img src="../../images/web-simple-dark.png" alt="中文深色主题下的简洁模式，刚加载了一份固件"></td>
-    <td width="50%"><img src="../../images/web-advanced-console.png" alt="高级模式与串口控制台"></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>加载自己的固件</sub></td>
-    <td align="center"><sub>高级模式与串口控制台</sub></td>
-  </tr>
-</table>
+<div align="center">
+<img src="../../images/web-advanced.png" alt="高级模式：串口控制台与全部设备卡片" width="900">
+<br><sub>高级模式：运行控制、串口控制台，以及电池、USB、音频、Wi-Fi、蓝牙、NFC 和快照卡片</sub>
+</div>
+
+<div align="center">
+<img src="../../images/web-simple-dark.png" alt="中文深色主题下的简洁模式，刚加载了一份固件" width="900">
+<br><sub>加载自己的固件</sub>
+</div>
 
 ## 使用命令行
 
