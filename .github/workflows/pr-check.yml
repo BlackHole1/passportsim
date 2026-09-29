@@ -56,6 +56,36 @@ jobs:
       - name: cargo xtask ci t0
         run: cargo xtask ci t0
 
+      # The job log carries only each step's summary and the tail of a failed log; the full logs
+      # stay under target/xtask-ci/<tier>-<stamp>/.
+      - name: Keep the step logs of a failed run
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: t0-logs-${{ runner.os }}
+          path: target/xtask-ci/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      # `web/tests/playwright.config.ts` writes traces and error context under the OS temp directory,
+      # which on Windows is not RUNNER_TEMP. Asked of the same `os.tmpdir()`, written by Bun itself
+      # so the step reads the same in pwsh and bash.
+      - name: Find the Playwright output directory
+        id: playwright-output
+        if: failure()
+        run: >-
+          bun -e "require('node:fs').appendFileSync(process.env.GITHUB_OUTPUT,
+          'dir=' + require('node:path').join(require('node:os').tmpdir(), 'passportsim-playwright') + '\n')"
+
+      - name: Keep the Playwright output of a failed run
+        if: failure() && steps.playwright-output.outputs.dir != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: t0-playwright-${{ runner.os }}
+          path: ${{ steps.playwright-output.outputs.dir }}
+          if-no-files-found: ignore
+          retention-days: 7
+
   web-bundle:
     # A release builds the Windows package with `--payload-from` the macOS one, which refuses any
     # payload file that differs, the web bundle included. Each host builds the page and lists the
