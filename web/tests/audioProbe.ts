@@ -53,6 +53,11 @@ export interface PlaybackResult {
   readonly impliedFill: ImpliedFill;
 }
 
+/** Why a playback run measured nothing: the host gave the context no audio clock to run on. */
+export interface PlaybackSkip {
+  readonly skip: string;
+}
+
 export interface CaptureResult {
   readonly isolated: boolean;
   readonly started: unknown;
@@ -64,6 +69,9 @@ export interface CaptureResult {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const AMPLITUDE = 8_000;
+
+/** How long `resume` may take to start the audio clock. */
+const START_WAIT_MS = 5_000;
 
 /** How long the playback engine may take to send its first report after `resume`. */
 const ENGINE_WAIT_MS = 5_000;
@@ -93,7 +101,10 @@ function measure(analyser: AnalyserNode, rate: number, atMs: number): Heard {
  * Plays the segments in 20 ms blocks at a guest's pace (a single push above 250 ms would be cut by
  * the overflow limit), each preceded by its format mark, and measures at the given instants.
  */
-async function playback(segments: ToneSegment[], measureAtMs: number[]): Promise<PlaybackResult> {
+async function playback(
+  segments: ToneSegment[],
+  measureAtMs: number[],
+): Promise<PlaybackResult | PlaybackSkip> {
   const isolated = globalThis.crossOriginIsolated === true;
   const context = new AudioContext({ latencyHint: "interactive" });
   const analyser = context.createAnalyser();
@@ -126,7 +137,19 @@ async function playback(segments: ToneSegment[], measureAtMs: number[]): Promise
     transport = new PortTransport(control, 48_000, onReport);
     host.attach({});
   }
-  await host.resume();
+  // Firefox with no audio output (a hosted Windows runner) keeps the context suspended with its
+  // clock at 0 and never settles `resume`; there is then nothing to measure.
+  const resumed = host.resume();
+  const started = await Promise.race([resumed.then(() => true), sleep(START_WAIT_MS).then(() => false)]);
+  if (!started || context.state !== "running") {
+    resumed.catch(() => {});
+    const skip =
+      `no-audio-output: the AudioContext did not start within ${START_WAIT_MS} ms of resume ` +
+      `(state ${context.state}, clock at ${context.currentTime} s, ${context.sampleRate} Hz), ` +
+      `so the browser has no audio output to play on and no audio clock runs`;
+    await host.close();
+    return { skip };
+  }
   // A guest streams into a worklet that is already rendering. Until its first report the engine
   // may not exist yet (the options message has not reached the audio thread, or the output has not
   // opened), and the clock would run with nothing consuming.

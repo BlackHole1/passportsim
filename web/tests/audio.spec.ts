@@ -5,9 +5,10 @@
 //
 // Skips: `fake-media-chromium-only` for the capture tests on WebKit (it has no fake capture
 // device); the install hint of `browsers.ts` for a missing browser; `bun-not-on-path` when the
-// probe cannot be bundled; `host-not-real-time` for the underrun and overflow counts when the
-// host's audio clock or timers did not keep to the wall clock (a hosted CI runner with no audio
-// device), measured by `realTimeGap`.
+// probe cannot be bundled; `no-audio-output` for the playback tests when the browser starts no
+// audio clock (Firefox on a hosted Windows runner, which has no audio device); `host-not-real-time`
+// for the underrun and overflow counts when the host's audio clock or timers did not keep to the
+// wall clock (a hosted CI runner with no audio device), measured by `realTimeGap`.
 
 import { expect, test as base, type Page } from "@playwright/test";
 import { spawnSync } from "node:child_process";
@@ -19,7 +20,7 @@ import { OVERFLOW_FILL_MS, UNDERRUN_FILL_MS } from "../src/audio/levels";
 import { browserGaps } from "./harness";
 import { descendants, holdFullSpeed, processTable } from "./processCpu";
 import { serveDir, type StaticServer } from "./staticServer";
-import type { CaptureResult, PlaybackResult, ToneSegment } from "./audioProbe";
+import type { CaptureResult, PlaybackResult, PlaybackSkip, ToneSegment } from "./audioProbe";
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -99,8 +100,9 @@ async function openProbe(page: Page, isolated: boolean): Promise<void> {
   }
 }
 
+/** Plays `segments` in the probe and measures at `at`; skips the test when no audio clock runs. */
 async function play(page: Page, segments: ToneSegment[], at: number[]): Promise<PlaybackResult> {
-  return (await page.evaluate(
+  const result = (await page.evaluate(
     ([s, a]) =>
       (
         globalThis as unknown as {
@@ -108,7 +110,11 @@ async function play(page: Page, segments: ToneSegment[], at: number[]): Promise<
         }
       ).audioProbe.playback(s, a),
     [segments, at] as const,
-  )) as PlaybackResult;
+  )) as PlaybackResult | PlaybackSkip;
+  if ("skip" in result) {
+    test.skip(true, result.skip);
+  }
+  return result as PlaybackResult;
 }
 
 const TONE_RMS = 8_000 / 32_768 / Math.SQRT2;
