@@ -71,11 +71,11 @@ PEMU_E2E_CLOUDFLARE_URL=http://127.0.0.1:8787/ PEMU_E2E_CLOUDFLARE_IMAGE=<a merg
 | `CF_CUSTOM_DOMAIN` | variable，可选 | 每次部署时声明的自定义域名。 |
 | `CF_WORKER_NAME` | variable，可选 | 使用 `passportsim` 以外的 Worker 名称。 |
 | `DEMO_SITE_URL` | variable，可选 | 从哪个已部署的站点下载演示固件(见下文)。 |
-| `DEMO_BUNDLE_SHA256` | variable，可选 | 该站点上 `official.pebundle` 的 SHA-256。 |
+| `DEMO_BUNDLE_SHA256` | variable，可选 | 该站点上 `official.pebundle` 解压后的 SHA-256(站点以 gzip 压缩形式提供它)。 |
 
 **自定义域名。** 未设置时，部署不改变控制台中为 Worker 配置的域名。设置后，每次部署都会传入 `--domain <name>`，使它成为 Worker 唯一的自定义域名。fork 的仓库不设置它，只使用自己的 `workers.dev` 地址。上传完成后，任务会从线上地址获取页面、wasm 核心和演示固件，只有跨源隔离响应头齐全、且核心正是刚上传的版本时才通过。
 
-**演示固件。** 演示固件从不提交到仓库，runner 也没有语料库，因此工作流从已经提供它的站点下载(`official.pebundle` 和两个 `licenses/official-demo.*` 文件)。第一次带演示固件的部署需要在有语料库的机器上手动完成(`just deploy`)，然后设置 `DEMO_SITE_URL` 和 `DEMO_BUNDLE_SHA256`(`shasum -a 256 official.pebundle`)。任务会校验摘要，而 `cargo xtask package --demo <dir>` 只接受与本提交从固定镜像构建出的结果完全一致的文件。下载或校验失败时，任务会在部署前失败。两个变量都未设置时，站点会在不含演示固件的情况下部署，任务摘要中会说明这一点。
+**演示固件。** 演示固件从不提交到仓库，runner 也没有语料库，因此工作流从已经提供它的站点下载(`official.pebundle` 和两个 `licenses/official-demo.*` 文件)。第一次带演示固件的部署需要在有语料库的机器上手动完成(`just deploy`)，然后设置 `DEMO_SITE_URL` 和 `DEMO_BUNDLE_SHA256`(对网页包里 gzip 压缩的副本运行 `gzip -dc official.pebundle | shasum -a 256`)。任务会校验摘要，而 `cargo xtask package --demo <dir>` 只接受与本提交从固定镜像构建出的结果完全一致的文件。下载或校验失败时，任务会在部署前失败。两个变量都未设置时，站点会在不含演示固件的情况下部署，任务摘要中会说明这一点。
 
 ## 限制
 
@@ -89,7 +89,7 @@ PEMU_E2E_CLOUDFLARE_URL=http://127.0.0.1:8787/ PEMU_E2E_CLOUDFLARE_IMAGE=<a merg
 | 静态资源请求 | 免费且不限量 | 免费且不限量 | [Billing and limitations](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/) |
 | `_headers` 规则数 / 行长度 | 100 条规则，每行 2,000 字符 | 同左 | [Headers](https://developers.cloudflare.com/workers/static-assets/headers/) |
 
-只要有一个文件超过 25 MiB，Wrangler 就会拒绝整个部署。带演示固件的网页包有 13 个文件；最大的是 24,690,534 字节的 `official.pebundle`(比上限少 1.45 MiB)，其次是约 6.9 MB 的 `pemu_wasm.wasm`。如果有文件超过上限，或文件数超过 20,000，`cargo xtask package` 会失败并指出是哪个文件，每次运行也会输出剩余余量。
+只要有一个文件超过 25 MiB，Wrangler 就会拒绝整个部署。带演示固件的网页包有 18 个文件；最大的是约 7.0 MB 的 `pemu_wasm.wasm`，其次是约 6.1 MB 的 `official.pebundle`，它是 24.7 MB 的演示固件经 gzip 压缩后的结果：Cloudflare 会原样发送 `application/octet-stream` 文件，由页面自行解压。如果有文件超过上限，或文件数超过 20,000，`cargo xtask package` 会失败并指出是哪个文件，每次运行也会输出剩余余量。
 
 ## 需要决定的事项
 

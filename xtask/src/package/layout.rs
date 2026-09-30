@@ -266,7 +266,13 @@ fn write_web_bundle(
         &dir.join("licenses/esp-rom-elfs.NOTICE"),
     )?;
     if let Found::Embedded(embedded) = inputs.demo {
-        write_file(&dir.join(demo::BUNDLE_FILE), &embedded.bundle)?;
+        // Gzip-compressed: Cloudflare sends an `application/octet-stream` file as it is, and the
+        // plain bundle is four times the size on the wire and close to the per-file asset limit.
+        // The page inflates it (`web/src/worker/gzip.ts`); the package keeps the plain bundle.
+        write_file(
+            &dir.join(demo::BUNDLE_FILE),
+            &archive::gzip(&embedded.bundle)?,
+        )?;
         write_file(
             &dir.join("licenses/official-demo.LICENSE"),
             embedded.license.as_bytes(),

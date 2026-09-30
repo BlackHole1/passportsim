@@ -105,6 +105,54 @@ pub fn scan_worktree(
     Ok(Outcome { patterns, hashed })
 }
 
+/// [`scan_worktree`], with each gzip file scanned as the bytes it holds, inflated into a private
+/// temporary copy under the same relative path. The compressed bytes would hide what the rules
+/// look for and match the flash-offset rules by chance: the web bundle carries the demo
+/// `.pebundle` gzip-compressed (`xtask/src/package/layout.rs`).
+pub fn scan_worktree_inflated(
+    root: &Path,
+    rel_paths: &[String],
+    salted: Option<&SaltedSet>,
+) -> Result<Outcome, String> {
+    let (packed, plain): (Vec<String>, Vec<String>) = rel_paths
+        .iter()
+        .cloned()
+        .partition(|rel| starts_with_gzip_magic(&root.join(rel)));
+    let mut outcome = scan_worktree(root, &plain, salted)?;
+    if packed.is_empty() {
+        return Ok(outcome);
+    }
+    let dir = gitsrc::ScratchDir::new()?;
+    for rel in &packed {
+        let bytes = std::fs::read(root.join(rel)).map_err(|e| format!("{rel}: {e}"))?;
+        let mut inflated = Vec::new();
+        std::io::Read::read_to_end(&mut flate2::read::GzDecoder::new(&bytes[..]), &mut inflated)
+            .map_err(|e| format!("{rel}: not a readable gzip file: {e}"))?;
+        let to = dir.path().join(rel);
+        if let Some(parent) = to.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| format!("{rel}: {e}"))?;
+        }
+        std::fs::write(&to, inflated).map_err(|e| format!("{rel}: {e}"))?;
+    }
+    let part = scan_worktree(dir.path(), &packed, salted)?;
+    outcome.patterns.files_scanned += part.patterns.files_scanned;
+    outcome.patterns.files_skipped += part.patterns.files_skipped;
+    outcome.patterns.roms_pinned += part.patterns.roms_pinned;
+    outcome.patterns.hits.extend(part.patterns.hits);
+    if let (Some(total), Some(more)) = (outcome.hashed.as_mut(), part.hashed) {
+        total.merge(more);
+    }
+    Ok(outcome)
+}
+
+/// Whether the file at `path` starts with the gzip magic (RFC 1952); false when it cannot be read.
+fn starts_with_gzip_magic(path: &Path) -> bool {
+    let mut magic = [0u8; 2];
+    std::fs::File::open(path)
+        .and_then(|mut file| std::io::Read::read_exact(&mut file, &mut magic))
+        .is_ok_and(|()| magic == [0x1f, 0x8b])
+}
+
 /// Scans the blobs of a plan through private temporary copies, one batch per blob version.
 pub fn scan_plan(
     root: &Path,

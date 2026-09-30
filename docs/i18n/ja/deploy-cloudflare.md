@@ -71,11 +71,11 @@ PEMU_E2E_CLOUDFLARE_URL=http://127.0.0.1:8787/ PEMU_E2E_CLOUDFLARE_IMAGE=<a merg
 | `CF_CUSTOM_DOMAIN` | variable、任意 | デプロイのたびに宣言するカスタムドメイン。 |
 | `CF_WORKER_NAME` | variable、任意 | `passportsim` 以外の Worker 名。 |
 | `DEMO_SITE_URL` | variable、任意 | デモファームウェアをダウンロードする、デプロイ済みのサイト(後述)。 |
-| `DEMO_BUNDLE_SHA256` | variable、任意 | そのサイトの `official.pebundle` の SHA-256。 |
+| `DEMO_BUNDLE_SHA256` | variable、任意 | そのサイトの `official.pebundle` を展開した内容の SHA-256(サイトは gzip で圧縮して配信します)。 |
 
 **カスタムドメイン。** 未設定なら、デプロイは Worker のドメインをダッシュボードの設定のまま残します。設定すると、毎回のデプロイで `--domain <name>` を渡し、それが Worker の唯一のカスタムドメインになります。フォークでは未設定のままにすれば、`workers.dev` の URL が得られます。アップロード後、ジョブは公開中の URL からページ、wasm コア、デモを取得し、分離ヘッダーがあり、コアが今アップロードしたものと同じでなければ失敗します。
 
-**デモファームウェア。** デモはコミットされず、ランナーにはコーパスがないため、ワークフローはすでにデモを配信しているサイトからダウンロードします(`official.pebundle` と 2 つの `licenses/official-demo.*` ファイル)。最初のデモ付きデプロイは、コーパスのあるマシンから手動で行い(`just deploy`)、その後 `DEMO_SITE_URL` と `DEMO_BUNDLE_SHA256`(`shasum -a 256 official.pebundle`)を設定してください。ジョブはダイジェストを確認し、`cargo xtask package --demo <dir>` は、ファイルがこのコミットで固定のイメージからビルドされるものとまったく同じ場合だけ受け入れます。ダウンロードや確認に失敗すると、何もデプロイする前にジョブが失敗します。両方の変数が未設定なら、デモなしでサイトをデプロイし、ジョブのサマリーにその旨を記載します。
+**デモファームウェア。** デモはコミットされず、ランナーにはコーパスがないため、ワークフローはすでにデモを配信しているサイトからダウンロードします(`official.pebundle` と 2 つの `licenses/official-demo.*` ファイル)。最初のデモ付きデプロイは、コーパスのあるマシンから手動で行い(`just deploy`)、その後 `DEMO_SITE_URL` と `DEMO_BUNDLE_SHA256`(Web バンドルの gzip 圧縮されたコピーに対して `gzip -dc official.pebundle | shasum -a 256`)を設定してください。ジョブはダイジェストを確認し、`cargo xtask package --demo <dir>` は、ファイルがこのコミットで固定のイメージからビルドされるものとまったく同じ場合だけ受け入れます。ダウンロードや確認に失敗すると、何もデプロイする前にジョブが失敗します。両方の変数が未設定なら、デモなしでサイトをデプロイし、ジョブのサマリーにその旨を記載します。
 
 ## 上限
 
@@ -89,7 +89,7 @@ Cloudflare のドキュメントより(2026-09-27 時点)：
 | 静的アセットへのリクエスト | 無料・無制限 | 無料・無制限 | [Billing and limitations](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/) |
 | `_headers` のルール数 / 行の長さ | 100 ルール、1 行 2,000 文字 | 同じ | [Headers](https://developers.cloudflare.com/workers/static-assets/headers/) |
 
-25 MiB を超えるファイルが 1 つでもあると、Wrangler はデプロイ全体を拒否します。デモ付きのバンドルは 13 ファイルで、最大は 24,690,534 バイトの `official.pebundle`(上限まで 1.45 MiB)、次が約 6.9 MB の `pemu_wasm.wasm` です。`cargo xtask package` は、上限を超えるファイルがあるか 20,000 ファイルを超えるとファイル名を示して失敗し、毎回余裕の大きさを表示します。
+25 MiB を超えるファイルが 1 つでもあると、Wrangler はデプロイ全体を拒否します。デモ付きのバンドルは 18 ファイルで、最大は約 7.0 MB の `pemu_wasm.wasm`、次が約 6.1 MB の `official.pebundle` です。これは 24.7 MB のデモを gzip で圧縮したもので、Cloudflare は `application/octet-stream` のファイルをそのまま送るため、ページ側で展開します。`cargo xtask package` は、上限を超えるファイルがあるか 20,000 ファイルを超えるとファイル名を示して失敗し、毎回余裕の大きさを表示します。
 
 ## 決めておくこと
 

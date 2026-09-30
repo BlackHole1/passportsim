@@ -95,7 +95,7 @@ fn scan_tree_with(
     salted: Option<&pemu_api::secret_set::SaltedSet>,
     built: &[&str],
 ) -> Result<usize, String> {
-    let mut outcome = hooks::scan_worktree(root, files, salted)?;
+    let mut outcome = hooks::scan_worktree_inflated(root, files, salted)?;
     for &built in built {
         if !outcome
             .patterns
@@ -176,6 +176,38 @@ mod tests {
             std::fs::write(dir.join(rel), bytes).expect("write");
         }
         dir
+    }
+
+    fn gzip(bytes: &[u8]) -> Vec<u8> {
+        crate::package::archive::gzip(bytes).expect("gzip")
+    }
+
+    /// A gzip file is scanned as the bytes it holds: a cardid window inside it is refused, and the
+    /// compressed bytes, which are not 0xFF at offset 0x356000, are not read as a flash image.
+    #[test]
+    fn a_gzip_file_is_scanned_as_the_bytes_it_holds() {
+        let env = env().expect("the test env");
+        // Incompressible bytes, so the gzip member is longer than the cardid window's end, with
+        // the window itself blank as in a published image.
+        let mut state = 0x2545_F491_u32;
+        let mut blank: Vec<u8> = (0..0x40_0000)
+            .map(|_| {
+                state ^= state << 13;
+                state ^= state >> 17;
+                state ^= state << 5;
+                state.to_le_bytes()[0]
+            })
+            .collect();
+        blank[0x35_6000..0x35_A000].fill(0xFF);
+        let packed = gzip(&blank);
+        assert!(packed.len() > 0x35_A000);
+        let dir = tree("gzip", &[("official.pebundle", packed)]);
+        scan(&[(&dir, &[])], &env).expect("a blank window inside gzip passes");
+
+        std::fs::write(dir.join("official.pebundle"), gzip(&planted(b"PEBUNDL1"))).unwrap();
+        let refused = scan(&[(&dir, &[])], &env).expect_err("a planted window inside gzip fires");
+        assert!(refused.contains("official.pebundle"), "{refused}");
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]

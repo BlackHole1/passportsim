@@ -243,6 +243,12 @@ describe("a dropped file", () => {
     expect(await kinds({ root: null, files: [file("official.pebundle", bundle())] })).toEqual([LoadKind.MergedFlash]);
   });
 
+  test("a gzip-compressed `.pebundle`, as the site serves the demo, loads as the bundle it holds", async () => {
+    const plain = bundle();
+    const result = await loadDrop({ root: null, files: [file("official.pebundle", Bun.gzipSync(plain.slice()))] });
+    expect(result.ok && result.image.assets.map((a) => [a.kind, a.bytes])).toEqual([[LoadKind.MergedFlash, plain]]);
+  });
+
   test("a bin and its ELF are the pair the corpus has", async () => {
     const drop: Drop = {
       root: null,

@@ -20,6 +20,7 @@ import type { DisplayState } from "../gl/sink";
 import { AttachClient, type AttachEvent } from "./attach";
 import { CoreError, WasmCore, type CoreAsset, type CoreExports, type EmulatorCore } from "./core";
 import { countedResponse, DownloadReporter, readCounted, type DownloadListener, type DownloadProgress } from "./download";
+import { inflateIfGzip } from "./gzip";
 import { ABI_VERSION, ButtonId, FRAME_HEIGHT, FRAME_WIDTH, LoadKind } from "./layout";
 import {
   atomicsYielder,
@@ -958,7 +959,7 @@ async function fetchFirmware(
         `the firmware bundle for \`${fw}\` is not served (${response.status}); a development build ships no demo image, so drop a merged bin or .pebundle`,
       );
     }
-    return await readCounted(response, reporter);
+    return await inflateIfGzip(await readCounted(response, reporter));
   } catch (error) {
     reporter.fail(error);
     throw error;

@@ -10,7 +10,7 @@ inputs:
     required: false
     default: ""
   sha256:
-    description: SHA-256 of that site's official.pebundle.
+    description: SHA-256 of that site's official.pebundle, uncompressed.
     required: false
     default: ""
 outputs:
@@ -49,6 +49,12 @@ runs:
         fetch official.pebundle official.pebundle
         fetch licenses/official-demo.LICENSE official-demo.LICENSE
         fetch licenses/official-demo.NOTICE official-demo.NOTICE
+        # A site serves the bundle gzip-compressed (`cargo xtask package` writes the web bundle's
+        # copy that way); `--demo` takes the plain bundle, which is what the pin is of.
+        if [ "$(od -An -tx1 -N2 "$dir/official.pebundle" | tr -d ' \n')" = "1f8b" ]; then
+          gzip -dc "$dir/official.pebundle" > "$dir/official.pebundle.plain"
+          mv "$dir/official.pebundle.plain" "$dir/official.pebundle"
+        fi
         actual=$(openssl dgst -sha256 -r "$dir/official.pebundle" | cut -d' ' -f1)
         expected=$(printf '%s' "$DEMO_SHA256" | tr '[:upper:]' '[:lower:]')
         if [ "$actual" != "$expected" ]; then
