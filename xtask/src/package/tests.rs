@@ -40,6 +40,14 @@ fn packaged() -> &'static super::Built {
     })
 }
 
+/// The bytes a gzip member holds.
+fn gunzip(packed: &[u8]) -> Vec<u8> {
+    let mut plain = Vec::new();
+    std::io::Read::read_to_end(&mut flate2::read::GzDecoder::new(packed), &mut plain)
+        .expect("a gzip member");
+    plain
+}
+
 fn host_target() -> &'static str {
     super::host_target()
         .expect("the package tests run on a host that packages: macOS arm64 or Windows x64")
@@ -1282,7 +1290,8 @@ fn the_web_bundle_is_servable_and_carries_the_same_demo_as_the_package() {
         std::fs::read(built.package_dir.join("payload/web/pemu_wasm.wasm")).unwrap()
     );
     if let super::receipt::DemoRecord::Embedded { bundle_sha256, .. } = &built.receipt.demo {
-        let from_web = std::fs::read(built.web_dir.join(demo::BUNDLE_FILE)).unwrap();
+        // The web bundle carries it gzip-compressed, for the wire (`layout::write_web_bundle`).
+        let from_web = gunzip(&std::fs::read(built.web_dir.join(demo::BUNDLE_FILE)).unwrap());
         let from_package = std::fs::read(
             built
                 .package_dir
@@ -1607,9 +1616,16 @@ fn an_embedded_demo_is_written_into_both_trees_with_its_licence_and_notice() {
         let b = built.web_dir.join(in_web);
         assert!(a.is_file(), "missing from the package: {in_package}");
         assert!(b.is_file(), "missing from the web bundle: {in_web}");
+        // The web bundle's copy of the bundle is gzip-compressed (`layout::write_web_bundle`).
+        let web_bytes = std::fs::read(&b).unwrap();
+        let web_bytes = if in_web == demo::BUNDLE_FILE {
+            gunzip(&web_bytes)
+        } else {
+            web_bytes
+        };
         assert_eq!(
             std::fs::read(&a).unwrap(),
-            std::fs::read(&b).unwrap(),
+            web_bytes,
             "{in_package} and {in_web} are the same bytes"
         );
     }

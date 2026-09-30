@@ -119,6 +119,15 @@ pub fn targz(files: &[Entry]) -> Result<Vec<u8>, String> {
     gz.finish().map_err(|e| format!("gzip: {e}"))
 }
 
+/// `bytes` as one gzip member at the best level, with the same build-free header as [`targz`].
+pub fn gzip(bytes: &[u8]) -> Result<Vec<u8>, String> {
+    let mut gz = GzBuilder::new()
+        .mtime(0)
+        .write(Vec::new(), Compression::best());
+    gz.write_all(bytes).map_err(|e| format!("gzip: {e}"))?;
+    gz.finish().map_err(|e| format!("gzip: {e}"))
+}
+
 /// The 512-byte ustar header of one regular file.
 fn ustar_header(file: &Entry) -> Result<[u8; BLOCK], String> {
     let mut header = [0u8; BLOCK];

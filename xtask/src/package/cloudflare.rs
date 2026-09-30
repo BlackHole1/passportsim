@@ -2,8 +2,8 @@
 //!
 //! The bundle directory is itself the project of an assets-only Worker: `_headers` carries the
 //! headers `passportsim serve` sends ([`webui::STATIC_HEADERS`]) and `.assetsignore` keeps the
-//! project file and `wrangler dev` state off the site. The demo `.pebundle` is close to
-//! [`MAX_ASSET_BYTES`], so [`check`] fails the package before a deploy would.
+//! project file and `wrangler dev` state off the site. [`check`] fails a package whose largest file,
+//! usually the gzip-compressed demo `.pebundle`, is over [`MAX_ASSET_BYTES`] before a deploy would.
 
 use std::fs;
 use std::path::Path;

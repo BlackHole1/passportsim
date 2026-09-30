@@ -92,7 +92,7 @@ l'environnement `production`) :
 | `CF_CUSTOM_DOMAIN` | variable, optionnelle | Un domaine personnalisé déclaré à chaque déploiement. |
 | `CF_WORKER_NAME` | variable, optionnelle | Un nom de Worker autre que `passportsim`. |
 | `DEMO_SITE_URL` | variable, optionnelle | Un site déployé d'où télécharger le firmware de démo (voir plus bas). |
-| `DEMO_BUNDLE_SHA256` | variable, optionnelle | Le SHA-256 du `official.pebundle` de ce site. |
+| `DEMO_BUNDLE_SHA256` | variable, optionnelle | Le SHA-256 du `official.pebundle` de ce site, décompressé : le site le sert compressé en gzip. |
 
 **Domaine personnalisé.** Sans cette variable, un déploiement laisse les domaines du Worker tels que
 le tableau de bord les a définis. Avec elle, chaque déploiement passe `--domain <name>`, qui en fait
@@ -104,7 +104,7 @@ si les en-têtes d'isolation manquent ou si le cœur n'est pas celui qui vient d
 workflow la télécharge donc depuis un site qui la sert déjà (`official.pebundle` et les deux
 fichiers `licenses/official-demo.*`). Faites le premier déploiement avec la démo à la main
 (`just deploy`) depuis une machine qui a le corpus, puis définissez `DEMO_SITE_URL` et
-`DEMO_BUNDLE_SHA256` (`shasum -a 256 official.pebundle`). Le job vérifie l'empreinte, et
+`DEMO_BUNDLE_SHA256` (`gzip -dc official.pebundle | shasum -a 256` sur la copie compressée en gzip du bundle web). Le job vérifie l'empreinte, et
 `cargo xtask package --demo <dir>` n'accepte les fichiers que s'ils sont exactement ce que ce
 commit produirait à partir de l'image figée. Un échec du téléchargement ou de la vérification fait
 échouer le job avant tout déploiement. Si les deux variables sont vides, le site est déployé sans
@@ -123,8 +123,9 @@ D'après la documentation de Cloudflare, consultée le 2026-09-27 :
 | Règles `_headers` / longueur de ligne | 100 règles, 2 000 caractères par ligne | idem | [Headers](https://developers.cloudflare.com/workers/static-assets/headers/) |
 
 Wrangler refuse tout le déploiement si un seul fichier dépasse 25 MiB. Un bundle avec la démo
-compte 13 fichiers ; le plus gros est `official.pebundle`, avec 24 690 534 octets (1,45 MiB sous la
-limite), suivi de `pemu_wasm.wasm`, environ 6,9 Mo. `cargo xtask package` échoue en nommant le
+compte 18 fichiers ; le plus gros est `pemu_wasm.wasm`, environ 7,0 Mo, suivi de `official.pebundle`,
+environ 6,1 Mo : c'est la démo de 24,7 Mo compressée en gzip, car Cloudflare envoie un fichier
+`application/octet-stream` tel quel, et la page le décompresse. `cargo xtask package` échoue en nommant le
 fichier si l'un dépasse la limite ou s'il y en a plus de 20 000, et affiche la marge à chaque
 exécution.
 

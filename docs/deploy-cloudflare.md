@@ -89,7 +89,7 @@ Repository settings (Settings, Secrets and variables, Actions; the secrets may l
 | `CF_CUSTOM_DOMAIN` | variable, optional | A custom domain to declare on every deploy. |
 | `CF_WORKER_NAME` | variable, optional | A Worker name other than `passportsim`. |
 | `DEMO_SITE_URL` | variable, optional | A deployed site to download the demo firmware from (below). |
-| `DEMO_BUNDLE_SHA256` | variable, optional | The SHA-256 of that site's `official.pebundle`. |
+| `DEMO_BUNDLE_SHA256` | variable, optional | The SHA-256 of that site's `official.pebundle`, uncompressed: the site serves it gzip-compressed. |
 
 **Custom domain.** Unset, a deploy leaves the Worker's domains as the dashboard set them. Set, every
 deploy passes `--domain <name>`, which makes that the Worker's only custom domain. A fork leaves it
@@ -100,7 +100,7 @@ one just uploaded.
 **Demo firmware.** The demo is never committed and runners have no corpus, so a workflow downloads
 it from a site that already serves it (`official.pebundle` and the two `licenses/official-demo.*`
 files). Make the first deploy with the demo by hand (`just deploy`) from a machine with the corpus,
-then set `DEMO_SITE_URL` and `DEMO_BUNDLE_SHA256` (`shasum -a 256 official.pebundle`). The job
+then set `DEMO_SITE_URL` and `DEMO_BUNDLE_SHA256` (`gzip -dc official.pebundle | shasum -a 256` over the web bundle's gzip-compressed copy). The job
 checks the digest, and `cargo xtask package --demo <dir>` accepts the files only if they are
 exactly what this commit would build from the pinned image. A failed download or check fails the
 job before anything is deployed. With both variables unset, the site is deployed without the demo
@@ -118,9 +118,10 @@ From Cloudflare's documentation, read on 2026-09-27:
 | Requests to static assets | free and unlimited | free and unlimited | [Billing and limitations](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/) |
 | `_headers` rules / line length | 100 rules, 2,000 characters a line | same | [Headers](https://developers.cloudflare.com/workers/static-assets/headers/) |
 
-Wrangler refuses the whole deploy if one file is over 25 MiB. A bundle with the demo has 13 files;
-the largest is `official.pebundle` at 24,690,534 bytes (1.45 MiB under the limit), then
-`pemu_wasm.wasm` at about 6.9 MB. `cargo xtask package` fails, naming the file, if one is over the
+Wrangler refuses the whole deploy if one file is over 25 MiB. A bundle with the demo has 18 files;
+the largest is `pemu_wasm.wasm` at about 7.0 MB, then `official.pebundle` at about 6.1 MB, which is
+the 24.7 MB demo gzip-compressed: Cloudflare sends an `application/octet-stream` file as it is, and
+the page inflates it. `cargo xtask package` fails, naming the file, if one is over the
 limit or there are more than 20,000, and prints the margin on every run.
 
 ## What to decide

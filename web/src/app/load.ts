@@ -4,6 +4,7 @@
 // so no branch produces a `RomElf` asset, and eFuse stays the built-in image.
 
 import { LoadKind } from "../worker/layout";
+import { inflateIfGzip } from "../worker/gzip";
 
 /** The firmware the page boots with no input and names in its header. */
 export const DEMO_IMAGE = "official";
@@ -290,7 +291,7 @@ function sizeFault(drop: Drop): string | null {
 }
 
 async function readFile(file: DropFile, onStep: LoadProgress): Promise<Uint8Array> {
-  const bytes = await file.read();
+  const bytes = await inflateIfGzip(await file.read());
   onStep({ kind: "read", path: file.path, bytes: bytes.length });
   return bytes;
 }
