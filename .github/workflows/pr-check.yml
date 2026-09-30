@@ -47,7 +47,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           cache-key: t0-${{ matrix.group }}
-          save-cache: true
+          save-cache: ${{ github.ref == 'refs/heads/main' }}
 
       - uses: taiki-e/install-action@v2
         if: matrix.group == 'checks'
