@@ -21,51 +21,50 @@ env:
 
 jobs:
   t0:
-    # `cargo xtask ci t0` on each supported host: fmt, clippy, the workspace tests, cargo-deny,
-    # the doc, provenance, layering, secrets and portability checks, the release and wasm builds,
-    # `bun test`, and on Windows the Playwright rows. Both hosts check the cross-host parity
-    # scenario against the one committed golden (tests/golden/cross-host/parity.txt), so a green
-    # pair means macOS and Windows agree. With no firmware corpus on a runner, every corpus test
-    # reports SKIPPED-CORPUS; T1 and T2 need the corpus and stay local.
-    name: T0 (${{ matrix.os }})
+    # `cargo xtask ci t0` on each supported host, one job per group of steps so the groups run in
+    # parallel: `checks` (fmt, clippy, cargo-deny, the doc, provenance, layering, secrets and
+    # portability checks, the builds, `bun test`), `test` (the workspace tests and the cross-host
+    # parity scenario against the one committed golden, tests/golden/cross-host/parity.txt),
+    # `package` (the release package of the host), and on Windows `browsers` (the Playwright rows).
+    # With no firmware corpus on a runner, every corpus test reports SKIPPED-CORPUS; T1 and T2 need
+    # the corpus and stay local.
+    name: T0 ${{ matrix.group }} (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
         os: [macos-latest, windows-latest]
+        group: [checks, test, package]
+        include:
+          - os: windows-latest
+            group: browsers
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 150
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - name: TEMP probe Defender
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Get-MpComputerStatus | Select-Object AMServiceEnabled, AntivirusEnabled, RealTimeProtectionEnabled, OnAccessProtectionEnabled | Format-List
-          Get-MpPreference | Select-Object DisableRealtimeMonitoring, ExclusionPath, ExclusionProcess | Format-List
-          Get-CimInstance Win32_Processor | Select-Object Name, NumberOfCores, NumberOfLogicalProcessors | Format-List
-
       - uses: ./.github/actions/setup
         with:
-          cache-key: t0
+          cache-key: t0-${{ matrix.group }}
           save-cache: true
 
       - uses: taiki-e/install-action@v2
+        if: matrix.group == 'checks'
         with:
           tool: cargo-deny
 
       - name: Install the Playwright browsers T0 runs on Windows
-        if: runner.os == 'Windows'
+        if: matrix.group == 'browsers'
         working-directory: web
         run: bunx playwright install chromium firefox
 
       - name: Install the git hooks the hooks-present step checks
+        if: matrix.group == 'checks'
         run: cargo xtask hooks install
 
-      - name: cargo xtask ci t0
-        run: cargo xtask ci t0
+      - name: cargo xtask ci t0 --group ${{ matrix.group }}
+        run: cargo xtask ci t0 --group ${{ matrix.group }}
 
       # The job log carries only each step's summary and the tail of a failed log; the full logs
       # stay under target/xtask-ci/<tier>-<stamp>/.
@@ -73,7 +72,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: t0-logs-${{ runner.os }}
+          name: t0-logs-${{ runner.os }}-${{ matrix.group }}
           path: target/xtask-ci/
           if-no-files-found: ignore
           retention-days: 7
@@ -83,7 +82,7 @@ jobs:
       # so the step reads the same in pwsh and bash.
       - name: Find the Playwright output directory
         id: playwright-output
-        if: failure()
+        if: failure() && matrix.group == 'browsers'
         run: >-
           bun -e "require('node:fs').appendFileSync(process.env.GITHUB_OUTPUT,
           'dir=' + require('node:path').join(require('node:os').tmpdir(), 'passportsim-playwright') + '\n')"

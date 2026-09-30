@@ -58,7 +58,7 @@ PEMU_E2E_CLOUDFLARE_URL=http://127.0.0.1:8787/ PEMU_E2E_CLOUDFLARE_IMAGE=<a merg
 
 | 工作流 | 触发 | 作用 |
 |---|---|---|
-| `pr-check.yml` | pull request、推送到 `main` | 在 macOS 和 Windows 上运行 `cargo xtask ci t0`，并在 macOS 上运行页面的类型检查和 Playwright 测试(Chromium、Firefox、WebKit)。runner 没有固件语料库，因此语料库测试报告 SKIPPED-CORPUS。 |
+| `pr-check.yml` | pull request、推送到 `main` | 在 macOS 和 Windows 上运行 `cargo xtask ci t0`(按 `--group` 拆成并行的 job)，并在 macOS 上运行页面的类型检查和 Playwright 测试(Chromium、Firefox、WebKit)。runner 没有固件语料库，因此语料库测试报告 SKIPPED-CORPUS。 |
 | `deploy-web.yml` | 手动触发，或由 `release.yml` 调用 | 在 macOS 上打包网页包，用 `wrangler deploy` 部署，并检查线上站点。 |
 | `release.yml` | 在 Actions 页签手动触发 | 根据 `v*` 标签算出下一个版本(或使用指定的版本)，按该版本打包 macOS arm64 和 Windows x64，打标签，发布带有自动生成说明、压缩包和 `SHA256SUMS.txt` 的 GitHub Release，然后部署网页包。 |
 

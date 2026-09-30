@@ -10,12 +10,14 @@ use std::time::Duration;
 use super::model::{self, StepResult};
 
 /// Receipt format identifier, bumped when a field or status changes.
-pub const SCHEMA: &str = "passportsim/ci-receipt/4";
+pub const SCHEMA: &str = "passportsim/ci-receipt/5";
 
 /// One tier run.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Receipt {
     pub tier: String,
+    /// The T0 groups the run was limited to; empty when it ran the whole tier.
+    pub groups: Vec<String>,
     /// Where the steps ran: `<os>-<arch>` from `std::env::consts`, such as `macos-aarch64` or
     /// `windows-x86_64`.
     pub leg: String,
@@ -45,6 +47,17 @@ impl Receipt {
         let fields: Vec<(&str, String)> = vec![
             ("schema", json_string(SCHEMA)),
             ("tier", json_string(&self.tier)),
+            (
+                "groups",
+                format!(
+                    "[{}]",
+                    self.groups
+                        .iter()
+                        .map(|g| json_string(g))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+            ),
             ("leg", json_string(&self.leg)),
             ("os", json_string(&self.os)),
             ("arch", json_string(&self.arch)),
@@ -94,16 +107,22 @@ impl Receipt {
     }
 
     /// `<tier>-<short commit>-<UTC stamp>.json` on macOS and
-    /// `<tier>-<short commit>-<UTC stamp>-<leg>.json` elsewhere, so receipts gathered from several
-    /// hosts into one directory never collide.
+    /// `<tier>-<short commit>-<UTC stamp>-<leg>.json` elsewhere, with `-<group>+<group>` last for a
+    /// run of some T0 groups, so receipts gathered from several hosts and jobs into one directory
+    /// never collide.
     pub fn file_name(&self) -> String {
         let leg = if self.os == "macos" {
             String::new()
         } else {
             format!("-{}", self.leg)
         };
+        let groups = if self.groups.is_empty() {
+            String::new()
+        } else {
+            format!("-{}", self.groups.join("+"))
+        };
         format!(
-            "{}-{}-{}{leg}.json",
+            "{}-{}-{}{leg}{groups}.json",
             self.tier,
             self.short_commit,
             stamp_utc(self.started_unix)

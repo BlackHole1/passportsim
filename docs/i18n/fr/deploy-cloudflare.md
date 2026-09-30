@@ -78,7 +78,7 @@ Workflows de `.github/workflows/` :
 
 | Workflow | Déclenché par | Rôle |
 |---|---|---|
-| `pr-check.yml` | pull requests, pushs sur `main` | `cargo xtask ci t0` sous macOS et Windows, et la vérification des types et les tests Playwright de la page (Chromium, Firefox, WebKit) sous macOS. Les runners n'ont pas de corpus de firmwares : les tests de corpus indiquent SKIPPED-CORPUS. |
+| `pr-check.yml` | pull requests, pushs sur `main` | `cargo xtask ci t0` sous macOS et Windows, réparti par `--group` en jobs parallèles, et la vérification des types et les tests Playwright de la page (Chromium, Firefox, WebKit) sous macOS. Les runners n'ont pas de corpus de firmwares : les tests de corpus indiquent SKIPPED-CORPUS. |
 | `deploy-web.yml` | à la main, ou depuis `release.yml` | Construit le bundle web sous macOS, le déploie avec `wrangler deploy` et vérifie le site en ligne. |
 | `release.yml` | à la main, depuis l'onglet Actions | Calcule la version suivante à partir des tags `v*` (ou prend celle indiquée), construit les paquets macOS arm64 et Windows x64 à cette version, crée le tag, publie une GitHub Release avec des notes générées, les archives et `SHA256SUMS.txt`, puis déploie le bundle web. |
 
