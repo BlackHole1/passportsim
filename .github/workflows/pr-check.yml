@@ -15,6 +15,9 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  # Line tables keep file and line in panics and backtraces; the rest of the debug info only
+  # slows the compile and the link of every debug and test binary, and grows the cache.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
 
 jobs:
   t0:
@@ -36,10 +39,18 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: TEMP probe Defender
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-MpComputerStatus | Select-Object AMServiceEnabled, AntivirusEnabled, RealTimeProtectionEnabled, OnAccessProtectionEnabled | Format-List
+          Get-MpPreference | Select-Object DisableRealtimeMonitoring, ExclusionPath, ExclusionProcess | Format-List
+          Get-CimInstance Win32_Processor | Select-Object Name, NumberOfCores, NumberOfLogicalProcessors | Format-List
+
       - uses: ./.github/actions/setup
         with:
           cache-key: t0
-          save-cache: ${{ github.ref == 'refs/heads/main' }}
+          save-cache: true
 
       - uses: taiki-e/install-action@v2
         with:
