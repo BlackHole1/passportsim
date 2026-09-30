@@ -6,7 +6,8 @@
 //!   and WebKit.
 //!
 //! Tests join a tier by name: `t1_*` and `t2_*` tests run in their tier, and T0 runs the whole
-//! workspace. Every step runs even after a failure, and the command fails when any step failed.
+//! workspace. `--group` runs one part of T0 ([`tiers::T0_GROUPS`]), so CI can run the parts as
+//! parallel jobs. Every step runs even after a failure, and the command fails when any step failed.
 //! Each run prints a summary table and writes a JSON receipt under `<data root>/receipts/`.
 
 pub mod corpus;
@@ -26,13 +27,15 @@ use model::StepResult;
 use receipt::Receipt;
 use runner::Ctx;
 
-const USAGE: &str = "usage: cargo xtask ci t0|t1|t2";
+const USAGE: &str = "usage: cargo xtask ci t0 [--group checks|test|package|browsers]... | t1 | t2";
 
 /// Parsed command line.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Options {
     /// `t0`, `t1` or `t2`.
     pub tier: String,
+    /// The T0 groups to run; empty runs them all.
+    pub groups: Vec<String>,
     pub help: bool,
 }
 
@@ -40,11 +43,20 @@ pub struct Options {
 pub fn parse_args(args: &[String]) -> Result<Options, String> {
     let mut opts = Options {
         tier: String::new(),
+        groups: Vec::new(),
         help: false,
     };
-    for arg in args {
+    let mut args = args.iter();
+    while let Some(arg) = args.next() {
         match arg.as_str() {
             "t0" | "t1" | "t2" if opts.tier.is_empty() => opts.tier = arg.clone(),
+            "--group" => match args.next() {
+                Some(group) if tiers::T0_GROUPS.contains(&group.as_str()) => {
+                    opts.groups.push(group.clone());
+                }
+                Some(group) => return Err(format!("unknown group `{group}`\n{USAGE}")),
+                None => return Err(format!("`--group` needs a group\n{USAGE}")),
+            },
             "-h" | "--help" => opts.help = true,
             other => return Err(format!("unknown argument `{other}`\n{USAGE}")),
         }
@@ -54,6 +66,9 @@ pub fn parse_args(args: &[String]) -> Result<Options, String> {
     }
     if opts.tier.is_empty() {
         return Err(format!("missing tier\n{USAGE}"));
+    }
+    if opts.tier != "t0" && !opts.groups.is_empty() {
+        return Err(format!("`--group` selects parts of t0 only\n{USAGE}"));
     }
     if opts.tier != "t0" && std::env::consts::OS != "macos" {
         return Err(format!(
@@ -102,10 +117,11 @@ pub fn run(args: &[String]) -> Result<(), String> {
         .map(|s| !s.is_empty());
     let leg = format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH);
 
-    tiers::run(&mut ctx, &opts.tier);
+    tiers::run(&mut ctx, &opts.tier, &opts.groups);
 
     let receipt = Receipt {
         tier: opts.tier.clone(),
+        groups: opts.groups.clone(),
         leg,
         os: std::env::consts::OS.to_string(),
         arch: std::env::consts::ARCH.to_string(),

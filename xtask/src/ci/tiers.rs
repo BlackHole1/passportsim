@@ -64,10 +64,14 @@ pub fn browser_record_file(engine: &str) -> String {
 /// The variable naming the wasm core the Playwright specs serve and the replay test hashes.
 pub const CORE_ENV: &str = "PEMU_E2E_CORE";
 
-/// Runs the steps of `tier` (`t0`, `t1` or `t2`).
-pub fn run(ctx: &mut Ctx, tier: &str) {
+/// The parts of T0, which CI runs as parallel jobs. A run with no `--group` runs them all, in this
+/// order.
+pub const T0_GROUPS: [&str; 4] = ["checks", "test", "package", "browsers"];
+
+/// Runs the steps of `tier` (`t0`, `t1` or `t2`); `groups` selects the parts of T0.
+pub fn run(ctx: &mut Ctx, tier: &str, groups: &[String]) {
     match tier {
-        "t0" => t0(ctx),
+        "t0" => t0(ctx, groups),
         "t1" => t1(ctx),
         _ => t2(ctx),
     }
@@ -87,7 +91,33 @@ fn hash_file_exists() -> bool {
 }
 
 /// T0: needs no corpus or device data.
-fn t0(ctx: &mut Ctx) {
+fn t0(ctx: &mut Ctx, groups: &[String]) {
+    let runs = |group: &str| groups.is_empty() || groups.iter().any(|g| g == group);
+    if runs("checks") {
+        t0_checks(ctx);
+    }
+    if runs("test") {
+        t0_test(ctx);
+    }
+    if runs("package") {
+        let cmd = package_test_command(ctx);
+        ctx.test_step(PACKAGE_STEP, cmd, "the release package of this host");
+    }
+    // T1 and T2, where the macOS browser rows run, are macOS-only, so a Windows T0 runs the
+    // Windows rows. A macOS T0 runs no browser.
+    if runs("browsers") && std::env::consts::OS == "windows" {
+        playwright(
+            ctx,
+            WINDOWS_BROWSERS_STEP,
+            &WINDOWS_ROWS,
+            None,
+            Corpus::Withheld,
+        );
+    }
+}
+
+/// The lints, the generated-file and policy checks, and the builds that are not tests.
+fn t0_checks(ctx: &mut Ctx) {
     cargo(ctx, "fmt", &["fmt", "--all", "--check"], "");
     let clippy = [
         "clippy",
@@ -112,21 +142,6 @@ fn t0(ctx: &mut Ctx) {
         "warnings",
     ];
     cargo(ctx, "clippy-planner-device", &clippy_device, "");
-    // The `device` feature's own unit tests (the esptool runner's scratch privacy, deadlines,
-    // output draining and isolated environment) are not in the workspace test run either; they
-    // spawn only `/bin/sleep` and `/bin/dd` on macOS and Windows PowerShell on Windows, never
-    // esptool and never a port. The four device steps run on both hosts, because the feature
-    // builds on both; the planner's Windows arm is its own `windows-sys` code, checked by
-    // `cargo xtask layering`.
-    let test_device = [
-        "test",
-        "-p",
-        "pemu-planner",
-        "--features",
-        "device",
-        "--lib",
-    ];
-    cargo(ctx, "test-planner-device", &test_device, "");
     // `pemu-host`'s device code (the flow adapters, the full backup, the boot-check command
     // path) is behind the same feature and compiled nowhere else, so it is linted and tested here
     // too. Its unit tests open no port; they enumerate through IOKit or SetupAPI, which opens
@@ -144,8 +159,6 @@ fn t0(ctx: &mut Ctx) {
         "warnings",
     ];
     cargo(ctx, "clippy-host-device", &clippy_host_device, "");
-    let test_host_device = ["test", "-p", "pemu-host", "--features", "device", "--lib"];
-    cargo(ctx, "test-host-device", &test_host_device, "");
     // The one step that needs the network: the advisory database is fetched from RustSec.
     ctx.run_step_retrying_network("deny", "cargo", &["deny", "check"], "");
     ctx.xtask_step("layering", &["layering"], "");
@@ -159,48 +172,25 @@ fn t0(ctx: &mut Ctx) {
     ctx.xtask_step("codegen-check", &["codegen", "--check"], "");
     ctx.xtask_step("docs-check", &["docs", "--check"], "");
     ctx.xtask_step("mcp-size", &["mcp-size"], "");
-    // `--show-output` puts the SKIP, PENDING and NOT_RUN lines of passing tests on stdout, where
-    // the step reads them (`outcome.rs`). The corpus belongs to T1, but this step inherits the
-    // operator's environment, so the command removes the data-root override: every corpus test is
-    // SKIPPED-CORPUS here, whoever runs T0.
-    let cmd = workspace_test_command(ctx);
-    ctx.test_step("test", cmd, "");
-    // Cross-host parity against the committed macOS golden, a step of its own so every host's
-    // receipt names it. It does not wait behind the workspace run: `cargo test` stops at the first
-    // failing binary, which would leave the parity unproved and unreported.
-    let cmd = parity_test_command(ctx);
-    ctx.test_step(PARITY_STEP, cmd, "tests/golden/cross-host/parity.txt");
     // `xtask` is left out of the debug build because it is this very process: a workspace build
     // unifies features differently from `cargo xtask` and relinks `target/debug/xtask`, which
     // Windows refuses for a running image (`failed to remove file ...\xtask.exe (os error 5)`)
     // and macOS replaces under its own feet. `cargo xtask` having started proves the debug build,
-    // `clippy` its lints, and `build-release` its workspace build.
+    // `clippy` its lints, and `check-release` the release settings.
     cargo(
         ctx,
         "build",
         &["build", "--workspace", "--exclude", "xtask"],
         "xtask excluded: it is the running process",
     );
-    // Nothing else in any tier makes a release build (`build` above is debug, `wasm32-check` only
-    // checks), so these two steps prove the shipped builds compile.
+    // The release settings, checked for the whole workspace: code under
+    // `cfg(debug_assertions)` differs between the profiles. The shipped binary and wasm core are
+    // built, with the release workflow's flags, by the `package-tests` step.
     cargo(
         ctx,
-        "build-release",
-        &["build", "--workspace", "--release"],
-        "the workspace, optimized",
-    );
-    cargo(
-        ctx,
-        "wasm32-build-release",
-        &[
-            "build",
-            "-p",
-            "pemu-wasm",
-            "--target",
-            "wasm32-unknown-unknown",
-            "--release",
-        ],
-        "the wasm core, optimized",
+        "check-release",
+        &["check", "--workspace", "--release"],
+        "the workspace with the release settings",
     );
     let mut wasm = vec!["check", "--target", "wasm32-unknown-unknown"];
     for krate in CORE_CRATES {
@@ -231,21 +221,42 @@ fn t0(ctx: &mut Ctx) {
     ctx.xtask_step("portable", &["portable"], "CRLF and portable-name scans");
     hooks_present(ctx);
     w0(ctx);
+    bun_test(ctx);
+}
+
+/// The tests, less the package tests of the `package` group.
+fn t0_test(ctx: &mut Ctx) {
+    // The `device` feature's own unit tests (the esptool runner's scratch privacy, deadlines,
+    // output draining and isolated environment) are not in the workspace test run either; they
+    // spawn only `/bin/sleep` and `/bin/dd` on macOS and Windows PowerShell on Windows, never
+    // esptool and never a port. The four device steps run on both hosts, because the feature
+    // builds on both; the planner's Windows arm is its own `windows-sys` code, checked by
+    // `cargo xtask layering`.
+    let test_device = [
+        "test",
+        "-p",
+        "pemu-planner",
+        "--features",
+        "device",
+        "--lib",
+    ];
+    cargo(ctx, "test-planner-device", &test_device, "");
+    let test_host_device = ["test", "-p", "pemu-host", "--features", "device", "--lib"];
+    cargo(ctx, "test-host-device", &test_host_device, "");
+    // `--show-output` puts the SKIP, PENDING and NOT_RUN lines of passing tests on stdout, where
+    // the step reads them (`outcome.rs`). The corpus belongs to T1, but this step inherits the
+    // operator's environment, so the command removes the data-root override: every corpus test is
+    // SKIPPED-CORPUS here, whoever runs T0.
+    let cmd = workspace_test_command(ctx);
+    ctx.test_step("test", cmd, "");
+    // Cross-host parity against the committed macOS golden, a step of its own so every host's
+    // receipt names it. It does not wait behind the workspace run: `cargo test` stops at the first
+    // failing binary, which would leave the parity unproved and unreported.
+    let cmd = parity_test_command(ctx);
+    ctx.test_step(PARITY_STEP, cmd, "tests/golden/cross-host/parity.txt");
     // The engine fuzz at T0's figure. The test's own default is 10^4, so no environment is set
     // here; the 10^6 run is `t2_m0_*` of the T2 tests.
     fuzz(ctx, "fuzz-1e4");
-    bun_test(ctx);
-    // T1 and T2, where the macOS browser rows run, are macOS-only, so a Windows T0 runs the
-    // Windows rows. A macOS T0 runs no browser.
-    if std::env::consts::OS == "windows" {
-        playwright(
-            ctx,
-            WINDOWS_BROWSERS_STEP,
-            &WINDOWS_ROWS,
-            None,
-            Corpus::Withheld,
-        );
-    }
 }
 
 /// T1: needs the corpus and local goldens.
@@ -750,6 +761,36 @@ pub(super) fn workspace_test_command(ctx: &Ctx) -> std::process::Command {
             "--show-output",
             "--skip",
             PARITY_TEST,
+            "--skip",
+            PACKAGE_TESTS,
+        ],
+    );
+    cmd.env_remove(crate::hostdirs::DATA_ROOT_ENV);
+    cmd
+}
+
+/// Step name of the package tests in T0.
+pub const PACKAGE_STEP: &str = "package-tests";
+
+/// The name filter of the tests of `cargo xtask package` (`xtask/src/package/tests.rs`). Their
+/// shared package is a release build of the CLI and the wasm core plus the web bundle, which the
+/// workspace step skips so it builds once, in the `package` group.
+pub const PACKAGE_TESTS: &str = "package::tests::";
+
+/// The `package-tests` step's command: those tests alone, with the data-root override removed as
+/// in [`workspace_test_command`].
+pub(super) fn package_test_command(ctx: &Ctx) -> std::process::Command {
+    let mut cmd = ctx.command(
+        "cargo",
+        &[
+            "test",
+            "-p",
+            "xtask",
+            "--bin",
+            "xtask",
+            "--",
+            PACKAGE_TESTS,
+            "--show-output",
         ],
     );
     cmd.env_remove(crate::hostdirs::DATA_ROOT_ENV);

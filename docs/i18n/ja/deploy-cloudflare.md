@@ -58,7 +58,7 @@ PEMU_E2E_CLOUDFLARE_URL=http://127.0.0.1:8787/ PEMU_E2E_CLOUDFLARE_IMAGE=<a merg
 
 | ワークフロー | 実行のきっかけ | 内容 |
 |---|---|---|
-| `pr-check.yml` | プルリクエスト、`main` へのプッシュ | macOS と Windows で `cargo xtask ci t0`、macOS でページの型チェックと Playwright のテスト(Chromium、Firefox、WebKit)。ランナーにはファームウェアコーパスがないため、コーパスのテストは SKIPPED-CORPUS と報告されます。 |
+| `pr-check.yml` | プルリクエスト、`main` へのプッシュ | macOS と Windows で `cargo xtask ci t0`(`--group` で並列のジョブに分割)、macOS でページの型チェックと Playwright のテスト(Chromium、Firefox、WebKit)。ランナーにはファームウェアコーパスがないため、コーパスのテストは SKIPPED-CORPUS と報告されます。 |
 | `deploy-web.yml` | 手動、または `release.yml` から | macOS で Web バンドルをパッケージし、`wrangler deploy` でデプロイして、公開中のサイトを確認します。 |
 | `release.yml` | Actions タブから手動 | `v*` タグから次のバージョンを算出し(指定があればそれを使い)、そのバージョンで macOS arm64 と Windows x64 のパッケージを作り、タグを付け、自動生成のリリースノート、アーカイブ、`SHA256SUMS.txt` を含む GitHub Release を公開してから、Web バンドルをデプロイします。 |
 

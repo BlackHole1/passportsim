@@ -75,7 +75,7 @@ Workflows in `.github/workflows/`:
 
 | Workflow | Runs on | What it does |
 |---|---|---|
-| `pr-check.yml` | pull requests, pushes to `main` | `cargo xtask ci t0` on macOS and Windows, and the page's type checks and Playwright tests (Chromium, Firefox, WebKit) on macOS. Runners have no firmware corpus, so corpus tests report SKIPPED-CORPUS. |
+| `pr-check.yml` | pull requests, pushes to `main` | `cargo xtask ci t0` on macOS and Windows, split by `--group` into parallel jobs, and the page's type checks and Playwright tests (Chromium, Firefox, WebKit) on macOS. Runners have no firmware corpus, so corpus tests report SKIPPED-CORPUS. |
 | `deploy-web.yml` | by hand, or from `release.yml` | Packages the web bundle on macOS, deploys it with `wrangler deploy` and checks the live site. |
 | `release.yml` | by hand, from the Actions tab | Computes the next version from the `v*` tags (or takes the one given), packages macOS arm64 and Windows x64 as that version, tags the commit, publishes a GitHub Release with generated notes, the archives and `SHA256SUMS.txt`, then deploys the web bundle. |
 

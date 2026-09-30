@@ -31,6 +31,7 @@ fn json_string_escapes_quotes_backslashes_and_controls() {
 fn receipt_json_has_every_field_and_escaped_steps() {
     let receipt = Receipt {
         tier: "t0".into(),
+        groups: vec![],
         leg: "macos-aarch64".into(),
         os: "macos".into(),
         arch: "aarch64".into(),
@@ -50,7 +51,8 @@ fn receipt_json_has_every_field_and_escaped_steps() {
     };
     let json = receipt.to_json();
     for needle in [
-        "\"schema\": \"passportsim/ci-receipt/4\",",
+        "\"schema\": \"passportsim/ci-receipt/5\",",
+        "\"groups\": [],",
         "\"os\": \"macos\",",
         "\"arch\": \"aarch64\",",
         "\"target\": \"aarch64-apple-darwin\",",
@@ -216,11 +218,17 @@ fn argument_parsing() {
     };
     let opts = parse_args(&args("t0")).expect("parses");
     assert_eq!(opts.tier, "t0");
+    assert!(opts.groups.is_empty());
+    let opts = parse_args(&args("t0 --group test --group package")).expect("parses");
+    assert_eq!(opts.groups, ["test", "package"]);
     assert!(parse_args(&args("--help")).expect("parses").help);
     for bad in [
         "",
         "t3",
         "t0 t1",
+        "t0 --group",
+        "t0 --group lint",
+        "t1 --group test",
         "t0 --linux-container",
         "t0 --milestone 5",
         "t0 --emit-steps",
@@ -234,6 +242,7 @@ fn argument_parsing() {
 fn a_windows_receipt_names_its_host_and_target() {
     let receipt = Receipt {
         tier: "t0".into(),
+        groups: vec!["checks".into(), "test".into()],
         leg: "windows-x86_64".into(),
         os: "windows".into(),
         arch: "x86_64".into(),
@@ -263,6 +272,7 @@ fn a_windows_receipt_names_its_host_and_target() {
         "\"arch\": \"x86_64\",",
         "\"target\": \"x86_64-pc-windows-msvc\",",
         "\"reason\": \"windows-target-missing\"",
+        "\"groups\": [\"checks\", \"test\"],",
     ] {
         assert!(json.contains(needle), "missing {needle} in\n{json}");
     }
@@ -270,7 +280,7 @@ fn a_windows_receipt_names_its_host_and_target() {
     // A receipt from another host carries its leg in its name.
     assert_eq!(
         receipt.file_name(),
-        "t0-0123456-20231114T221320Z-windows-x86_64.json"
+        "t0-0123456-20231114T221320Z-windows-x86_64-checks+test.json"
     );
 }
 
@@ -356,6 +366,7 @@ fn t1_m4_passes() {
 
     let receipt = Receipt {
         tier: "t1".into(),
+        groups: vec![],
         leg: "macos-aarch64".into(),
         os: "macos".into(),
         arch: "aarch64".into(),
@@ -857,7 +868,7 @@ fn t1_replays_the_browser_record_after_the_smoke() {
     // The Windows rows run in T0 on the Windows host only, without the corpus, and T1
     // and T2 keep theirs.
     let windows = t0
-        .find("if std::env::consts::OS == \"windows\"")
+        .find("std::env::consts::OS == \"windows\"")
         .expect("the Windows browser rows in t0");
     // Compared without whitespace, so rustfmt's line breaking cannot change the verdict.
     let leg: String = t0[windows..].split_whitespace().collect();
@@ -1096,6 +1107,40 @@ fn the_parity_test_runs_in_its_own_t0_step_and_the_workspace_step_skips_it() {
     assert!(
         source.contains(&format!("fn {}()", super::tiers::PARITY_TEST)),
         "the skipped name is the parity test's"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// The package tests run once, in the `package-tests` step: the workspace step skips them by the
+/// filter that step runs, and the filter names the module `cargo xtask package`'s tests live in.
+#[test]
+fn the_package_tests_run_in_their_own_t0_step_and_the_workspace_step_skips_them() {
+    let (root, ctx) = planted("t0-package", "");
+    let args = |cmd: &std::process::Command| -> Vec<String> {
+        cmd.get_args()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect()
+    };
+    let workspace = args(&super::tiers::workspace_test_command(&ctx));
+    assert!(
+        workspace
+            .windows(2)
+            .any(|w| w == ["--skip", super::tiers::PACKAGE_TESTS]),
+        "{workspace:?}"
+    );
+    let package = args(&super::tiers::package_test_command(&ctx));
+    assert!(
+        package.windows(2).any(|w| w == ["-p", "xtask"]),
+        "{package:?}"
+    );
+    assert!(
+        package.iter().any(|a| a == super::tiers::PACKAGE_TESTS),
+        "{package:?}"
+    );
+    assert!(
+        include_str!("../package.rs").contains("\nmod tests;")
+            && include_str!("../package/tests.rs").contains("#[test]"),
+        "the filter is the path of xtask's package::tests module"
     );
     let _ = std::fs::remove_dir_all(&root);
 }
