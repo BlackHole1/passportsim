@@ -771,10 +771,12 @@ impl BleHost {
                 }
             }
             // The other stages are the Wi-Fi module's.
-            Stage::Start | Stage::Stop | Stage::DeinitRefused => HleAction::Fail(HleError::new(
-                HleErrorKind::Handler,
-                "the ble module has only the init and enable stages",
-            )),
+            Stage::Start | Stage::Stop | Stage::Deinit | Stage::DeinitRefused => {
+                HleAction::Fail(HleError::new(
+                    HleErrorKind::Handler,
+                    "the ble module has only the init and enable stages",
+                ))
+            }
         }
     }
 
