@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Checks a deployed web bundle: the page answers 200 with the cross-origin isolation headers, the
 # wasm core is served as application/wasm with the bytes of the local bundle (so the new version is
-# live, not a cached old one), and the demo firmware is served when the bundle has it.
+# live, not a cached old one), the demo firmware is served when the bundle has it, and the play
+# box's relay answers (a path under it that it does not serve: 404 with its own header, which shows
+# the Worker script is deployed without asking the play site for anything).
 #
 # usage: smoke-check.sh <local web bundle dir> <deployed base URL>
 set -euo pipefail
@@ -53,6 +55,11 @@ for attempt in $(seq "${SMOKE_ATTEMPTS:-12}"); do
       --write-out '%{http_code}' "${base}official.pebundle" || true)
     [ "$status" = 200 ] || failures+=("HEAD /official.pebundle answered $status")
   fi
+
+  status=$(fetch "play-site/" "$tmp/relay.json" "$tmp/relay.h" || true)
+  [ "$status" = 404 ] || failures+=("GET /play-site/ answered $status, not the relay's 404")
+  [ "$(header x-play-relay "$tmp/relay.h")" = "1" ] ||
+    failures+=("/play-site/ has no X-Play-Relay header: the Worker script is not answering")
 
   if [ "${#failures[@]}" -eq 0 ]; then
     echo "smoke check passed: $base (core $want_wasm)"

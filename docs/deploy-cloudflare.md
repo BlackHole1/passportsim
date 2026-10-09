@@ -11,13 +11,14 @@ demo firmware, and the custom domain attached in the dashboard.
 
 ## What the package writes
 
-Three files beside the page (`xtask/src/package/cloudflare.rs`):
+Four files beside the page (`xtask/src/package/cloudflare.rs`):
 
 | File | What it does |
 |---|---|
-| `wrangler.jsonc` | An assets-only Worker named `passportsim` serving the bundle directory. There is no Worker script. `workers_dev: true` keeps the `workers.dev` URL when a custom domain is also deployed. |
+| `wrangler.jsonc` | A Worker named `passportsim` that serves the bundle directory as static assets, with one script, `play-relay.js`. Assets are served first, so the script runs only for a path no file matches. `workers_dev: true` keeps the `workers.dev` URL when a custom domain is also deployed. |
 | `_headers` | The headers `passportsim serve` sends: `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` (needed for `SharedArrayBuffer`), `Cross-Origin-Resource-Policy: same-origin` and `X-Content-Type-Options: nosniff`. It also sets the content type of the demo `.pebundle` and the licence texts. |
-| `.assetsignore` | Keeps `wrangler.jsonc` and the `.wrangler/` state directory off the site. |
+| `.assetsignore` | Keeps `wrangler.jsonc`, `play-relay.js` and the `.wrangler/` state directory off the site. |
+| `play-relay.js` | The Worker script: the play box's relay to `ai-passport.folotoy.cn` (below). It is `web/src/edge/playRelay.js` as written. |
 
 Workers answers with an `ETag` and `Cache-Control: public, max-age=0, must-revalidate`, so a
 browser downloads the 23.5 MiB demo again only when it changed. `pemu_wasm.wasm` is served as
@@ -25,14 +26,27 @@ browser downloads the 23.5 MiB demo again only when it changed. `pemu_wasm.wasm`
 
 ## The deployment stores nothing
 
-An assets-only Worker runs no code: every request is a static file read. Everything a visitor
+Every file of the page is a static asset, served without running any code. Everything a visitor
 does happens in their browser. Dropped firmware is read locally and passed to the page's Web
 Worker (the "Worker" the page mentions is that browser thread, not a Cloudflare Worker), snapshots
 stay in page memory, and the firmware history is in the browser's IndexedDB for the site.
 `web/tests/local.spec.ts` fails on any request that is not a GET to the page's own origin.
 
-The native daemon, `passportsim serve`, is a different program: it runs on your machine and writes
-receipts and artifacts to its local data directory.
+The one piece of server code is the play box's relay. FoloToy's play site answers only its own
+pages, so a browser on any other origin cannot read it. When a visitor types a play's link or
+number, the page asks its own origin for `/play-site/api/plays/id/<number>` and then
+`/play-site/api/download/...`, and the Worker script passes those two GETs on to
+`ai-passport.folotoy.cn` (`web/src/edge/playRelay.js`). It is an allowlist, not a proxy: the
+upstream host is fixed, any other path is a 404, no query, cookie or header of the visitor's
+request is passed on, a redirect is not followed, and a request another site's page makes is
+refused. It stores and logs nothing; like any server it sees the visitor's address and the play
+asked for, and FoloToy sees a request from Cloudflare. The page checks the firmware against the
+size and SHA-256 the play site states before it loads it.
+
+A relayed request runs the Worker script, so it counts against the Workers request limit (see
+Limits); a request for a file of the page does not. `passportsim serve` and any plain static
+server have no relay: there the play box says so and links the play's page for a download by hand.
+`just run` serves the page with the same relay, for development.
 
 ## Deploy
 
@@ -116,6 +130,7 @@ From Cloudflare's documentation, read on 2026-09-27:
 | Asset files per Worker version | 20,000 | 100,000 (Wrangler 4.34.0 or newer) | same |
 | Total size of the assets | no limit stated | no limit stated | same |
 | Requests to static assets | free and unlimited | free and unlimited | [Billing and limitations](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/) |
+| Requests that run the Worker script (the play relay, two per play loaded) | 100,000 a day, then error 1027 for those requests | no limit, billed | [Workers limits](https://developers.cloudflare.com/workers/platform/limits/), read on 2026-10-08 |
 | `_headers` rules / line length | 100 rules, 2,000 characters a line | same | [Headers](https://developers.cloudflare.com/workers/static-assets/headers/) |
 
 Wrangler refuses the whole deploy if one file is over 25 MiB. A bundle with the demo has 18 files;

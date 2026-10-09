@@ -8,21 +8,24 @@
 
 ## 发布包写入的文件
 
-页面旁边的三个文件(`xtask/src/package/cloudflare.rs`)：
+页面旁边的四个文件(`xtask/src/package/cloudflare.rs`)：
 
 | 文件 | 作用 |
 |---|---|
-| `wrangler.jsonc` | 一个名为 `passportsim` 的纯静态资源 Worker，提供网页包目录。没有 Worker 脚本。`workers_dev: true` 保证同时部署自定义域名时 `workers.dev` 地址仍然可用。 |
+| `wrangler.jsonc` | 一个名为 `passportsim` 的 Worker，把网页包目录作为静态资源提供，并带有一个脚本 `play-relay.js`。静态资源优先，脚本只在没有文件匹配的路径上运行。`workers_dev: true` 保证同时部署自定义域名时 `workers.dev` 地址仍然可用。 |
 | `_headers` | 与 `passportsim serve` 相同的响应头：`Cross-Origin-Opener-Policy: same-origin` 和 `Cross-Origin-Embedder-Policy: require-corp`(`SharedArrayBuffer` 需要它们)、`Cross-Origin-Resource-Policy: same-origin` 和 `X-Content-Type-Options: nosniff`。它还设置演示 `.pebundle` 和许可证文本的内容类型。 |
-| `.assetsignore` | 不让 `wrangler.jsonc` 和 `.wrangler/` 状态目录出现在站点上。 |
+| `.assetsignore` | 不让 `wrangler.jsonc`、`play-relay.js` 和 `.wrangler/` 状态目录出现在站点上。 |
+| `play-relay.js` | Worker 脚本：玩法输入框通往 `ai-passport.folotoy.cn` 的中转(见下文)。内容就是 `web/src/edge/playRelay.js` 原文。 |
 
 Workers 的响应带有 `ETag` 和 `Cache-Control: public, max-age=0, must-revalidate`，因此浏览器只在 23.5 MiB 的演示固件有变化时才重新下载。`pemu_wasm.wasm` 以 `application/wasm` 类型提供。
 
 ## 部署不保存任何数据
 
-纯静态资源 Worker 不运行任何代码：每个请求都只是读取静态文件。访问者的一切操作都在自己的浏览器中进行。拖入的固件在本地读取并交给页面的 Web Worker(页面提到的“Worker”是这个浏览器线程，不是 Cloudflare Worker)，快照保存在页面内存中，固件历史保存在浏览器为该站点提供的 IndexedDB 中。`web/tests/local.spec.ts` 会在出现任何不是对页面自身源的 GET 请求时失败。
+页面的每个文件都是静态资源，提供它们不运行任何代码。访问者的一切操作都在自己的浏览器中进行。拖入的固件在本地读取并交给页面的 Web Worker(页面提到的“Worker”是这个浏览器线程，不是 Cloudflare Worker)，快照保存在页面内存中，固件历史保存在浏览器为该站点提供的 IndexedDB 中。`web/tests/local.spec.ts` 会在出现任何不是对页面自身源的 GET 请求时失败。
 
-原生守护进程 `passportsim serve` 是另一个程序：它运行在你的机器上，会把回执和产物写入本地数据目录。
+唯一的服务端代码是玩法输入框的中转。FoloToy 的玩法站点只应答它自己的页面，其他源上的浏览器读取不到它。访问者填入玩法链接或编号后，页面向自己的源请求 `/play-site/api/plays/id/<编号>`，再请求 `/play-site/api/download/...`，Worker 脚本把这两个 GET 转给 `ai-passport.folotoy.cn` (`web/src/edge/playRelay.js`)。它是白名单而不是代理：上游主机固定，其他路径一律 404，访问者请求中的查询串、cookie 和请求头都不会转发，不跟随重定向，其他站点的页面发来的请求会被拒绝。它不保存也不记录任何数据；和任何服务器一样，它能看到访问者的地址和所请求的玩法，而 FoloToy 看到的是来自 Cloudflare 的请求。页面会先按玩法站点声明的大小和 SHA-256 校验固件，然后才加载。
+
+经过中转的请求会运行 Worker 脚本，因此计入 Workers 的请求限额(见“限制”)；对页面文件的请求不计入。`passportsim serve` 和普通静态服务器没有中转：此时玩法输入框会说明这一点，并给出玩法页面的链接供手动下载。`just run` 提供的页面带有同样的中转，用于开发。
 
 ## 部署
 
@@ -87,6 +90,7 @@ PEMU_E2E_CLOUDFLARE_URL=http://127.0.0.1:8787/ PEMU_E2E_CLOUDFLARE_IMAGE=<a merg
 | 每个 Worker 版本的资源文件数 | 20,000 | 100,000(Wrangler 4.34.0 或更新版本) | 同上 |
 | 资源总大小 | 未说明限制 | 未说明限制 | 同上 |
 | 静态资源请求 | 免费且不限量 | 免费且不限量 | [Billing and limitations](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/) |
+| 运行 Worker 脚本的请求(玩法中转，每加载一个玩法两次) | 每天 100,000 次，超出后这类请求返回错误 1027 | 无上限，按量计费 | [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)，读取于 2026-10-08 |
 | `_headers` 规则数 / 行长度 | 100 条规则，每行 2,000 字符 | 同左 | [Headers](https://developers.cloudflare.com/workers/static-assets/headers/) |
 
 只要有一个文件超过 25 MiB，Wrangler 就会拒绝整个部署。带演示固件的网页包有 18 个文件；最大的是约 7.0 MB 的 `pemu_wasm.wasm`，其次是约 6.1 MB 的 `official.pebundle`，它是 24.7 MB 的演示固件经 gzip 压缩后的结果：Cloudflare 会原样发送 `application/octet-stream` 文件，由页面自行解压。如果有文件超过上限，或文件数超过 20,000，`cargo xtask package` 会失败并指出是哪个文件，每次运行也会输出剩余余量。

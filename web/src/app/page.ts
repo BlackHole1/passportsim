@@ -30,6 +30,7 @@ import { isTextField, keyAction, widgetOwnsKey, type KeyAction } from "./keymap"
 import { deviceLayout, type DeviceLayout } from "./layout";
 import { DEMO_IMAGE, type LoadedImage } from "./load";
 import { createLoader, type Loader } from "./loader";
+import type { PlayRelay } from "./play";
 import type { AudioOutput } from "./panels/audio";
 import { PerfHistory } from "./panels/perf";
 import { RewindRing, type RewindSource } from "./panels/snapshots";
@@ -92,6 +93,11 @@ export interface PageDeps {
   readonly readFrame?: () => Promise<RawFrame | null>;
   readonly encodePng?: PngEncoder;
   readonly download?: (blob: Blob, name: string) => void;
+  /**
+   * The relay to the play site on the page's own origin (`play.ts`). Absent, the play box refuses
+   * every play as having no relay.
+   */
+  readonly playRelay?: PlayRelay;
   /** Opens the firmware history's storage. Absent or rejected, the history says it is unavailable. */
   readonly history?: () => Promise<HistoryBackend>;
   readonly wallClock?: () => number;
@@ -192,6 +198,8 @@ export interface PageActions {
   setFollow(on: boolean): void;
   screenshot(): Promise<void>;
   loadFromHistory(id: string): Promise<void>;
+  /** Loads the firmware of the play a typed link or number names, from the play site. */
+  loadPlay(text: string): Promise<void>;
   downloadFromHistory(id: string, file?: string): Promise<void>;
   /** Boots the running image again from reset, the way out of a stop that cannot continue. */
   restart(): void;
@@ -509,6 +517,7 @@ export function createPage(deps: PageDeps): Page {
         return bootMachine(DEMO_IMAGE, null);
       },
       now: deps.now,
+      ...(deps.playRelay === undefined ? {} : { playRelay: deps.playRelay }),
     },
     DEMO_IMAGE,
   );
@@ -712,6 +721,7 @@ export function createPage(deps: PageDeps): Page {
         await loader.run(loaded);
       }
     },
+    loadPlay: (text) => loader.play(text, prefs.get().locale === "zh-CN"),
     downloadFromHistory: async (id, file) => {
       const files = await history.files(id);
       for (const one of files ?? []) {

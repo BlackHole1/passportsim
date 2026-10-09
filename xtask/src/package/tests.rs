@@ -1322,6 +1322,10 @@ fn the_web_bundle_is_servable_and_carries_the_same_demo_as_the_package() {
             super::cloudflare::IGNORE_FILE,
             super::cloudflare::ignore_text(),
         ),
+        (
+            super::cloudflare::RELAY_FILE,
+            super::cloudflare::RELAY_SCRIPT.to_string(),
+        ),
     ] {
         assert_eq!(
             std::fs::read_to_string(built.web_dir.join(name))

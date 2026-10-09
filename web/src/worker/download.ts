@@ -1,8 +1,12 @@
-// Byte counts of the two files a boot may download, the core and the bundled firmware, so the page
-// can say what it is waiting for. Counted as the bytes arrive; nothing here estimates.
+// Byte counts of the files the page may download: the core and the bundled firmware of a boot, and
+// a play's firmware (`app/play.ts`), so the page can say what it is waiting for. Counted as the
+// bytes arrive; nothing here estimates.
 
-/** Which file: the `pemu_wasm` core, or the bundled firmware a demo boot fetches by its `fw` name. */
-export type DownloadWhat = "core" | "firmware";
+/**
+ * Which file: the `pemu_wasm` core, the bundled firmware a demo boot fetches by its `fw` name, or
+ * the firmware of a play the page fetches from the play site.
+ */
+export type DownloadWhat = "core" | "firmware" | "play";
 
 export interface DownloadProgress {
   readonly what: DownloadWhat;

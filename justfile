@@ -22,10 +22,10 @@ setup: setup-web
 setup-web:
     bun install --frozen-lockfile
 
-# Build the core and the page, then serve the web UI on 127.0.0.1 (with the demo when the data root has it).
+# Build the core and the page, then serve the web UI on 127.0.0.1 (with the demo when the data root has it, and the play relay).
 [working-directory: "web"]
 run port="4173" $PASSPORTSIM_DATA_ROOT=data_root: core web
-    bun tests/serve.ts {{port}}
+    bun tests/serve.ts {{port}} --play-relay
 
 alias start := run
 

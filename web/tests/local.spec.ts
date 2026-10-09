@@ -4,6 +4,9 @@
 //
 // Requests are read from the browser context, which sees Worker fetches too; the test checks it
 // saw the Worker's fetch of the wasm core. `blob:` and `data:` URLs are not network requests.
+//
+// The play box is not used here. It too makes only GETs to the page's own origin, to the relay
+// beside the page, which `play.spec.ts` checks; what the relay passes on is in `playRelay.test.ts`.
 
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";

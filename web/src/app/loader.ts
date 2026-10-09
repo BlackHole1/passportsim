@@ -6,6 +6,17 @@
 import type { DownloadProgress } from "./download";
 import { dropFromTransfer, WALK_LIMIT } from "./drop";
 import { carriesAppElf, loadDrop, type Drop, type LoadedImage, type LoadStep } from "./load";
+import {
+  downloadPlay,
+  parsePlayRef,
+  PLAY_HOST,
+  playImageName,
+  playTitle,
+  resolvePlay,
+  type PlayFault,
+  type PlayRefFault,
+  type PlayRelay,
+} from "./play";
 import type { MachineStop } from "./stop";
 import { Store } from "./store";
 
@@ -20,7 +31,13 @@ export type LoaderMessage =
   | { readonly kind: "not-booted"; readonly name: string; readonly detail: string }
   | { readonly kind: "running"; readonly name: string; readonly notes: readonly string[] }
   | { readonly kind: "machine"; readonly detail: string }
-  | { readonly kind: "no-demo" };
+  | { readonly kind: "no-demo" }
+  /** A play is being asked for or downloaded; `progress` is its download once that began. */
+  | { readonly kind: "play-fetching"; readonly id: number; readonly progress: DownloadProgress | null }
+  /** The typed text names no play. */
+  | { readonly kind: "play-ref"; readonly fault: PlayRefFault }
+  /** The play site gave no firmware the page accepts for play `id`. */
+  | { readonly kind: "play-fault"; readonly id: number; readonly fault: PlayFault };
 
 export type ProgressStep =
   | LoadStep
@@ -34,7 +51,13 @@ export type ProgressStep =
   | { readonly kind: "stopped"; readonly stop: MachineStop; readonly vt: string }
   | { readonly kind: "machine-error"; readonly detail: string }
   | { readonly kind: "refused"; readonly command: string; readonly error: string }
-  /** The core or the demo firmware downloading, done or failed; one line updated as bytes arrive. */
+  /** The play site is asked which firmware play `id` publishes. */
+  | { readonly kind: "play"; readonly id: number }
+  /** Its answer: the revision published, its title in the reader's language and the firmware's size. */
+  | { readonly kind: "play-found"; readonly id: number; readonly revision: number; readonly title: string; readonly bytes: number }
+  /** The downloaded bytes have the size and the SHA-256 the site stated. */
+  | { readonly kind: "play-verified"; readonly sha256: string }
+  /** The core, the demo firmware or a play's firmware downloading, done or failed; one line updated as bytes arrive. */
   | { readonly kind: "download"; readonly progress: DownloadProgress };
 
 export interface ProgressLine {
@@ -60,11 +83,20 @@ export interface LoaderHandlers {
   readonly now: () => number;
   /** A dropped or history image booted; not called for the demo or a failed boot. */
   readonly onBooted?: (image: LoadedImage) => void;
+  /** How the page reaches the play site (`play.ts`). Absent, a play is refused as having no relay. */
+  readonly playRelay?: PlayRelay;
 }
 
 export interface Loader {
   readonly store: Store<LoaderSnapshot>;
   offer(drop: Drop): Promise<void>;
+  /**
+   * Loads the firmware of the play `text` names (its number, or the address of its page on the
+   * play site): asks the site through the relay, downloads, checks the bytes against the size and
+   * SHA-256 it stated, then boots them as a dropped merged bin. `chinese` picks which of the play's
+   * titles is shown.
+   */
+  play(text: string, chinese?: boolean): Promise<void>;
   run(image: LoadedImage): Promise<void>;
   say(state: LoaderState, message: LoaderMessage | null): void;
   progress(step: ProgressStep): void;
@@ -101,6 +133,8 @@ export function createLoader(handlers: LoaderHandlers, demoImage: string): Loade
   let failed: LoadedImage | null = null;
   let seq = 0;
   let startedAt = handlers.now();
+  /** Counts the loads begun, so a play that finishes downloading after a later load is dropped. */
+  let turn = 0;
 
   const say = (state: LoaderState, message: LoaderMessage | null): void => {
     store.update((current) => ({ ...current, state, message }));
@@ -130,6 +164,7 @@ export function createLoader(handlers: LoaderHandlers, demoImage: string): Loade
   };
 
   const offer = async (drop: Drop): Promise<void> => {
+    turn += 1;
     startedAt = handlers.now();
     store.update((current) => ({ ...current, steps: [] }));
     say("loading", { kind: "reading" });
@@ -166,10 +201,80 @@ export function createLoader(handlers: LoaderHandlers, demoImage: string): Loade
     handlers.onBooted?.(image);
   };
 
+  const play = async (text: string, chinese = false): Promise<void> => {
+    turn += 1;
+    const mine = turn;
+    startedAt = handlers.now();
+    store.update((current) => ({ ...current, steps: [] }));
+    const ref = parsePlayRef(text);
+    if (!ref.ok) {
+      say("refused", { kind: "play-ref", fault: ref.fault });
+      return;
+    }
+    const { id } = ref;
+    const refuse = (fault: PlayFault): void => {
+      if (mine === turn) {
+        progress({ kind: "failed" });
+        say("refused", { kind: "play-fault", id, fault });
+      }
+    };
+    say("loading", { kind: "play-fetching", id, progress: null });
+    progress({ kind: "play", id });
+    const relay = handlers.playRelay;
+    if (relay === undefined) {
+      refuse({ kind: "no-relay" });
+      return;
+    }
+    const found = await resolvePlay(id, relay);
+    if (!found.ok) {
+      refuse(found.fault);
+      return;
+    }
+    if (mine !== turn) {
+      return;
+    }
+    const firmware = found.value;
+    const title = playTitle(firmware, chinese);
+    progress({ kind: "play-found", id, revision: firmware.revision, title, bytes: firmware.size });
+    const fetched = await downloadPlay(
+      firmware,
+      relay,
+      (report) => {
+        if (mine === turn) {
+          download(report);
+          say("loading", { kind: "play-fetching", id, progress: report });
+        }
+      },
+      handlers.now,
+    );
+    if (!fetched.ok) {
+      refuse(fetched.fault);
+      return;
+    }
+    if (mine !== turn) {
+      return;
+    }
+    progress({ kind: "play-verified", sha256: firmware.sha256 });
+    const bytes = fetched.value;
+    // From here it is a dropped merged bin, so `loadDrop` owns the image's bounds and its name.
+    const result = await loadDrop({ root: null, files: [{ path: `${playImageName(firmware)}.bin`, size: bytes.length, read: () => Promise.resolve(bytes) }] }, progress);
+    if (mine !== turn) {
+      return;
+    }
+    if (!result.ok) {
+      progress({ kind: "failed" });
+      say("refused", { kind: "refused", reason: result.reason });
+      return;
+    }
+    const from = `play ${id}${title === "" ? "" : ` "${title}"`} from ${PLAY_HOST}`;
+    await boot({ ...result.image, notes: [from, ...result.image.notes] });
+  };
+
   const backToDemo = async (): Promise<void> => {
     if (!store.get().demo) {
       return;
     }
+    turn += 1;
     try {
       await handlers.onDemo();
     } catch (error) {
@@ -188,6 +293,7 @@ export function createLoader(handlers: LoaderHandlers, demoImage: string): Loade
       await backToDemo();
       return;
     }
+    turn += 1;
     startedAt = handlers.now();
     store.update((snapshot) => ({ ...snapshot, steps: [] }));
     await boot(current);
@@ -200,6 +306,7 @@ export function createLoader(handlers: LoaderHandlers, demoImage: string): Loade
   };
 
   const run = async (image: LoadedImage): Promise<void> => {
+    turn += 1;
     begin({ kind: "history", name: image.name });
     await boot(image);
   };
@@ -207,6 +314,7 @@ export function createLoader(handlers: LoaderHandlers, demoImage: string): Loade
   return {
     store,
     offer,
+    play,
     run,
     say,
     progress,
@@ -229,6 +337,7 @@ export function createLoader(handlers: LoaderHandlers, demoImage: string): Loade
         return;
       }
       const image = failed;
+      turn += 1;
       startedAt = handlers.now();
       store.update((snapshot) => ({ ...snapshot, steps: [] }));
       await boot(image);

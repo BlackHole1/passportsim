@@ -12,6 +12,11 @@
 //     bun run e2e --project=chromium tests/cloudflare.spec.ts
 //
 // Skips, each named: no `PEMU_E2E_CLOUDFLARE_URL`; no `PEMU_E2E_CLOUDFLARE_IMAGE`.
+//
+// A second test runs the bundle's Worker script, the play box's relay (`src/edge/playRelay.js`),
+// against the real play site: the only test that reaches it, so it needs its own variable,
+// `PEMU_E2E_CLOUDFLARE_PLAY=<play number>`. It loads that play through the page and checks that the
+// browser itself asked nothing but the page's own origin.
 
 import { existsSync, readFileSync } from "node:fs";
 import { basename } from "node:path";
@@ -20,6 +25,8 @@ import { browserGaps, holdControl, pinPrefs, waitForLoaded, waitForStatus, watch
 
 const URL_VARIABLE = "PEMU_E2E_CLOUDFLARE_URL";
 const IMAGE_VARIABLE = "PEMU_E2E_CLOUDFLARE_IMAGE";
+
+const PLAY_VARIABLE = "PEMU_E2E_CLOUDFLARE_PLAY";
 
 const BOOT_MS = 90_000;
 
@@ -128,4 +135,74 @@ test("the packaged web bundle under wrangler dev is isolated, serves wasm as app
   await waitForLoaded(page, name, BOOT_MS);
   const status = await waitForStatus(page);
   expect(JSON.stringify(status.ok ? status.json : null), "the page runs the dropped image").toContain(`"fw":"${name}"`);
+});
+
+test("the relay under wrangler dev answers only its two paths, and the page loads a real play through it", async ({ page, context, request }) => {
+  test.setTimeout(240_000);
+  const base = process.env[URL_VARIABLE];
+  const play = process.env[PLAY_VARIABLE];
+  test.skip(!base, `no ${URL_VARIABLE}: start \`bunx wrangler dev\` in a packaged web bundle and name its URL`);
+  test.skip(!play, `no ${PLAY_VARIABLE}: name a play of ai-passport.folotoy.cn to load through the relay (this reaches the real site)`);
+  if (!base || !play) {
+    return;
+  }
+  expect(play, `${PLAY_VARIABLE} is a play's number`).toMatch(/^[1-9][0-9]*$/);
+  const origin = new URL(base).origin;
+
+  // What the relay does not serve never reaches the play site: its own 404, marked as the relay's.
+  for (const path of ["play-site/", "play-site/api/me", "play-site/api/plays/id/0"]) {
+    const stray = await request.get(new URL(path, base).href);
+    expect([path, stray.status(), stray.headers()["x-play-relay"]]).toEqual([path, 404, "1"]);
+  }
+  const post = await request.post(new URL(`play-site/api/plays/id/${play}`, base).href);
+  expect([post.status(), post.headers()["allow"]]).toEqual([405, "GET"]);
+  const foreign = await request.get(new URL(`play-site/api/plays/id/${play}`, base).href, { headers: { "sec-fetch-site": "cross-site" } });
+  expect(foreign.status(), "another site's page is not relayed for").toBe(403);
+  // A path that is neither a file nor the relay's is a plain 404, as it was with no script.
+  const missing = await request.get(new URL("no-such-file.js", base).href);
+  expect([missing.status(), missing.headers()["x-play-relay"]]).toEqual([404, undefined]);
+
+  const answer = await request.get(new URL(`play-site/api/plays/id/${play}`, base).href);
+  expect(answer.status(), `the relay answers for play ${play}`).toBe(200);
+  expect(answer.headers()["x-play-relay"]).toBe("1");
+  expect(answer.headers()["cache-control"]).toBe("no-store");
+  expect(answer.headers()["set-cookie"], "no cookie of the play site is passed on").toBeUndefined();
+  const firmware = ((await answer.json()) as { play?: { firmware?: { size?: number } } }).play?.firmware;
+  expect(firmware?.size, `play ${play} publishes a firmware`).toBeGreaterThan(0);
+
+  const seen: { method: string; url: string }[] = [];
+  context.on("request", (one) => {
+    if (/^https?:/.test(one.url())) {
+      seen.push({ method: one.method(), url: one.url() });
+    }
+  });
+  const lengths: (string | undefined)[] = [];
+  page.on("response", (response) => {
+    if (new URL(response.url()).pathname.startsWith("/play-site/api/download/")) {
+      lengths.push(response.headers()["content-length"]);
+    }
+  });
+  watchPage(page);
+  await pinPrefs(page, "simple");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(new URL("?mode=simple&lang=en", base).href);
+  await expect(page.locator("#app .app"), "the shell mounted").toBeVisible({ timeout: 30_000 });
+  await page.waitForFunction(() => typeof (globalThis as { passportEmu?: unknown }).passportEmu === "object");
+  await page.locator("[data-play-input]").fill(`https://ai-passport.folotoy.cn/plays/${play}/`);
+  await page.locator("[data-play-input]").press("Enter");
+  const strip = page.locator("[data-loader]");
+  await expect
+    .poll(
+      async () => {
+        const state = await strip.getAttribute("data-loader-state");
+        const image = (await strip.getAttribute("data-loader-image")) ?? "";
+        return state === "refused" || state === "error" ? `${state}: ${await strip.locator("[data-loader-message]").textContent()}` : state === "loaded" ? image : state;
+      },
+      { timeout: BOOT_MS, message: `play ${play} is downloaded, checked and booted` },
+    )
+    .toMatch(new RegExp(`^play-${play}(-r[0-9]+)?$`));
+  await expect(page.locator(".log-panel")).toContainText("The download has the size and the SHA-256 the site states");
+  expect(lengths, "the firmware came with its length, so the page could count it against a total").toEqual([String(firmware?.size)]);
+  expect(seen.filter((one) => new URL(one.url).origin !== origin), "the browser asked nothing but the page's own origin").toEqual([]);
+  expect(seen.filter((one) => one.method !== "GET"), "every request is a GET").toEqual([]);
 });

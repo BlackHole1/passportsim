@@ -10,6 +10,7 @@ import { downloadText } from "../download";
 import type { Translate } from "../i18n";
 import { humanSize } from "../load";
 import type { ProgressLine, ProgressStep } from "../loader";
+import { PLAY_HOST } from "../play";
 import { stopReasonKey, type MachineStop } from "../stop";
 import { usePage, useStore, useT } from "./hooks";
 import { FollowToggle, Terminal } from "./Terminal";
@@ -58,6 +59,14 @@ export function stepText(t: Translate, step: ProgressStep): string {
       return t("step.refused", { command: step.command, error: step.error });
     case "download":
       return downloadText(t, step.progress);
+    case "play":
+      return t("step.play", { host: PLAY_HOST, id: step.id });
+    case "play-found":
+      return step.title === ""
+        ? t("step.playFound", { id: step.id, revision: step.revision, size: humanSize(step.bytes) })
+        : t("step.playFoundTitled", { id: step.id, title: step.title, revision: step.revision, size: humanSize(step.bytes) });
+    case "play-verified":
+      return t("step.playVerified", { sha256: step.sha256.slice(0, 12) });
   }
   return "";
 }

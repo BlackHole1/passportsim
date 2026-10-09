@@ -10,6 +10,7 @@ import { daemonAttachPort } from "./daemon";
 import { openIndexedDb } from "./history";
 import { systemLocale } from "./i18n";
 import { createPage, DEMO_IMAGE, type Page } from "./page";
+import { playRelayBase } from "./play";
 import { PANEL_HEIGHT, PANEL_WIDTH } from "./scale";
 import { linkWorker } from "./workerLink";
 
@@ -122,6 +123,8 @@ export function start(): Page {
     // The `localStorage` getter itself throws when storage is blocked; `prefs.ts` catches it.
     storage: () => window.localStorage,
     search: window.location.search,
+    // Beside `main.js`, like the core and the demo, so a bundle served under a path needs no configuration.
+    playRelay: { base: playRelayBase(import.meta.url), fetch: (url, init) => fetch(url, init) },
     systemLocale,
     readFrame: () =>
       new Promise((resolve) => {
