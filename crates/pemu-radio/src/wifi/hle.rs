@@ -6,7 +6,8 @@
 //! and the machine then arms the `DisabledFeature` tripwire at `esp_wifi_init`: an image that
 //! starts Wi-Fi without the HLE loops on `assert failed: esp_phy_enable phy_init.c:327`. An image
 //! that links none of the functions binds nothing and needs nothing. Without an ELF, the module
-//! binds only when every name [`RadioModule::image_symbols`] lists is found in the image.
+//! binds only when every name [`RadioModule::image_symbols`] lists is found in the image, or is a
+//! hook whose guard is (`wifi.toml`, "Guards").
 
 use pemu_core::snap::SectionId;
 use pemu_hle::binding::{BindingMismatch, ImageView, MachineConfigFragment, ModuleSymbols};

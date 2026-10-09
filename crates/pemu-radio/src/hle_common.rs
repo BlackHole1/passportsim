@@ -36,6 +36,9 @@ pub struct HookRow {
     pub name: String,
     pub handler: u16,
     pub section: String,
+    /// The blob-defined function this hook's own body calls first, which lets an image without an
+    /// ELF bind without the hook (`ModuleSymbols::guards`).
+    pub guard: Option<String>,
     /// At least one.
     pub variants: Vec<Variant>,
 }
@@ -71,6 +74,7 @@ impl ProfileRows {
                 handler: u16::try_from(need_u32(table, "handler")?)
                     .map_err(|_| "a handler number above 65535".to_string())?,
                 section: need(table, "section")?.to_string(),
+                guard: table.string("guard").map(str::to_string),
                 variants: Vec::new(),
             }),
             ("variant", true) => {
@@ -162,9 +166,9 @@ pub(crate) fn digest(text: &str) -> Result<[u8; 32], String> {
     Ok(out)
 }
 
-/// Binds fail-closed: `idf_ver` must be `v` plus `idf`, each hooked function the image links must
-/// match a variant by size and code hash, and every call and data symbol must be linked. An image
-/// that links none of the hooked functions binds nothing.
+/// Binds fail-closed: `idf_ver` must be `v` plus `idf` ([`idf_ver_is`]), each hooked function the
+/// image links must match a variant by size and code hash, and every call and data symbol must be
+/// linked. An image that links none of the hooked functions binds nothing.
 pub(crate) fn bind_view(
     image: &ImageView<'_>,
     idf: &str,
@@ -183,7 +187,7 @@ pub(crate) fn bind_view(
     let mut mismatches = Vec::new();
     let want_idf = format!("v{idf}");
     let idf_ver = image.elf.app_desc.as_ref().map(|d| d.idf_ver.as_str());
-    if idf_ver != Some(want_idf.as_str()) {
+    if !idf_ver.is_some_and(|found| idf_ver_is(found, idf)) {
         mismatches.push(BindingMismatch {
             symbol: "esp_app_desc".to_string(),
             field: MismatchField::IdfVersion,
@@ -257,7 +261,21 @@ pub(crate) fn bind_view(
     }
 }
 
-/// The names an image without an ELF must provide: hooks, calls, data and `presence`.
+/// Whether an app descriptor's `idf_ver` names IDF release `idf`: `v<idf>`, or `v<idf>-dirty`.
+///
+/// `-dirty` is `git describe --dirty` saying the IDF checkout had an uncommitted change when the
+/// app was built, which a build system that patches or vendors a file produces on every build. It
+/// says nothing about which file, so the string cannot vouch for the driver either way; the size
+/// and code hash of every hooked function do, and they are checked whatever this string says. A
+/// commit past the tag (`v5.5.3-12-gabc`) or another release is still refused.
+pub(crate) fn idf_ver_is(found: &str, idf: &str) -> bool {
+    found
+        .strip_prefix('v')
+        .is_some_and(|rest| rest == idf || rest.strip_suffix("-dirty") == Some(idf))
+}
+
+/// The names an image without an ELF must provide: hooks, calls, data and `presence`, and the
+/// guard of each hook that has one.
 pub(crate) fn module_symbols(
     hooks: &'static [HookRow],
     calls: &'static [String],
@@ -271,6 +289,10 @@ pub(crate) fn module_symbols(
             .map(String::as_str)
             .chain(data.iter().map(|(name, _)| name.as_str()))
             .chain(presence.iter().copied())
+            .collect(),
+        guards: hooks
+            .iter()
+            .filter_map(|h| Some((h.name.as_str(), h.guard.as_deref()?)))
             .collect(),
     }
 }
@@ -400,6 +422,36 @@ mod tests {
         [[hook]]\nname = \"f\"\nhandler = 1\nsection = \".flash.text\"\n\
         [[variant]]\nbuilds = \"a\"\nsize = 4\n\
         code_sha256 = \"0000000000000000000000000000000000000000000000000000000000000000\"\n";
+
+    #[test]
+    fn a_dirty_checkout_of_the_release_is_the_release_and_nothing_else_is() {
+        assert!(idf_ver_is("v5.5.3", "5.5.3"));
+        assert!(idf_ver_is("v5.5.3-dirty", "5.5.3"));
+        for other in [
+            "5.5.3",
+            "v5.5.3-dirty-dirty",
+            "v5.5.3-12-gabcdef0",
+            "v5.5.3-12-gabcdef0-dirty",
+            "v5.5.30",
+            "v5.5.2-dirty",
+            "v5.5",
+            "",
+        ] {
+            assert!(!idf_ver_is(other, "5.5.3"), "{other}");
+        }
+    }
+
+    #[test]
+    fn a_hook_row_may_name_its_guard() {
+        let parsed = rows(HOOK).expect("parses");
+        assert_eq!(parsed.hooks[0].guard, None);
+        let guarded = HOOK.replace(
+            "section = \".flash.text\"\n",
+            "section = \".flash.text\"\nguard = \"g\"\n",
+        );
+        let parsed = rows(&guarded).expect("parses");
+        assert_eq!(parsed.hooks[0].guard.as_deref(), Some("g"));
+    }
 
     #[test]
     fn a_variant_is_verified_only_by_the_one_word() {

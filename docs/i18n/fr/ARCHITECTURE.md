@@ -295,8 +295,10 @@ s'exécute comme du vrai code invité.
   relocations sont masquées, et si la version d'IDF de l'application correspond. En cas d'écart, la
   radio est marquée `unsupported image` et le reste continue de tourner.
 - **Sans ELF**, les symboles sont retrouvés dans l'image d'après la forme du code des fonctions
-  entières ; un module ne se lie que si tous ses noms sont trouvés exactement une fois. Sans ELF, le
-  Wi-Fi ne se lie que de cette façon.
+  entières, chaque nom exactement une fois. Une image ne peut pas montrer qu'une fonction est
+  absente : une fonction interceptée qui n'est pas trouvée doit donc avoir une garde, la fonction de
+  bibliothèque fermée que son propre corps appelle en premier, trouvée dans l'image et armée comme
+  tripwire. Tout autre nom introuvable fait refuser le module.
 - **Des tripwires** sur les fonctions internes des bibliothèques fermées arrêtent une exécution qui
   les atteint avec `E_TRIPWIRE`, plutôt qu'avec une assertion obscure.
 - **Le monde est scripté.** Une centrale BLE virtuelle scanne, se connecte et utilise GATT ; le

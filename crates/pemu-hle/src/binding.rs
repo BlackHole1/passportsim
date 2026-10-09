@@ -150,6 +150,23 @@ pub enum MismatchField {
     Ambiguous,
 }
 
+impl MismatchField {
+    /// The receipt wording.
+    pub fn receipt_word(self) -> &'static str {
+        match self {
+            MismatchField::Missing => "missing",
+            MismatchField::Size => "size",
+            MismatchField::Section => "section",
+            MismatchField::Kind => "kind",
+            MismatchField::CodeHash => "code_hash",
+            MismatchField::Collision => "collision",
+            MismatchField::IdfVersion => "idf_version",
+            MismatchField::Worker => "worker",
+            MismatchField::Ambiguous => "ambiguous",
+        }
+    }
+}
+
 /// One failed check: what a receipt needs to say why a feature became `unsupported image`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BindingMismatch {
@@ -371,37 +388,80 @@ pub fn code_hash(bytes: &[u8]) -> [u8; 32] {
     pemu_loader::sha256(bytes)
 }
 
-/// The relocation-masked skeleton of the first code bytes of a function: every whole RV32IMC
-/// instruction in `bytes`, with the immediates a link relocates or relaxes zeroed (`mask_32`,
-/// `mask_16`) and everything else kept; an instruction the window cuts keeps only its opcode. Two
-/// builds of the same `bt.c` whose symbols moved give the same skeleton; a different instruction
-/// does not.
+/// The relocation-masked skeleton of code: every whole RV32IMC instruction in `bytes`, with the
+/// immediates a link relocates or relaxes zeroed (`mask_32`, `mask_16`) and everything else kept;
+/// an instruction the window cuts keeps only its opcode. A register written by `lui` or `auipc` is
+/// high until next written, and a 32-bit `addi` whose `rs1` is high or `gp` has its immediate
+/// zeroed too: that is the low half of a relocated address, which moves with the link like the
+/// high half does. Two builds of the same `bt.c` whose symbols moved give the same skeleton; a
+/// different instruction does not.
 pub fn code_skeleton(bytes: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(bytes.len());
+    skeleton_into(bytes, &mut out, None);
+    out
+}
+
+/// [`code_skeleton`] into a reused buffer. `ends` receives the offset after each whole
+/// instruction: the skeleton of `bytes[..n]` is the first `n` bytes of this one exactly when `n`
+/// is such an offset, so one pass serves every prefix that ends on an instruction.
+pub(crate) fn skeleton_into(bytes: &[u8], out: &mut Vec<u8>, mut ends: Option<&mut Vec<usize>>) {
+    out.clear();
+    if let Some(ends) = ends.as_deref_mut() {
+        ends.clear();
+    }
+    let mut high = 0u32;
     let mut at = 0;
     while at < bytes.len() {
         let low = bytes[at];
         if low & 0b11 == 0b11 {
-            if at + 4 <= bytes.len() {
-                let word =
-                    u32::from_le_bytes([bytes[at], bytes[at + 1], bytes[at + 2], bytes[at + 3]]);
-                out.extend_from_slice(&mask_32(word).to_le_bytes());
-                at += 4;
-            } else {
+            let Some(word) = bytes
+                .get(at..at + 4)
+                .map(|w| u32::from_le_bytes([w[0], w[1], w[2], w[3]]))
+            else {
                 out.push(low & 0x7F);
-                out.extend(std::iter::repeat_n(0, bytes.len() - at - 1));
-                at = bytes.len();
+                out.resize(bytes.len(), 0);
+                return;
+            };
+            let mut masked = mask_32(word);
+            let rs1 = (word >> 15) & 31;
+            if word & 0x7F == 0x13 && (word >> 12) & 7 == 0 && (rs1 == 3 || high & (1 << rs1) != 0)
+            {
+                masked = word & 0x000F_FFFF;
             }
+            out.extend_from_slice(&masked.to_le_bytes());
+            track_high(&bytes[at..], &mut high);
+            at += 4;
         } else if at + 2 <= bytes.len() {
             let half = u16::from_le_bytes([bytes[at], bytes[at + 1]]);
             out.extend_from_slice(&mask_16(half).to_le_bytes());
+            track_high(&bytes[at..], &mut high);
             at += 2;
         } else {
-            out.push(low & 0x03);
+            out.push(low & 0b11);
             at += 1;
+            continue;
+        }
+        if let Some(ends) = ends.as_deref_mut() {
+            ends.push(at);
         }
     }
-    out
+}
+
+/// Updates the set of registers that hold the high half of an address after the instruction at
+/// `bytes[0]`.
+fn track_high(bytes: &[u8], high: &mut u32) {
+    use pemu_rv32::op::{K_AUIPC, K_LUI};
+    let Some(op) = pemu_rv32::decode::decode_at(bytes, 0) else {
+        return;
+    };
+    if op.rd == 0 {
+        return;
+    }
+    if op.kind == K_LUI || op.kind == K_AUIPC {
+        *high |= 1 << op.rd;
+    } else {
+        *high &= !(1 << op.rd);
+    }
 }
 
 pub fn skeleton_hash(bytes: &[u8]) -> [u8; 32] {
@@ -504,6 +564,13 @@ pub struct ModuleSymbols {
     /// Everything else the module reads once any hook binds: nested-call targets, data symbols and
     /// functions whose presence alone decides a handler's behaviour.
     pub required: Vec<&'static str>,
+    /// `(hook, guard)`: `guard` is a blob-defined function the unhooked body of `hook` calls
+    /// before it calls anything else or stores anything outside its frame, and which no hooked
+    /// path reaches. The tripwire rule arms it wherever the image links it, so a run that enters
+    /// `hook` in a shape no rule pins stops there. An image without an ELF cannot show that a
+    /// function is absent; for a guarded hook it does not have to
+    /// ([`crate::image_symbols::Recovered::check`]).
+    pub guards: Vec<(&'static str, &'static str)>,
 }
 
 /// Merges the core hooks and the registered modules' sets into the one `HookSet` for
@@ -990,6 +1057,28 @@ mod tests {
             *byte ^= 0xFF;
         }
         assert_ne!(skeleton_hash(&build_a), skeleton_hash(&corrupt));
+    }
+
+    #[test]
+    fn the_low_half_of_a_relocated_address_is_not_part_of_the_skeleton() {
+        use Insn::{C, W};
+        // lui a5, hi; addi a5, a5, lo; lbu a3, 489(a5): `esp_wifi_internal_set_sta_ip` reaching
+        // `g_ic`, as two links of the same archive place it.
+        let link_a = code(&[W(0x3fc9_f7b7), W(0x5447_8793), W(0x1e97_c683)]);
+        let link_b = code(&[W(0x3fca_07b7), W(0x3247_8793), W(0x1e97_c683)]);
+        assert_eq!(skeleton_hash(&link_a), skeleton_hash(&link_b));
+        // gp-relative after relaxation: addi a5, gp, lo.
+        let gp_a = code(&[W(0x5441_8793)]);
+        let gp_b = code(&[W(0x3241_8793)]);
+        assert_eq!(skeleton_hash(&gp_a), skeleton_hash(&gp_b));
+        // An `addi` on a register no `lui` or `auipc` wrote adds a constant, which is the code.
+        let const_a = code(&[C(0x4785), W(0x5447_8793)]);
+        let const_b = code(&[C(0x4785), W(0x3247_8793)]);
+        assert_ne!(skeleton_hash(&const_a), skeleton_hash(&const_b));
+        // The register stops being high once something else writes it.
+        let rewritten_a = code(&[W(0x3fc9_f7b7), C(0x4785), W(0x5447_8793)]);
+        let rewritten_b = code(&[W(0x3fc9_f7b7), C(0x4785), W(0x3247_8793)]);
+        assert_ne!(skeleton_hash(&rewritten_a), skeleton_hash(&rewritten_b));
     }
 
     #[test]

@@ -351,6 +351,20 @@ fn t1_m12_scan3_prints_the_48_ordered_lines_of_s3b() {
         m.set_executor(executor);
         let con = run_scan3(&mut m, test);
         assert_s3b(&con.text(), test, &format!("{executor:?}"));
+        // The blob prints three lines inside the stop and `Deinit lldesc` inside the deinit
+        // (`device-scan3-20260917T201219Z`, `device-probe_wifi_ap-20261009T122214Z`).
+        let text = con.text();
+        let at = |want: &str| {
+            text.find(want)
+                .unwrap_or_else(|| panic!("{test} {executor:?}: no `{want}`; console:\n{text}"))
+        };
+        let (stopped, deinited) = (at("RC|esp_wifi_stop|0"), at("RC|esp_wifi_deinit|0"));
+        let lldesc = at("wifi:Deinit lldesc rx mblock:10");
+        assert!(
+            at("wifi:lmac stop hw txq") < stopped && stopped < lldesc && lldesc < deinited,
+            "{test} {executor:?}: the stop lines, the stop's code, the deinit line, the deinit's \
+             code; console:\n{text}"
+        );
         assert_eq!(
             m.hle_binding()
                 .record

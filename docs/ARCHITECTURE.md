@@ -261,8 +261,10 @@ BLE and Wi-Fi are emulated at the driver boundary; everything above it runs as r
 - **Binding is exact or nothing.** A module binds only when every hooked function matches its
   profile in `specs/hle/idf-5.5.3/` by size and a relocation-masked code hash, and the app's IDF
   version matches. A mismatch marks the radio `unsupported image` and the rest keeps running.
-- **Without an ELF** the symbols are recovered from the image by whole-body code shapes; a module
-  binds only if all its names are found exactly once. Wi-Fi without an ELF binds only this way.
+- **Without an ELF** the symbols are recovered from the image by whole-body code shapes, each name
+  found exactly once. An image cannot show that a function is absent, so a hooked function that is
+  not found must have a guard: the closed-library function its own body calls first, found in the
+  image and armed as a tripwire. Any other name that is not found refuses the module.
 - **Tripwires** on the closed-library internals stop a run that reaches them with `E_TRIPWIRE`
   instead of an obscure assert.
 - **The world is scripted.** A virtual BLE central scans, connects and uses GATT; Wi-Fi joins

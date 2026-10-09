@@ -18,25 +18,51 @@
 #
 # For each row binding checks presence, section, size and the SHA-256 of the skeleton of its first
 # 32 code bytes: opcode, `rd`, `rs1`, `rs2` and `funct` kept, the relocated
-# immediates zeroed. A symbol the image does not link is skipped by name (an earlier prototype
+# immediates zeroed, the low half of a relocated address among them (`code_skeleton` in
+# `crates/pemu-hle/src/binding.rs`). A symbol the image does not link is skipped by name (an earlier prototype
 # logged `hook skipped (not linked)` for 7 Wi-Fi functions); an image that links none of them
 # binds nothing and is recorded `not linked`, never `bound`. Binding also requires the app
 # descriptor's `idf_ver` to be `v` plus `[profile] idf`.
 #
-# `builds` names the corpus builds each (size, hash) pair was measured on, informative only. The
-# three `[[variant]]` rows of `esp_wifi_scan_get_ap_records` and of
-# `esp_wifi_internal_reg_netstack_buf_cb` are the same blob code linked into three different images:
-# their first 32 bytes hold an instruction whose register allocation the link decides, so the
-# skeleton differs although the function does not. `pk` and `pkgatt` link no Wi-Fi function at all.
+# ## Guards
+#
+# An image without an ELF shows that a function is present, never that it is absent
+# (`crates/pemu-hle/src/image_symbols.rs`), and an app links only the functions it calls: of the
+# six corpus builds that link Wi-Fi, none links every row below. `guard` names the blob-defined
+# function a row's own body calls before it calls anything else or stores anything outside its
+# frame. The tripwire rule arms every blob-defined function the image links, the guard among them,
+# so a row that is not found is either not linked, or linked in a shape no rule pins and stopped
+# at its guard by name the first time the app calls it. A row with a guard that is found may
+# therefore be missing from such an image; a row without one must be found.
+#
+# - `wifi_init_completed` is the first call of every public `esp_wifi_*` function of
+#   `ieee80211_api.o` in `libnet80211.a` that takes the API lock, after the prologue and before
+#   anything else: 137 of that object's functions call it, and outside it only `espnow.o` and
+#   `ieee80211_supplicant.o` do, both blob code no hooked path reaches. `esp_wifi_stop` takes the
+#   lock itself and has no guard.
+# - `esp_wifi_deinit` (`wifi_init.c`) returns `ESP_ERR_WIFI_NOT_INIT` or calls
+#   `wifi_deinit_internal`, whose first call is `esp_wifi_get_user_init_flag_internal`. Its other
+#   caller, `esp_wifi_init`, is replaced whole.
+# - `esp_wifi_init`, the `esp_wifi_internal_*` data-plane rows other than `reg_rxcb` and
+#   `set_sta_ip`, and `esp_wifi_stop` have no guard.
+#
+# `the_first_call_of_every_guarded_hook_reaches_its_guard` in
+# `crates/pemu-hle/tests/corpus_image_symbols.rs` checks each guard against every corpus build that
+# links its row, and the `calls` of `image-symbols.toml` pin the call's offset in each shape.
+#
+# `builds` names the corpus builds each (size, hash) pair was measured on, informative only.
+# `print_profile_variants` in `crates/pemu-hle/tests/corpus_image_symbols.rs` prints the pairs.
+# Every blob-defined row has one pair on every build that links it: the archive holds one body,
+# and the skeleton drops what a link changes in it. `pk` and `pkgatt` link no Wi-Fi function at
+# all.
 #
 # `probe_wifi_http` is the one non-corpus build named here: the Wi-Fi HTTP probe, pinned by
 # `elf_sha256` in `tests/fw/manifest.toml`, whose committed ELF is stripped, so its rows were
 # measured the way the corpus rows were, over the section bytes at each symbol of the unstripped
 # build ELF under the data root's `corpus/probes/build/probe_wifi_http/`. Every row it links matched
-# an existing (size, hash) pair except two, which are rows of their own: `esp_wifi_init` at 216
-# bytes with the corpus skeleton, and a fourth link of `esp_wifi_internal_reg_netstack_buf_cb`. It
-# links no `esp_wifi_scan_*` and no `esp_wifi_disconnect_internal`, so those rows skip by name for
-# it.
+# an existing (size, hash) pair except one, which is a row of its own: `esp_wifi_init` at 216
+# bytes with the corpus skeleton. It links no `esp_wifi_scan_*` and no
+# `esp_wifi_disconnect_internal`, so those rows skip by name for it.
 #
 # The hashes were computed over the ELF section bytes at each symbol address of the corpus ELFs,
 # and the machine checks them against the boot app's flash segments, which hold the same bytes
@@ -80,6 +106,7 @@ code_sha256 = "a8663cb6b7bd927d59b455cfce2322801b9aae4f91515ee73c5c0e8cf220617b"
 name = "esp_wifi_deinit"
 handler = 1
 section = ".flash.text"
+guard = "esp_wifi_get_user_init_flag_internal"
 
 [[variant]]
 builds = "scan3,probe2,demo,official,probe_wifi_http"
@@ -90,6 +117,7 @@ code_sha256 = "297d7ed131c7539ff87f11fd6442b093c6d4e74bc344bbcaf9481ed69b98237e"
 name = "esp_wifi_set_mode"
 handler = 2
 section = ".flash.text"
+guard = "wifi_init_completed"
 
 [[variant]]
 builds = "scan3,probe2,demo,official,probe_wifi_http"
@@ -100,6 +128,7 @@ code_sha256 = "a777af0b7264bfd15205ff8b62320d669025c0d1f394446c4949c6ba828b3d73"
 name = "esp_wifi_get_mode"
 handler = 3
 section = ".flash.text"
+guard = "wifi_init_completed"
 
 [[variant]]
 builds = "scan3,probe2,demo,official,probe_wifi_http"
@@ -110,6 +139,7 @@ code_sha256 = "77bae1db229a88598d8fe2db9e2a15e79f723e05cd9f968b05e703d3bff62545"
 name = "esp_wifi_set_storage"
 handler = 4
 section = ".flash.text"
+guard = "wifi_init_completed"
 
 [[variant]]
 builds = "scan3,probe2,demo,official,probe_wifi_http"
@@ -120,6 +150,7 @@ code_sha256 = "a38ea5e7659d28e9b3250e394db1368131a56977ad36754c1397530d9393712b"
 name = "esp_wifi_set_config"
 handler = 5
 section = ".flash.text"
+guard = "wifi_init_completed"
 
 [[variant]]
 builds = "probe2,probe_wifi_http"
@@ -130,6 +161,7 @@ code_sha256 = "fa4e3417206fbb053cf20a2b30f9b2698e9bdb63b3836f3ee3106dd5fb98d340"
 name = "esp_wifi_get_config"
 handler = 6
 section = ".flash.text"
+guard = "wifi_init_completed"
 
 [[variant]]
 builds = "scan3,probe2,demo,official,probe_wifi_http"
@@ -140,6 +172,7 @@ code_sha256 = "e03e4ee427ad5828d8de9712f74247a6396ec4cd260fc337e8bea4438f80811d"
 name = "esp_wifi_get_mac"
 handler = 7
 section = ".flash.text"
+guard = "wifi_init_completed"
 
 [[variant]]
 builds = "scan3,probe2,demo,official,probe_wifi_http"
@@ -150,6 +183,7 @@ code_sha256 = "65a88e9e603c0ff7fced0db3586a0bc07cb92299ad758b7c42a9025371b0093a"
 name = "esp_wifi_start"
 handler = 8
 section = ".flash.text"
+guard = "wifi_init_completed"
 
 [[variant]]
 builds = "scan3,probe2,demo,official,probe_wifi_http"
@@ -170,6 +204,7 @@ code_sha256 = "b6aa1fdf601815fbd126fdf2f71a874110de167c6eab20df1e2c0a0c8b082700"
 name = "esp_wifi_scan_start"
 handler = 10
 section = ".flash.text"
+guard = "wifi_init_completed"
 
 [[variant]]
 builds = "scan3,probe2,demo,official"
@@ -180,6 +215,7 @@ code_sha256 = "cfb3ad825445cdb615141c7975c617c571fd1b7ab66118be5d1b595540595ba3"
 name = "esp_wifi_scan_stop"
 handler = 11
 section = ".flash.text"
+guard = "wifi_init_completed"
 
 [[variant]]
 builds = "demo,official"
@@ -190,6 +226,7 @@ code_sha256 = "f4c783c0ffe1ce5813079bf058355f3d24a552eff18f776d867d06c11240af6c"
 name = "esp_wifi_scan_get_ap_num"
 handler = 12
 section = ".flash.text"
+guard = "wifi_init_completed"
 
 [[variant]]
 builds = "scan3,probe2,demo,official"
@@ -200,26 +237,18 @@ code_sha256 = "ebeedc4daadf09f074e870207d68f53e9d849bfc75a3b4f21766e092e56ec195"
 name = "esp_wifi_scan_get_ap_records"
 handler = 13
 section = ".flash.text"
+guard = "wifi_init_completed"
 
 [[variant]]
-builds = "scan3"
+builds = "scan3,probe2,demo,official"
 size = 164
-code_sha256 = "6276cc367acdc547a143f986676bbb532fa091c4a6760da402a4f2e7c8686a6b"
-
-[[variant]]
-builds = "probe2"
-size = 164
-code_sha256 = "c91b5a9ba760788c4291e791a4ce5c821c4f81bceb8153d39602a7cbe7fd707e"
-
-[[variant]]
-builds = "demo,official"
-size = 164
-code_sha256 = "277d308633cca86e6d0eff18b0d796c7180396b68e3ee4dab26891527c90148f"
+code_sha256 = "99e4d80c58f479fd7b3e0da6b0a201ea24bcb4cb1dfffa5bb38dfad2d2ca59cf"
 
 [[hook]]
 name = "esp_wifi_internal_reg_rxcb"
 handler = 14
 section = ".flash.text"
+guard = "wifi_init_completed"
 
 [[variant]]
 builds = "scan3,probe2,demo,official,probe_wifi_http"
@@ -232,24 +261,9 @@ handler = 15
 section = ".flash.text"
 
 [[variant]]
-builds = "scan3"
+builds = "scan3,probe2,demo,official,probe_wifi_http"
 size = 38
-code_sha256 = "0733e9a0fc7211b4fbcf0b18519e2a9cedddd9c0e1913d98c21620a52301c942"
-
-[[variant]]
-builds = "probe2"
-size = 38
-code_sha256 = "81b2485aec79ef30d51c0167be22e36a192c251daca9b07ecace4e4316704634"
-
-[[variant]]
-builds = "demo,official"
-size = 38
-code_sha256 = "58827b6a74a8cd40725fabb6472988215c904d111d3696519f72cfc2f0624621"
-
-[[variant]]
-builds = "probe_wifi_http"
-size = 38
-code_sha256 = "f7ff04f47423224498dc9081c804d99c2adcbecdd3de37edc53be912ee7c9d3b"
+code_sha256 = "e2e895f302a53ffe916a2544e574a39ba67137fda1769a1672addde2eb7edcfa"
 
 # The RX half of the data plane.
 # `libpp` defines it, and all four Wi-Fi corpus builds link the same code, so one (size, hash)
@@ -288,6 +302,7 @@ code_sha256 = "6d376b59f167bbc8a5b557d46475d6fb207cf25862735afe3f3f7ee67d4d43b8"
 name = "esp_wifi_connect_internal"
 handler = 17
 section = ".flash.text"
+guard = "wifi_init_completed"
 
 [[variant]]
 builds = "probe2,probe_wifi_http"
@@ -298,6 +313,7 @@ code_sha256 = "f4c783c0ffe1ce5813079bf058355f3d24a552eff18f776d867d06c11240af6c"
 name = "esp_wifi_disconnect_internal"
 handler = 18
 section = ".flash.text"
+guard = "wifi_init_completed"
 
 [[variant]]
 builds = "probe2"
@@ -333,26 +349,12 @@ code_sha256 = "4af56241604e6732a8a6228f5e9df8b90a5b1357b84f790a28f5bb4aa79df32e"
 name = "esp_wifi_internal_set_sta_ip"
 handler = 20
 section = ".flash.text"
+guard = "wifi_init_completed"
 
 [[variant]]
-builds = "scan3"
+builds = "scan3,probe2,demo,official,probe_wifi_http"
 size = 52
-code_sha256 = "8eeb3d879e3584c268215e91f176d7cbf25f224899d584c471f15e12ce4533d6"
-
-[[variant]]
-builds = "probe2"
-size = 52
-code_sha256 = "77d2af0880db0187714dd82083465569e4400b1172df65ff110d47dd68066f52"
-
-[[variant]]
-builds = "demo,official"
-size = 52
-code_sha256 = "227f1d66fa3ef6bcbfa0af574d7a62199e22d79a9dc631f22866c0897293891a"
-
-[[variant]]
-builds = "probe_wifi_http"
-size = 52
-code_sha256 = "2a7405a5f8a6ab726c1b255f2ac408eba6f053842d8f5b06e177cfba3be756fc"
+code_sha256 = "ed9f3bb076e8cb297525f3704b73ede2e1c95ec0e9a4e173e092cdc25367bb3a"
 
 # ## Nested-call targets
 #

@@ -382,7 +382,6 @@ mod tests {
             "probe2,probe_wifi_http"
         );
         assert_eq!(p.hook(18).unwrap().variants[0].builds, "probe2");
-        // `esp_wifi_internal_set_sta_ip` has one variant per build: the link decides its skeleton.
         assert_eq!(
             p.hook(19).map(|h| h.name.as_str()),
             Some("esp_wifi_internal_tx")
@@ -393,8 +392,9 @@ mod tests {
             p.hook(20).map(|h| h.name.as_str()),
             Some("esp_wifi_internal_set_sta_ip")
         );
-        assert_eq!(p.hook(20).unwrap().variants.len(), 4);
-        assert!(p.hook(20).unwrap().variants.iter().all(|v| v.size == 52));
+        // One body in the archive, so one variant however many builds link it.
+        assert_eq!(p.hook(20).unwrap().variants.len(), 1);
+        assert_eq!(p.hook(20).unwrap().variants[0].size, 52);
         assert_eq!(p.worker.task_name, "wifi");
         assert_eq!(p.worker.priority, 23);
         assert_eq!(p.worker.min_stack, 6656);
@@ -479,6 +479,62 @@ mod tests {
                 assert!(variant.size > 0, "hook `{}` has a zero size", hook.name);
             }
         }
+    }
+
+    #[test]
+    fn every_guard_is_a_function_the_tripwire_rule_arms() {
+        // A guard that is hooked, open source or allowed to run would stop nothing, and the
+        // image check would refuse every image that lacks the row it guards.
+        let p = WifiProfile::load();
+        let blob = pemu_hle::tripwire::blob_defined_set();
+        let allow = pemu_hle::tripwire::TripwireSpec::load().coexistence_allow;
+        let guarded: Vec<(&str, &str)> = p
+            .hooks
+            .iter()
+            .filter_map(|h| Some((h.name.as_str(), h.guard.as_deref()?)))
+            .collect();
+        for (hook, guard) in &guarded {
+            assert!(blob.contains(*guard), "{hook}: {guard} is not blob-defined");
+            assert!(!allow.contains(*guard), "{hook}: {guard} is allowed to run");
+            assert!(
+                p.hooks.iter().all(|h| h.name != *guard),
+                "{hook}: {guard} is hooked"
+            );
+        }
+        let unguarded: Vec<&str> = p
+            .hooks
+            .iter()
+            .filter(|h| h.guard.is_none())
+            .map(|h| h.name.as_str())
+            .collect();
+        assert_eq!(
+            unguarded,
+            [
+                "esp_wifi_init",
+                "esp_wifi_stop",
+                "esp_wifi_internal_reg_netstack_buf_cb",
+                "esp_wifi_internal_free_rx_buffer",
+                "esp_wifi_internal_tx",
+            ]
+        );
+        let symbols = crate::hle_common::module_symbols(&p.hooks, &p.calls, &p.data, &[]);
+        assert_eq!(symbols.guards, guarded);
+        assert_eq!(
+            symbols
+                .guards
+                .iter()
+                .find(|g| g.0 == "esp_wifi_deinit")
+                .map(|g| g.1),
+            Some("esp_wifi_get_user_init_flag_internal")
+        );
+        assert_eq!(
+            symbols
+                .guards
+                .iter()
+                .filter(|g| g.1 == "wifi_init_completed")
+                .count(),
+            15
+        );
     }
 
     #[test]

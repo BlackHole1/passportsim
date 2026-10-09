@@ -1074,7 +1074,7 @@ pub(crate) mod tests {
             .into_iter()
             .collect(),
         };
-        binding_into_receipt(&record, &mut receipt);
+        binding_into_receipt(&record, &[], None, &mut receipt);
         assert_eq!(receipt.hle.bound.as_deref(), Some("idf-5.5.3/ble"));
         // Not written a second time under `binding`.
         assert_eq!(receipt.hle.synthesized_log_lines, 5);
@@ -1099,7 +1099,7 @@ pub(crate) mod tests {
                 .collect(),
             ..HleBindingRecord::default()
         };
-        binding_into_receipt(&record, &mut receipt);
+        binding_into_receipt(&record, &[], None, &mut receipt);
         let json = receipt.to_json();
         assert_eq!(json["hle"]["bound"], serde_json::Value::Null);
         assert_eq!(json["binding"]["features"]["ble"], "disabled");
@@ -1115,11 +1115,56 @@ pub(crate) mod tests {
                 .collect(),
             ..HleBindingRecord::default()
         };
-        binding_into_receipt(&record, &mut receipt);
+        binding_into_receipt(&record, &[], None, &mut receipt);
         let json = receipt.to_json();
         assert_eq!(json["hle"]["bound"], "idf-5.5.3/ble");
         assert_eq!(json["binding"]["app_elf_sha256"], serde_json::Value::Null);
         assert_eq!(json["radio"], "bound from the image (no ELF)");
+        assert_eq!(
+            json["binding"].get("mismatches"),
+            None,
+            "nothing was refused"
+        );
+        assert_eq!(
+            json["binding"].get("idf_ver"),
+            None,
+            "no descriptor, no version"
+        );
+    }
+
+    #[test]
+    fn a_refused_module_says_which_checks_refused_it() {
+        use pemu_machine::hle::{HleBindingMismatch, HleBindingRecord, HleFeatureStatus};
+        let record = HleBindingRecord {
+            features: [("wifi".to_string(), HleFeatureStatus::UnsupportedImage)]
+                .into_iter()
+                .collect(),
+            ..HleBindingRecord::default()
+        };
+        let why = vec![(
+            "wifi".to_string(),
+            vec![HleBindingMismatch {
+                symbol: "esp_wifi_scan_stop".to_string(),
+                field: pemu_machine::hle::HleMismatchField::Missing,
+                expected: "found in the image".to_string(),
+                found: "no place in the image has a pinned shape of it".to_string(),
+            }],
+        )];
+        let mut receipt = Receipt::default();
+        binding_into_receipt(&record, &why, Some("v5.5.3-dirty"), &mut receipt);
+        let json = receipt.to_json();
+        assert_eq!(json["binding"]["features"]["wifi"], "unsupported image");
+        assert_eq!(json["binding"]["idf_ver"], "v5.5.3-dirty");
+        assert_eq!(
+            json["binding"]["mismatches"]["wifi"],
+            serde_json::json!([{
+                "symbol": "esp_wifi_scan_stop",
+                "field": "missing",
+                "expected": "found in the image",
+                "found": "no place in the image has a pinned shape of it",
+            }])
+        );
+        assert_eq!(Receipt::from_json(&json).expect("round trips"), receipt);
     }
 
     #[test]
