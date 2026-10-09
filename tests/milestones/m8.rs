@@ -4929,9 +4929,10 @@ fn module_hooks(
 }
 
 /// For every corpus build with an ELF that links a radio, the bare flash image binds what the ELF
-/// binds: the same hooks at the same pcs, core observe hooks, and call and data addresses. A
-/// module the ELF binds while some names it reads are not linked is refused from the image,
-/// naming them, because an image cannot show a function is absent.
+/// binds: the same hooks at the same pcs, core observe hooks, and call and data addresses. An
+/// image cannot show a function is absent, so a hook the ELF does not link needs its guard: the
+/// image binds without the hook when the guard's tripwire is armed, and a module the ELF binds
+/// while any other name it reads is not linked is refused from the image, naming those.
 #[test]
 fn t1_m8_elfless_every_radio_build_binds_from_its_image_as_its_elf_does() {
     let test = "t1_m8_elfless_every_radio_build_binds_from_its_image_as_its_elf_does";
@@ -4939,6 +4940,7 @@ fn t1_m8_elfless_every_radio_build_binds_from_its_image_as_its_elf_does() {
     if builds.is_empty() {
         return;
     }
+    let mut guarded_absent = 0;
     for (id, flash, elf) in &builds {
         let with = machine(flash, elf, MachineConfig::default());
         let without = common::image_machine(flash);
@@ -4963,8 +4965,20 @@ fn t1_m8_elfless_every_radio_build_binds_from_its_image_as_its_elf_does() {
             } else {
                 pemu_radio::wifi::hle::WIFI_MODULE
             };
+            let guard_of = |hook: &str| {
+                wants
+                    .guards
+                    .iter()
+                    .find(|(guarded, _)| *guarded == hook)
+                    .and_then(|(_, guard)| elf_info.symbols.addr_of(guard))
+            };
+            let unguarded: Vec<&str> = unlinked
+                .iter()
+                .copied()
+                .filter(|name| guard_of(name).is_none())
+                .collect();
             match a.record.features.get(name) {
-                Some(FeatureStatus::Bound) if unlinked.is_empty() => {
+                Some(FeatureStatus::Bound) if unguarded.is_empty() => {
                     assert_eq!(
                         b.record.features.get(name),
                         Some(&FeatureStatus::Bound),
@@ -4983,6 +4997,31 @@ fn t1_m8_elfless_every_radio_build_binds_from_its_image_as_its_elf_does() {
                             "{id}: {sym}"
                         );
                     }
+                    // What stands in for each hook the build does not link: its guard, armed.
+                    for hook in &unlinked {
+                        let pc = guard_of(hook).expect("guarded");
+                        for (m, how) in [(&without, "from the image"), (&with, "with the ELF")] {
+                            assert_eq!(
+                                m.tripwires().at(pc).map(|t| t.0),
+                                Some(TripKind::BlobInternal),
+                                "{id} {name}: the guard of {hook} {how}"
+                            );
+                        }
+                    }
+                    // And the receipt names them, so a stop at a guard can be read.
+                    let listed = |m: &Machine| -> Vec<String> {
+                        m.guarded_hooks()
+                            .iter()
+                            .find(|(module, _)| module == name)
+                            .map(|(_, hooks)| hooks.clone())
+                            .unwrap_or_default()
+                    };
+                    assert_eq!(listed(&without), unlinked, "{id} {name}: guarded hooks");
+                    assert!(
+                        listed(&with).is_empty(),
+                        "{id} {name}: an ELF says what it links"
+                    );
+                    guarded_absent += unlinked.len();
                 }
                 Some(FeatureStatus::Bound) => {
                     assert_eq!(
@@ -4996,11 +5035,11 @@ fn t1_m8_elfless_every_radio_build_binds_from_its_image_as_its_elf_does() {
                         .find(|(n, _)| *n == name)
                         .map(|(_, why)| why.iter().map(|m| m.symbol.as_str()).collect())
                         .unwrap_or_default();
-                    let mut want = unlinked.clone();
+                    let mut want = unguarded.clone();
                     want.sort_unstable();
                     assert_eq!(
                         named, want,
-                        "{id} {name}: the refusal names the unlinked hooks"
+                        "{id} {name}: the refusal names what no guard stands in for"
                     );
                     assert!(module_hooks(&without, index).is_empty(), "{id} {name}");
                     let init = wants.hooks[0];
@@ -5032,6 +5071,14 @@ fn t1_m8_elfless_every_radio_build_binds_from_its_image_as_its_elf_does() {
             b.record.features.get("wifi").map(|s| s.receipt_word()),
             with.tripwires().len(),
             without.tripwires().len()
+        );
+    }
+    // No corpus build links every Wi-Fi hook, so a run that covered a Wi-Fi build proved the
+    // guards and did not pass by finding nothing to prove.
+    if builds.iter().any(|(id, ..)| *id == "official") {
+        assert!(
+            guarded_absent > 0,
+            "{test}: no build left a hook to its guard"
         );
     }
 }
@@ -5103,6 +5150,122 @@ fn t1_m8_elfless_a_changed_function_or_another_idf_refuses_ble_from_the_image() 
         "{test}"
     );
     println!("RAN {test}: a body change, a head change and v5.5.2 each refuse BLE by name");
+}
+
+/// A Wi-Fi hook the bare `official` image holds in a shape no rule pins: one with a guard is left
+/// to the guard's tripwire and the module binds without it, as for a build that never linked it;
+/// one without a guard, or one whose guard is not found either, refuses Wi-Fi by name.
+#[test]
+fn t1_m8_elfless_a_wifi_hook_the_image_cannot_place_is_left_to_its_guard_or_refuses_wifi() {
+    let test =
+        "t1_m8_elfless_a_wifi_hook_the_image_cannot_place_is_left_to_its_guard_or_refuses_wifi";
+    let (Some(bin), Some(elf)) = (
+        common::corpus_file_or_skip(test, common::OFFICIAL, "FoloToy-AI-Passport-8MB.bin"),
+        common::corpus_file_or_skip(test, common::OFFICIAL, "FoloToy-AI-Passport.elf"),
+    ) else {
+        return;
+    };
+    let (flash, elf) = (
+        std::fs::read(bin).expect("readable"),
+        std::fs::read(elf).expect("readable"),
+    );
+    let symbols = ElfInfo::parse(&elf).expect("parses").symbols;
+    let at = |name: &str| symbols.addr_of(name).expect("official links it");
+    // An instruction past the first 32 bytes, which only the image path's body check reads.
+    let change_body = |f: &mut [u8], e: &mut [u8], name: &str| {
+        patch_symbol(f, e, name, 0x28, 4, |b| {
+            for byte in b {
+                *byte ^= 0xFF;
+            }
+        })
+    };
+    let after = |names: &[&str]| {
+        let (mut f, mut e) = (flash.clone(), elf.clone());
+        for name in names {
+            change_body(&mut f, &mut e, name);
+        }
+        common::image_machine(&f)
+    };
+    let wifi = |m: &Machine| m.hle_binding().record.features.get("wifi").copied();
+    let refusal = |m: &Machine| -> Vec<(String, String)> {
+        m.hle_binding()
+            .mismatches
+            .iter()
+            .filter(|(module, _)| *module == "wifi")
+            .flat_map(|(_, why)| why.iter().map(|m| (m.symbol.clone(), m.found.clone())))
+            .collect()
+    };
+    let hooked = |m: &Machine, pc: u32| {
+        module_hooks(m, pemu_radio::wifi::hle::WIFI_MODULE).contains_key(&pc)
+    };
+    let (scan_stop, guard) = (at("esp_wifi_scan_stop"), at("wifi_init_completed"));
+
+    let control = after(&[]);
+    assert_eq!(wifi(&control), Some(FeatureStatus::Bound), "{test}");
+    assert!(
+        hooked(&control, scan_stop),
+        "{test}: official links the scan stop"
+    );
+
+    // Guarded: the changed body is not hooked, the module binds, and the guard is the tripwire
+    // the body's first call lands on.
+    let m = after(&["esp_wifi_scan_stop"]);
+    assert_eq!(
+        wifi(&m),
+        Some(FeatureStatus::Bound),
+        "{test}: {:?}",
+        refusal(&m)
+    );
+    assert!(
+        !hooked(&m, scan_stop),
+        "{test}: a body no rule pins is not hooked"
+    );
+    assert_eq!(
+        module_hooks(&m, pemu_radio::wifi::hle::WIFI_MODULE).len() + 1,
+        module_hooks(&control, pemu_radio::wifi::hle::WIFI_MODULE).len(),
+        "{test}: every other hook binds"
+    );
+    assert_eq!(
+        m.tripwires().at(guard),
+        Some((TripKind::BlobInternal, "wifi_init_completed")),
+        "{test}"
+    );
+
+    // No guard: `esp_wifi_stop` takes the API lock itself, so nothing would stop its own body.
+    let m = after(&["esp_wifi_stop"]);
+    assert_eq!(wifi(&m), Some(FeatureStatus::UnsupportedImage), "{test}");
+    let why = refusal(&m);
+    assert_eq!(why.len(), 1, "{test}: {why:?}");
+    assert_eq!(why[0].0, "esp_wifi_stop", "{test}");
+
+    // The guard itself in no pinned shape: every hook it stands in for is named, the three
+    // official never links and the one changed here.
+    let m = after(&["wifi_init_completed", "esp_wifi_scan_stop"]);
+    assert_eq!(wifi(&m), Some(FeatureStatus::UnsupportedImage), "{test}");
+    let why = refusal(&m);
+    let named: Vec<&str> = why.iter().map(|(symbol, _)| symbol.as_str()).collect();
+    assert_eq!(
+        named,
+        [
+            "esp_wifi_connect_internal",
+            "esp_wifi_disconnect_internal",
+            "esp_wifi_scan_stop",
+            "esp_wifi_set_config",
+        ],
+        "{test}"
+    );
+    assert!(
+        why.iter()
+            .all(|(_, found)| found.contains("`wifi_init_completed` was not found either")),
+        "{test}: {why:?}"
+    );
+    let init = at("esp_wifi_init");
+    assert_eq!(
+        m.tripwires().at(init).map(|t| t.0),
+        Some(TripKind::DisabledFeature),
+        "{test}: a refused Wi-Fi stops at its init"
+    );
+    println!("RAN {test}: a guarded hook is left to its guard; no guard, or none found, refuses");
 }
 
 /// The bare `pk` image runs its first second exactly as `pk` with its ELF does, on both executors.

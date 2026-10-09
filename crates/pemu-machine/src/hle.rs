@@ -44,10 +44,12 @@ use crate::config::{Assets, HleConfig};
 
 use crate::machine::{At, Machine};
 use crate::stops::{PanicCapture, StopReason, TripReport};
+pub use pemu_hle::binding::BindingMismatch as HleBindingMismatch;
 pub use pemu_hle::binding::BindingRecord as HleBindingRecord;
 /// The HLE types a machine's reports carry, re-exported so a caller needs no `pemu-hle` edge.
 pub use pemu_hle::binding::FeatureStatus as HleFeatureStatus;
 pub use pemu_hle::binding::HeapBlock as HleHeapBlock;
+pub use pemu_hle::binding::MismatchField as HleMismatchField;
 pub use pemu_hle::binding::RadioLogLines as HleRadioLogLines;
 pub use pemu_hle::core::HciInput as HleHciInput;
 pub use pemu_hle::core::NetInput as HleNetInput;
@@ -82,6 +84,13 @@ pub(crate) struct MachineHle {
     pub(crate) state: HleMachineSection,
     /// `false` for an ELF-less image.
     pub(crate) has_elf: bool,
+    /// The `idf_ver` binding read, from the app ELF or the image's descriptor. Kept from the
+    /// bind: a receipt is drawn per command, and reading the descriptor again parses and hashes
+    /// the whole boot app.
+    pub(crate) idf_ver: Option<String>,
+    /// Per bound module of an image without an ELF, the hooks it bound without: not found in the
+    /// image, each left to its guard's tripwire. Empty with an ELF, which says what is linked.
+    pub(crate) guarded: Vec<(String, Vec<String>)>,
     /// The handler host of every bound module that has handlers; their state is `state.modules`.
     pub(crate) hosts: Vec<Box<dyn ModuleHost>>,
 }
@@ -196,8 +205,9 @@ impl MachineHle {
         let modules: Vec<_> = pemu_radio::modules()
             .into_iter()
             .filter(|m| !cfg.disabled.iter().any(|name| name == m.name()))
-            // Without an ELF, a module binds only when everything it reads was recovered; a
-            // partial recovery is refused here, fail closed.
+            // Without an ELF, a module binds only when everything it reads was recovered, or
+            // what was not is a hook whose guard was; any other partial recovery is refused
+            // here, fail closed.
             .filter(|m| match recovered.map(|r| r.check(&m.image_symbols())) {
                 Some(ModuleCheck::Refuse(why)) => {
                     refused.push((m.name(), why));
@@ -266,6 +276,22 @@ impl MachineHle {
                 }
             }
         });
+        let guarded: Vec<(String, Vec<String>)> = modules
+            .iter()
+            .filter(|_| recovered.is_some())
+            .filter(|m| bound.record.features.get(m.name()) == Some(&FeatureStatus::Bound))
+            .map(|m| {
+                let absent = m
+                    .image_symbols()
+                    .guards
+                    .iter()
+                    .filter(|(hook, _)| elf.symbols.lookup(hook).is_none())
+                    .map(|(hook, _)| hook.to_string())
+                    .collect::<Vec<_>>();
+                (m.name().to_string(), absent)
+            })
+            .filter(|(_, absent)| !absent.is_empty())
+            .collect();
         let features = arm_disabled_features(&mut bound, elf);
         let pcs = MagicPcs::from_spec()
             .expect("specs/magic-pcs.toml names all five allocations (pemu-loader proves it)");
@@ -289,6 +315,8 @@ impl MachineHle {
             features,
             state: HleMachineSection::default(),
             has_elf: assets.app_elf.is_some(),
+            idf_ver: elf.app_desc.as_ref().map(|desc| desc.idf_ver.clone()),
+            guarded,
             hosts,
         }
     }
@@ -1037,6 +1065,12 @@ impl Machine {
     }
 
     /// The binding: per-feature status, tripwire count and mismatches.
+    /// Per bound module of an image without an ELF, the hooks it was bound without, as the
+    /// receipt lists them (`binding.guarded`).
+    pub fn guarded_hooks(&self) -> &[(String, Vec<String>)] {
+        &self.hle.guarded
+    }
+
     pub fn hle_binding(&self) -> &BoundHooks {
         &self.hle.core.bound
     }
@@ -1609,13 +1643,22 @@ mod tests {
     fn the_receipt_carries_the_binding_record() {
         let app = elf(7, &[("esp_bt_controller_init", PROG + 8)]);
         let mut m = machine(Some(app), Executor::Engine, &COUNT_FOUR);
-        let record = m.receipt().binding.expect("a machine reports its binding");
+        let receipt = m.receipt();
+        let record = receipt.binding.expect("a machine reports its binding");
         assert_eq!(record.app_elf_sha256, [7; 32]);
         assert_eq!(
             record.features.get("ble"),
             Some(&FeatureStatus::UnsupportedImage)
         );
         assert_eq!(&record, &m.hle_binding().record);
+        // The refusal carries its reasons: a receipt that says only `unsupported image` leaves
+        // the reader to guess which check failed.
+        let [(module, why)] = &receipt.binding_mismatches[..] else {
+            panic!("one refused module: {:?}", receipt.binding_mismatches);
+        };
+        assert_eq!(module, "ble");
+        assert!(!why.is_empty());
+        assert_eq!(why, &m.hle_binding().mismatches[0].1);
     }
 
     #[test]

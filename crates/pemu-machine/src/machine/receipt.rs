@@ -25,6 +25,16 @@ impl Machine {
         }
         Receipt {
             binding: Some(binding),
+            binding_mismatches: self
+                .hle
+                .core
+                .bound
+                .mismatches
+                .iter()
+                .map(|(module, why)| (module.to_string(), why.clone()))
+                .collect(),
+            idf_ver: self.hle.idf_ver.clone(),
+            binding_guarded: self.hle.guarded.clone(),
             fault_counters: Some(FaultCounters {
                 dma_faults: self.dma_faults,
                 pcm_width_faults: self.pcm_width_faults,
@@ -171,6 +181,15 @@ pub struct ClassesTouched {
 pub struct Receipt {
     /// The HLE binding record: profile id, app ELF SHA-256, per-feature status.
     pub binding: Option<crate::hle::HleBindingRecord>,
+    /// Every check that refused a module, per `RadioModule::name`: why a feature of
+    /// [`Receipt::binding`] reads `unsupported image`.
+    pub binding_mismatches: Vec<(String, Vec<crate::hle::HleBindingMismatch>)>,
+    /// The `idf_ver` binding read, as the app ELF or the image's descriptor spells it: binding
+    /// takes `v5.5.3-dirty` for `v5.5.3`, and the receipt says which one the image is.
+    pub idf_ver: Option<String>,
+    /// Per bound module of an image without an ELF, the hooks it was bound without: the image
+    /// holds none of them in a pinned shape, and a run that enters one stops at its guard.
+    pub binding_guarded: Vec<(String, Vec<String>)>,
     /// Fidelity fault counters since the machine was built.
     pub fault_counters: Option<FaultCounters>,
     /// What the journal lets the run claim, raised by the origins of journaled inputs.

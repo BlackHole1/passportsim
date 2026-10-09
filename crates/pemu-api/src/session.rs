@@ -293,7 +293,24 @@ impl Session {
             ..Receipt::default()
         };
         if let Some(binding) = drained.binding {
-            binding_into_receipt(&binding, &mut receipt);
+            binding_into_receipt(
+                &binding,
+                &drained.binding_mismatches,
+                drained.idf_ver.as_deref(),
+                &mut receipt,
+            );
+            if !drained.binding_guarded.is_empty()
+                && let Some(record) = receipt.extra.get_mut("binding")
+            {
+                // The hooks an image without an ELF was bound without, each left to its guard:
+                // a `blob_internal` stop at a guard is one of these, in a shape no rule pins.
+                record["guarded"] = drained
+                    .binding_guarded
+                    .into_iter()
+                    .map(|(module, hooks)| (module, serde_json::Value::from(hooks)))
+                    .collect::<serde_json::Map<String, serde_json::Value>>()
+                    .into();
+            }
         }
         if let Some(faults) = drained.fault_counters {
             fault_counters_into_receipt(faults, &mut receipt);
@@ -367,9 +384,14 @@ impl Session {
 }
 
 /// Writes the HLE binding record into the receipt: `hle.bound` as `<profile>/<feature>`, and
-/// `binding` with the status words. An all-zero app ELF SHA-256 reads `null`.
+/// `binding` with the status words. An all-zero app ELF SHA-256 reads `null`. A refused module's
+/// failed checks go under `binding.mismatches`, keyed by module; the key is absent when no module
+/// was refused. `binding.idf_ver` is the image's own spelling, absent for an image with no app
+/// descriptor.
 pub(crate) fn binding_into_receipt(
     binding: &pemu_machine::hle::HleBindingRecord,
+    mismatches: &[(String, Vec<pemu_machine::hle::HleBindingMismatch>)],
+    idf_ver: Option<&str>,
     receipt: &mut Receipt,
 ) {
     use pemu_machine::hle::HleFeatureStatus;
@@ -415,9 +437,23 @@ pub(crate) fn binding_into_receipt(
         };
         receipt.extra.insert("radio".to_string(), radio.into());
     }
-    receipt.extra.insert(
-        "binding".to_string(),
-        serde_json::json!({
+    let mut refused = serde_json::Map::new();
+    for (module, why) in mismatches {
+        let rows = refused
+            .entry(module.clone())
+            .or_insert_with(|| serde_json::Value::Array(Vec::new()));
+        if let serde_json::Value::Array(rows) = rows {
+            rows.extend(why.iter().map(|m| {
+                serde_json::json!({
+                    "symbol": m.symbol,
+                    "field": m.field.receipt_word(),
+                    "expected": m.expected,
+                    "found": m.found,
+                })
+            }));
+        }
+    }
+    let mut record = serde_json::json!({
             "profile_id": binding.profile_id,
             "app_elf_sha256": sha,
             "features": features,
@@ -435,8 +471,14 @@ pub(crate) fn binding_into_receipt(
                     )
                 })
                 .collect::<serde_json::Map<String, serde_json::Value>>(),
-        }),
-    );
+    });
+    if !refused.is_empty() {
+        record["mismatches"] = refused.into();
+    }
+    if let Some(idf_ver) = idf_ver {
+        record["idf_ver"] = idf_ver.into();
+    }
+    receipt.extra.insert("binding".to_string(), record);
 }
 
 /// `heap_fidelity` is a declaration, not a measurement: the blocks are a Kconfig and

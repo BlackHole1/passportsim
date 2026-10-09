@@ -167,7 +167,7 @@ size = 216
 lead = "411106c022c026c0"
 body_sha256 = "b0942d2daf5dba9e2c0bbf972cb6f99fbfc09ddf1112e1e793283dec766724e7"
 refs = "s_wifi_inited@0xa+0xe"
-calls = "esp_log@0x82 esp_log_timestamp@0x60"
+calls = "esp_log@0x82 esp_log_timestamp@0x60 wifi_deinit_internal@0x58"
 
 [[shape]]
 builds = "scan3,probe2,official,demo"
@@ -175,7 +175,7 @@ size = 220
 lead = "411106c022c026c0"
 body_sha256 = "3f8babe2a8c1683c80f0c8671b43d2988d866151525f5a28606dc2a2a030d477"
 refs = "s_wifi_inited@0xa+0xe"
-calls = "esp_log@0x86 esp_log_timestamp@0x64"
+calls = "esp_log@0x86 esp_log_timestamp@0x64 wifi_deinit_internal@0x5c"
 
 [[function]]
 name = "esp_wifi_deinit"
@@ -186,6 +186,7 @@ size = 30
 lead = "411106c0b7070000"
 body_sha256 = "7df9232eb038c7aa7c2f316282aaa4f2aac760dd5bc7f970570ee3e99e5fbdb3"
 refs = "s_wifi_inited@0x4+0x8"
+calls = "wifi_deinit_internal@0xe"
 
 [[function]]
 name = "esp_wifi_set_mode"
@@ -195,6 +196,7 @@ builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
 size = 80
 lead = "411122c006c02a84"
 body_sha256 = "6fdd5eca70635b1dfa5b01eb27f8fd554b8ef21481f80314ba77251daa08b36a"
+calls = "wifi_init_completed@0x8"
 
 [[function]]
 name = "esp_wifi_get_mode"
@@ -204,6 +206,7 @@ builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
 size = 54
 lead = "411122c006c02a84"
 body_sha256 = "00898835f5ab5d765530afa176981a25bdad5baeb5ee93ae6c188cc17630ca7e"
+calls = "wifi_init_completed@0x8"
 
 [[function]]
 name = "esp_wifi_set_storage"
@@ -213,6 +216,7 @@ builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
 size = 88
 lead = "411122c006c026c0"
 body_sha256 = "5af6e2f6dc4f2dd0508271555b2dee620f80c625bf23212a40b89b65c0760690"
+calls = "wifi_init_completed@0xc"
 
 [[function]]
 name = "esp_wifi_set_config"
@@ -222,6 +226,7 @@ builds = "probe2,probe_wifi_http,probe_wifi_conn"
 size = 148
 lead = "411126c04ac006c0"
 body_sha256 = "a8c3b8d736d392536a692c268ef269ab71b55c37d85045eceeb97d61c9f27d39"
+calls = "wifi_init_completed@0xe"
 
 [[function]]
 name = "esp_wifi_get_config"
@@ -231,6 +236,7 @@ builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
 size = 94
 lead = "411122c026c006c0"
 body_sha256 = "246707fb2803602e2b3261e155b8f5fc7cadcd274e2611e8890359980297a6c5"
+calls = "wifi_init_completed@0xc"
 
 [[function]]
 name = "esp_wifi_get_mac"
@@ -240,6 +246,7 @@ builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
 size = 76
 lead = "411122c026c006c0"
 body_sha256 = "7c364db1d811ef612b00d3afee8532054d9d7e0df01a983ee5899dd541f88026"
+calls = "wifi_init_completed@0xc"
 
 [[function]]
 name = "esp_wifi_start"
@@ -249,6 +256,7 @@ builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
 size = 68
 lead = "411106c0ef000000"
 body_sha256 = "d0c592a9e58bdfa49e9bbd88b95337bd3a7ed84a5edbb8b8cfa91a710addd1a0"
+calls = "wifi_init_completed@0x4"
 
 [[function]]
 name = "esp_wifi_stop"
@@ -267,6 +275,7 @@ builds = "scan3,probe2,official,demo"
 size = 434
 lead = "011126c052c006c0"
 body_sha256 = "d4a63f34e0716645b0d90b12946d2a57ff973aa1fe7e41110e24312c5af55b84"
+calls = "wifi_init_completed@0x14"
 
 [[function]]
 name = "esp_wifi_scan_stop"
@@ -276,6 +285,7 @@ builds = "official,demo"
 size = 88
 lead = "411106c0ef000000"
 body_sha256 = "28930308cd3e9000307c8d05d539457ba957002d41552818ca2e913ffc4e7c13"
+calls = "wifi_init_completed@0x4"
 
 [[function]]
 name = "esp_wifi_scan_get_ap_num"
@@ -285,6 +295,7 @@ builds = "scan3,probe2,official,demo"
 size = 94
 lead = "411122c006c02a84"
 body_sha256 = "b31ef3fd367690569e6715ad91d6c5c7e73ee7da75f91b1dd133030714907262"
+calls = "wifi_init_completed@0x8"
 
 [[function]]
 name = "esp_wifi_scan_get_ap_records"
@@ -294,6 +305,7 @@ builds = "scan3,probe2,official,demo"
 size = 164
 lead = "411122c026c006c0"
 body_sha256 = "9d885866c3acb715ff68dcf9c832149556317360297a567018690b85affb04e2"
+calls = "wifi_init_completed@0xc"
 
 [[function]]
 name = "esp_wifi_internal_reg_rxcb"
@@ -303,6 +315,7 @@ builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
 size = 110
 lead = "411122c026c006c0"
 body_sha256 = "e7d8132db90475dae902c4fb59cab9606111df89aedc4e98816a9c04c0da8011"
+calls = "wifi_init_completed@0xc"
 
 [[function]]
 name = "esp_wifi_internal_reg_netstack_buf_cb"
@@ -331,6 +344,7 @@ builds = "probe2,probe_wifi_http,probe_wifi_conn"
 size = 88
 lead = "411106c0ef000000"
 body_sha256 = "cf663318c02f94366c3b284413794dfcbeb77cff5b18445b78e536b14e0c9e8b"
+calls = "wifi_init_completed@0x4"
 
 [[function]]
 name = "esp_wifi_disconnect_internal"
@@ -340,6 +354,7 @@ builds = "probe2,probe_wifi_conn"
 size = 88
 lead = "411106c0ef000000"
 body_sha256 = "553ea5a6b4c80b029b852f20e88510123284e9aa8b1ca75d9766e4c8dc915bed"
+calls = "wifi_init_completed@0x4"
 
 [[function]]
 name = "esp_wifi_internal_tx"
@@ -358,6 +373,7 @@ builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
 size = 52
 lead = "411106c0ef000000"
 body_sha256 = "4e30fe872df51219024f279a93c0a2734a0507e2073d927248cb97a82c063a45"
+calls = "wifi_init_completed@0x4"
 
 [[function]]
 name = "xTaskCreatePinnedToCore"
@@ -655,6 +671,44 @@ size = 28
 lead = "411106c0fd576300"
 body_sha256 = "b768c702deb1b7de1b2dabfa1a7d7bff955e87de4e894bddf95ad221918e96c3"
 calls = "esp_event_post@0xa"
+
+[[function]]
+name = "wifi_init_completed"
+
+[[shape]]
+builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
+size = 44
+lead = "411106c0ef000000"
+body_sha256 = "6a54f45f26d4e666fc53df38768341b5dd7ae6c835389787ffe5d361144e609f"
+
+[[function]]
+name = "esp_wifi_deinit_internal"
+
+[[shape]]
+builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
+size = 256
+lead = "011122c006c026c0"
+body_sha256 = "5a64723f2a2dad38c19c145d505641b0ea392e0b183c304d8096de8e31103c1b"
+
+[[function]]
+name = "wifi_deinit_internal"
+
+[[shape]]
+builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
+size = 200
+lead = "411106c022c06f00"
+body_sha256 = "6047cefe32262d715d214feac901779b551db001a700eb4c2a94955631350cac"
+refs = "s_wifi_inited@0x5c+0x60"
+calls = "esp_log@0x40 esp_log_timestamp@0x20 esp_wifi_deinit_internal@0x4c esp_wifi_get_user_init_flag_internal@0x6 esp_wifi_internal_reg_rxcb@0x10"
+
+[[function]]
+name = "esp_wifi_get_user_init_flag_internal"
+
+[[shape]]
+builds = "scan3,probe2,official,demo,probe_wifi_http,probe_wifi_conn"
+size = 18
+lead = "b707000003c50700"
+body_sha256 = "a0f0b3efc2f50c885e1f79e3958c5ae276b72faba01bd80cfb3e398f41eef1b1"
 
 [[data]]
 name = "btdm_controller_status"
