@@ -12,7 +12,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
-use pemu_hle::binding::LoadedSegment;
+use pemu_hle::binding::{CODE_HASH_BYTES, LoadedSegment, skeleton_hash};
 use pemu_hle::image_symbols::{
     GLOBAL_POINTER, ImageRules, Resolution, body_hash, code_section, lead, recover,
 };
@@ -101,8 +101,11 @@ const FUNCTIONS: [&str; 44] = [
     "heap_caps_free",
 ];
 
-/// Functions beyond [`FUNCTIONS`]: observe hooks, a presence marker and witness hosts.
-const MORE_FUNCTIONS: [&str; 8] = [
+/// Functions beyond [`FUNCTIONS`]: observe hooks, a presence marker, witness hosts, and the two
+/// guards of `wifi.toml` (`wifi_init_completed`, `esp_wifi_get_user_init_flag_internal`) with
+/// `wifi_deinit_internal`, whose first call is the second one and so pins which 18-byte function
+/// it is, and `esp_wifi_deinit_internal`, the next blob function on that path.
+const MORE_FUNCTIONS: [&str; 12] = [
     "esp_panic_handler",
     "abort",
     "__assert_func",
@@ -111,6 +114,10 @@ const MORE_FUNCTIONS: [&str; 8] = [
     "call_start_cpu0",
     "wifi_event_post",
     "esp_event_post_wrapper",
+    "wifi_init_completed",
+    "esp_wifi_deinit_internal",
+    "wifi_deinit_internal",
+    "esp_wifi_get_user_init_flag_internal",
 ];
 
 /// Data symbols and the size the ELF path pins for each (the module profiles' `[[data]]` rows and
@@ -577,5 +584,145 @@ fn print_image_symbol_rules() {
     }
     for (name, size) in DATA {
         println!("[[data]]\nname = \"{name}\"\nsize = {size}\n");
+    }
+}
+
+/// The hook names of a module profile (`ble.toml`, `wifi.toml`), in file order.
+fn profile_hooks(file: &str) -> Vec<String> {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../specs/hle/idf-5.5.3")
+        .join(file);
+    let text = std::fs::read_to_string(path).expect("the profile is part of the tree");
+    let mut names = Vec::new();
+    let mut in_hook = false;
+    for line in text.lines().map(str::trim) {
+        if line.starts_with('[') {
+            in_hook = line == "[[hook]]";
+        } else if in_hook && let Some(name) = line.strip_prefix("name = \"") {
+            names.push(name.trim_end_matches('"').to_string());
+        }
+    }
+    names
+}
+
+/// Writes the (size, head hash) pair of every profile hook on every build of the data root to
+/// standard output, one `file hook build size code_sha256` line each: what a `[[variant]]` row of
+/// `ble.toml` and `wifi.toml` pins. Run it by name with `--ignored --nocapture` after a corpus
+/// change or a change to the skeleton.
+#[test]
+#[ignore = "a generator: prints the profile variant of every hook on every corpus build"]
+fn print_profile_variants() {
+    let builds = builds();
+    assert!(!builds.is_empty(), "the generator needs the corpus");
+    for file in ["ble.toml", "wifi.toml"] {
+        let hooks = profile_hooks(file);
+        for (id, flash, elf_bytes) in &builds {
+            let elf = ElfInfo::parse(elf_bytes).expect("the ELF parses");
+            let app = app(flash);
+            for hook in &hooks {
+                let Some(sym) = elf.symbols.lookup(hook) else {
+                    continue;
+                };
+                let head = app
+                    .bytes(sym.addr, CODE_HASH_BYTES as u32)
+                    .expect("the head is in a segment");
+                println!(
+                    "{file} {hook} {id} {} {}",
+                    sym.size,
+                    hex(&skeleton_hash(head))
+                );
+            }
+        }
+    }
+}
+
+/// The `(hook, guard)` rows of a module profile.
+fn profile_guards(file: &str) -> Vec<(String, String)> {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../specs/hle/idf-5.5.3")
+        .join(file);
+    let text = std::fs::read_to_string(path).expect("the profile is part of the tree");
+    let mut out = Vec::new();
+    let mut hook: Option<String> = None;
+    for line in text.lines().map(str::trim) {
+        if line.starts_with('[') {
+            if line != "[[variant]]" {
+                hook = None;
+            }
+            if line == "[[hook]]" {
+                hook = Some(String::new());
+            }
+        } else if let Some(name) = line.strip_prefix("name = \"")
+            && hook.as_deref() == Some("")
+        {
+            hook = Some(name.trim_end_matches('"').to_string());
+        } else if let Some(guard) = line.strip_prefix("guard = \"") {
+            let hook = hook.clone().expect("a guard belongs to a hook");
+            out.push((hook, guard.trim_end_matches('"').to_string()));
+        }
+    }
+    out
+}
+
+/// What a `guard` row of `wifi.toml` claims, on every corpus build that links the row: before
+/// the hook's own body calls anything it stores only into its frame, and its first call is the
+/// guard, or one open-source function of which the same holds. So a run that enters the body
+/// unhooked reaches the guard's tripwire having changed nothing outside a stack frame.
+#[test]
+fn the_first_call_of_every_guarded_hook_reaches_its_guard() {
+    let guards = profile_guards("wifi.toml");
+    assert_eq!(guards.len(), 16, "the guarded rows of wifi.toml");
+    let blob = pemu_hle::tripwire::blob_defined_set();
+    for (id, flash, elf_bytes) in &builds() {
+        let elf = ElfInfo::parse(elf_bytes).expect("the ELF parses");
+        let app = app(flash);
+        let mut checked = 0;
+        for (hook, guard) in &guards {
+            let Some(sym) = elf.symbols.lookup(hook) else {
+                continue;
+            };
+            let guard_at = elf
+                .symbols
+                .addr_of(guard)
+                .unwrap_or_else(|| panic!("{id}: {hook} is linked and its guard {guard} is not"));
+            let (mut addr, mut size, mut name) = (sym.addr, sym.size, hook.clone());
+            let mut reached = false;
+            for _ in 0..2 {
+                let code = app.bytes(addr, size).expect("the body is in a segment");
+                let (at, target) = calls(code, addr)
+                    .into_iter()
+                    .find(|(_, target)| !(addr..addr + size).contains(target))
+                    .unwrap_or_else(|| panic!("{id}: {name} calls nothing"));
+                let mut off = 0usize;
+                while off < at as usize {
+                    let op = decode_at(&code[off..], addr + off as u32).expect("decodes");
+                    assert!(
+                        !matches!(op.kind, K_SB | K_SH | K_SW) || op.rs1 == 2,
+                        "{id}: {name}+{off:#x} stores outside its frame before its first call"
+                    );
+                    off += usize::from(op.len.max(2));
+                }
+                if target == guard_at {
+                    reached = true;
+                    break;
+                }
+                let helper = elf
+                    .symbols
+                    .func_at(target)
+                    .unwrap_or_else(|| panic!("{id}: {name} first calls {target:#010x}"));
+                assert!(
+                    !blob.contains(&helper.name),
+                    "{id}: {name} first calls the blob function {}, not {guard}",
+                    helper.name
+                );
+                (addr, size, name) = (helper.addr, helper.size, helper.name.clone());
+            }
+            assert!(
+                reached,
+                "{id}: {hook} does not reach {guard} by its first calls"
+            );
+            checked += 1;
+        }
+        println!("RAN {id}: {checked} guarded hooks reach their guard first");
     }
 }

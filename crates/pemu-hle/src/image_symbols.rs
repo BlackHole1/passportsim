@@ -15,7 +15,9 @@
 //!   store witness must access exactly the pinned size.
 //!
 //! A symbol is recovered only when exactly one address remains and every witness agrees; anything
-//! else is reported, never guessed. Absence is never concluded ([`Recovered::check`]).
+//! else is reported, never guessed. Absence is never concluded: a hook that is not found binds
+//! nothing, and its module binds without it only when a tripwire guards it
+//! ([`Recovered::check`]).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
@@ -53,78 +55,11 @@ pub const CORE_REQUIRED: [&str; 6] = [
 
 // The body skeleton.
 
-/// The relocation-masked skeleton of a whole function body: [`crate::binding::code_skeleton`]
-/// with one more field zeroed. A register written by `lui` or `auipc` is high until next written;
-/// a 32-bit `addi` whose `rs1` is high or `gp` has its immediate zeroed, because that is the low
-/// half of a relocated address. Anything else that differs is a different body.
+/// The skeleton of a whole function body: [`crate::binding::code_skeleton`], the one binding
+/// hashes the head of a hooked function with, over every byte of the function. Anything that
+/// differs is a different body.
 pub fn body_skeleton(bytes: &[u8]) -> Vec<u8> {
-    let mut out = Vec::with_capacity(bytes.len());
-    body_skeleton_into(bytes, &mut out, None);
-    out
-}
-
-/// [`body_skeleton`] into a reused buffer, which the scan calls once per address. `ends` receives
-/// the offset after each whole instruction: the skeleton of `bytes[..n]` is the first `n` bytes of
-/// this one exactly when `n` is such an offset, so one pass serves every shape size at an address.
-fn body_skeleton_into(bytes: &[u8], out: &mut Vec<u8>, mut ends: Option<&mut Vec<usize>>) {
-    use crate::binding::{mask_16, mask_32};
-    out.clear();
-    if let Some(ends) = ends.as_deref_mut() {
-        ends.clear();
-    }
-    let mut high = 0u32;
-    let mut at = 0;
-    while at < bytes.len() {
-        let low = bytes[at];
-        if low & 0b11 == 0b11 {
-            let Some(word) = bytes
-                .get(at..at + 4)
-                .map(|w| u32::from_le_bytes([w[0], w[1], w[2], w[3]]))
-            else {
-                // Cut by the window: the opcode only, as `code_skeleton` keeps it.
-                out.push(low & 0x7F);
-                out.resize(bytes.len(), 0);
-                return;
-            };
-            let mut masked = mask_32(word);
-            let rs1 = (word >> 15) & 31;
-            if word & 0x7F == 0x13 && (word >> 12) & 7 == 0 && (rs1 == 3 || high & (1 << rs1) != 0)
-            {
-                masked = word & 0x000F_FFFF;
-            }
-            out.extend_from_slice(&masked.to_le_bytes());
-            track(&bytes[at..], &mut high);
-            at += 4;
-            if let Some(ends) = ends.as_deref_mut() {
-                ends.push(at);
-            }
-        } else if at + 2 <= bytes.len() {
-            let half = u16::from_le_bytes([bytes[at], bytes[at + 1]]);
-            out.extend_from_slice(&mask_16(half).to_le_bytes());
-            track(&bytes[at..], &mut high);
-            at += 2;
-            if let Some(ends) = ends.as_deref_mut() {
-                ends.push(at);
-            }
-        } else {
-            out.push(low & 0b11);
-            at += 1;
-        }
-    }
-}
-
-fn track(bytes: &[u8], high: &mut u32) {
-    let Some(op) = decode_at(bytes, 0) else {
-        return;
-    };
-    if op.rd == 0 {
-        return;
-    }
-    if op.kind == K_LUI || op.kind == K_AUIPC {
-        *high |= 1 << op.rd;
-    } else {
-        *high &= !(1 << op.rd);
-    }
+    crate::binding::code_skeleton(bytes)
 }
 
 /// The first two bytes of the body skeleton of the code at `bytes[0]`, without decoding more: the
@@ -152,7 +87,7 @@ pub fn body_hash(bytes: &[u8]) -> [u8; 32] {
 /// The scan key: the body skeleton of the first [`LEAD_BYTES`] bytes, `None` when fewer remain.
 pub fn lead(bytes: &[u8]) -> Option<[u8; LEAD_BYTES]> {
     let mut out = Vec::with_capacity(LEAD_BYTES);
-    body_skeleton_into(bytes.get(..LEAD_BYTES)?, &mut out, None);
+    crate::binding::skeleton_into(bytes.get(..LEAD_BYTES)?, &mut out, None);
     out.try_into().ok()
 }
 
@@ -411,8 +346,15 @@ pub enum ModuleCheck {
 
 impl Recovered {
     /// The image can show that a function is present, never that it is absent, so once any hook
-    /// of a module is found, every hook and required name must be, or the module is refused with
-    /// each name that was not.
+    /// of a module is found, every required name must be, and every hook must be found or
+    /// guarded, or the module is refused with each name that was not.
+    ///
+    /// A hook that is not found is linked in a shape no rule pins, or not linked at all; the
+    /// image cannot tell which. Its guard ([`ModuleSymbols::guards`]) makes the two the same to
+    /// the run: when the guard is found and the tripwire rule arms it, the hook's own body cannot
+    /// get past its first call, so the module binds without that hook, as it does for an ELF that
+    /// does not link it. A hook with no guard, or whose guard is not an armed tripwire, refuses
+    /// the module as before.
     pub fn check(&self, module: &ModuleSymbols) -> ModuleCheck {
         let status = |name: &str| self.resolved.get(name);
         let any = module
@@ -422,6 +364,8 @@ impl Recovered {
         if !any {
             return ModuleCheck::NotFound;
         }
+        let armed = armed_guards(module);
+        let found = |name: &str| matches!(status(name), Some(Resolution::At { .. }));
         let mismatches: Vec<BindingMismatch> = module
             .hooks
             .iter()
@@ -429,30 +373,43 @@ impl Recovered {
             .chain(CORE_REQUIRED.iter())
             .collect::<BTreeSet<_>>()
             .into_iter()
-            .filter_map(|name| match status(name) {
-                Some(Resolution::At { .. }) => None,
-                Some(Resolution::Ambiguous(addrs)) => Some(BindingMismatch {
-                    symbol: name.to_string(),
-                    field: MismatchField::Ambiguous,
-                    expected: "one place in the image".to_string(),
-                    found: addrs
-                        .iter()
-                        .map(|a| format!("{a:#010x}"))
-                        .collect::<Vec<_>>()
-                        .join(" and "),
-                }),
-                Some(Resolution::Missing(why)) => Some(BindingMismatch {
-                    symbol: name.to_string(),
-                    field: MismatchField::Missing,
-                    expected: "found in the image".to_string(),
-                    found: why.clone(),
-                }),
-                None => Some(BindingMismatch {
-                    symbol: name.to_string(),
-                    field: MismatchField::Missing,
-                    expected: "found in the image".to_string(),
-                    found: "no rule in image-symbols.toml recovers it".to_string(),
-                }),
+            .filter_map(|name| {
+                let missing = |why: &str| {
+                    let guard = module.guards.iter().find(|(hook, _)| hook == name);
+                    let (expected, found) = match guard {
+                        Some((_, guard)) if armed.contains(guard) && found(guard) => return None,
+                        Some((_, guard)) if !armed.contains(guard) => (
+                            format!("found in the image, or guarded by `{guard}`"),
+                            format!("{why}; `{guard}` is not a tripwire"),
+                        ),
+                        Some((_, guard)) => (
+                            format!("found in the image, or guarded by `{guard}`"),
+                            format!("{why}; `{guard}` was not found either"),
+                        ),
+                        None => ("found in the image".to_string(), why.to_string()),
+                    };
+                    Some(BindingMismatch {
+                        symbol: name.to_string(),
+                        field: MismatchField::Missing,
+                        expected,
+                        found,
+                    })
+                };
+                match status(name) {
+                    Some(Resolution::At { .. }) => None,
+                    Some(Resolution::Ambiguous(addrs)) => Some(BindingMismatch {
+                        symbol: name.to_string(),
+                        field: MismatchField::Ambiguous,
+                        expected: "one place in the image".to_string(),
+                        found: addrs
+                            .iter()
+                            .map(|a| format!("{a:#010x}"))
+                            .collect::<Vec<_>>()
+                            .join(" and "),
+                    }),
+                    Some(Resolution::Missing(why)) => missing(why),
+                    None => missing("no rule in image-symbols.toml recovers it"),
+                }
             })
             .collect();
         if mismatches.is_empty() {
@@ -461,6 +418,26 @@ impl Recovered {
             ModuleCheck::Refuse(mismatches)
         }
     }
+}
+
+/// The guards of `module` the tripwire rule arms when the image links them: blob-defined, not on
+/// the coexistence allowlist, and not hooked by the module itself (a hooked pc holds no tripwire).
+fn armed_guards(module: &ModuleSymbols) -> BTreeSet<&'static str> {
+    if module.guards.is_empty() {
+        return BTreeSet::new();
+    }
+    let blob = crate::tripwire::blob_defined_set();
+    let allow = crate::tripwire::TripwireSpec::load().coexistence_allow;
+    module
+        .guards
+        .iter()
+        .map(|(_, guard)| *guard)
+        .filter(|guard| {
+            blob.contains(*guard)
+                && !allow.iter().any(|a| a == guard)
+                && !module.hooks.contains(guard)
+        })
+        .collect()
 }
 
 fn op_at(segments: &[LoadedSegment<'_>], addr: u32) -> Option<pemu_rv32::op::Op> {
@@ -559,12 +536,12 @@ pub fn recover(
             if !first[usize::from(first_skeleton_half(&data[off..]))] {
                 continue;
             }
-            body_skeleton_into(&data[off..off + LEAD_BYTES], &mut key, None);
+            crate::binding::skeleton_into(&data[off..off + LEAD_BYTES], &mut key, None);
             let Some((longest, hits)) = index.get(key.as_slice()) else {
                 continue;
             };
             let end = data.len().min(off + *longest as usize);
-            body_skeleton_into(&data[off..end], &mut skeleton, Some(&mut ends));
+            crate::binding::skeleton_into(&data[off..end], &mut skeleton, Some(&mut ends));
             let addr = seg.addr + off as u32;
             for &(f, s) in hits {
                 let shape = &rules.functions[f].shapes[s];
@@ -810,34 +787,21 @@ mod tests {
     fn the_body_skeleton_zeroes_the_low_half_of_an_address_and_keeps_a_constant() {
         let a = pair(0x3fc99, 0xffc, 8, 12);
         let b = pair(0x3fca0, 0x010, 8, 0x200);
-        assert_ne!(
-            skeleton_hash(&a),
-            skeleton_hash(&b),
-            "the head skeleton keeps addi whole"
-        );
         assert_eq!(
             body_hash(&a),
             body_hash(&b),
             "a relinked address is the same body"
         );
+        // The head check and the body check are one skeleton, so they never disagree about a
+        // relocated field.
+        assert_eq!(skeleton_hash(&a), body_hash(&a));
+        assert_eq!(code_skeleton(&a), body_skeleton(&a));
         let c = pair(0x3fc99, 0xffc, 9, 12);
         assert_ne!(
             body_hash(&a),
             body_hash(&c),
             "a different constant is another body"
         );
-    }
-
-    #[test]
-    fn the_body_skeleton_masks_everything_the_documented_skeleton_masks() {
-        // Every byte `code_skeleton` zeroes is zero in the body skeleton too, so the head check
-        // and the body check never disagree about a relocated field.
-        let code = pair(0x12345, 0x7ff, 3, 0x40);
-        let head = code_skeleton(&code);
-        let body = body_skeleton(&code);
-        for (i, (h, b)) in head.iter().zip(&body).enumerate() {
-            assert_eq!(b & !h, 0, "byte {i}: {b:#04x} keeps a bit {h:#04x} dropped");
-        }
     }
 
     #[test]
@@ -998,6 +962,7 @@ mod tests {
         let module = |hooks: Vec<&'static str>, required: Vec<&'static str>| ModuleSymbols {
             hooks,
             required,
+            guards: Vec::new(),
         };
         assert_eq!(
             recovered.check(&module(vec!["h1"], vec![])),
@@ -1022,5 +987,90 @@ mod tests {
                 ("x", MismatchField::Missing)
             ]
         );
+    }
+
+    #[test]
+    fn a_hook_that_is_not_found_needs_a_found_guard_the_tripwire_rule_arms() {
+        let at = Resolution::At { addr: 4, size: 4 };
+        let missing = || Resolution::Missing("no shape".into());
+        let recovered = |guard: Option<Resolution>| {
+            let mut resolved: BTreeMap<String, Resolution> = CORE_REQUIRED
+                .iter()
+                .map(|n| (n.to_string(), at.clone()))
+                .collect();
+            resolved.insert("h1".into(), at.clone());
+            resolved.insert("h2".into(), missing());
+            for name in ["wifi_init_completed", "coex_pre_init", "app_main"] {
+                if let Some(guard) = &guard {
+                    resolved.insert(name.into(), guard.clone());
+                }
+            }
+            Recovered {
+                elf: no_elf(),
+                resolved,
+            }
+        };
+        let module = |guard: &'static str| ModuleSymbols {
+            hooks: vec!["h1", "h2"],
+            required: Vec::new(),
+            guards: vec![("h2", guard)],
+        };
+        let refusal = |recovered: &Recovered, guard: &'static str| {
+            let ModuleCheck::Refuse(why) = recovered.check(&module(guard)) else {
+                panic!("`{guard}` does not stand in for h2");
+            };
+            assert_eq!(why.len(), 1);
+            assert_eq!(
+                (why[0].symbol.as_str(), why[0].field),
+                ("h2", MismatchField::Missing)
+            );
+            why[0].found.clone()
+        };
+        // Found and blob-defined: the image rule arms it, so `h2` may be absent.
+        let found = recovered(Some(at.clone()));
+        assert_eq!(
+            found.check(&module("wifi_init_completed")),
+            ModuleCheck::Bind
+        );
+        // The guard itself not found, in one place or in two: nothing stops an unhooked `h2`.
+        for guard in [
+            None,
+            Some(missing()),
+            Some(Resolution::Ambiguous(vec![4, 8])),
+        ] {
+            let why = refusal(&recovered(guard), "wifi_init_completed");
+            assert!(
+                why.contains("`wifi_init_completed` was not found either"),
+                "{why}"
+            );
+        }
+        // Found, but never armed: open-source code, and the coexistence code that runs for real.
+        for guard in ["app_main", "coex_pre_init"] {
+            let why = refusal(&found, guard);
+            assert!(why.contains("is not a tripwire"), "{why}");
+        }
+        // A guard guards the hook it names and no other.
+        let ModuleCheck::Refuse(why) = found.check(&ModuleSymbols {
+            hooks: vec!["h1", "h2"],
+            required: Vec::new(),
+            guards: vec![("h1", "wifi_init_completed")],
+        }) else {
+            panic!("h2 has no guard");
+        };
+        assert_eq!(why[0].found, "no shape");
+    }
+
+    fn no_elf() -> ElfInfo {
+        synthesize(
+            &ImageRules {
+                idf: String::new(),
+                functions: Vec::new(),
+                data: Vec::new(),
+            },
+            &[],
+            &BTreeMap::new(),
+            None,
+            0,
+        )
     }
 }
