@@ -48,6 +48,8 @@ pub const ESP_ERR_WIFI_IF: u32 = 0x3004;
 pub const ESP_ERR_WIFI_CONN: u32 = 0x3007;
 /// 12309: the `esp_wifi_internal_tx` answer for a started station that is not associated.
 pub const ESP_ERR_WIFI_NOT_ASSOC: u32 = 0x3015;
+/// `WIFI_MODE_STA`.
+pub const MODE_STA: u32 = 1;
 /// `WIFI_MODE_AP`; it and `WIFI_MODE_APSTA` create the SoftAP interface.
 pub const MODE_AP: u32 = 2;
 /// `WIFI_MODE_APSTA` (`esp_wifi_types_generic.h`).
@@ -59,6 +61,7 @@ pub const MAX_IF: u32 = 1;
 /// `sizeof(wifi_config_t)`.
 pub const CONFIG_BYTES: usize = 184;
 pub const ESP_MAC_WIFI_STA: u32 = 0;
+pub const ESP_MAC_WIFI_SOFTAP: u32 = 1;
 /// `ESP_INTR_FLAG_LEVEL1`; see the BLE module for why not `IRAM`.
 pub const INTR_FLAG_LEVEL1: u32 = 1 << 1;
 pub const QUEUE_SEND_TO_BACK: u32 = 0;
@@ -368,13 +371,18 @@ mod step {
     /// The registered RX callback is out, holding the buffer the worker just lent it.
     pub const RX_CALLBACK: u32 = 16;
     pub const RX_FREED: u32 = 17;
+    /// `esp_wifi_start` is out reading the SoftAP MAC its mode line prints.
+    pub const AP_MAC: u32 = 18;
 }
 
 mod w {
     pub const STEP: usize = 0;
     pub const RET: usize = 1;
     pub const LINE: usize = 2;
-    pub const LEN: usize = 4;
+    /// The six bytes of the SoftAP MAC, little-endian in two words: `esp_wifi_start` in a mode
+    /// with a SoftAP reads them for its mode line and keeps them only until it returns.
+    pub const AP_MAC: usize = 3;
+    pub const LEN: usize = 5;
 }
 
 fn handler_name(kind: HandlerKind) -> Option<&'static str> {
@@ -546,8 +554,17 @@ impl WifiHost {
         }
     }
 
-    fn stage_lines(&self, stage: Stage) -> impl Iterator<Item = &crate::log_lines::LogLine> {
-        self.lines.module_stage("wifi", stage, self.lines_verified)
+    /// The lines of `stage` in `mode`. A mode of 0 has no `start` line: it is an explicit
+    /// `WIFI_MODE_NULL` or a mode never set, which print different lines on the device
+    /// (`log-lines.toml`).
+    fn stage_lines(
+        &self,
+        stage: Stage,
+        mode: u32,
+    ) -> impl Iterator<Item = &crate::log_lines::LogLine> {
+        self.lines
+            .module_stage("wifi", stage, self.lines_verified)
+            .filter(move |line| line.printed_in(mode))
     }
 
     fn lines_or(
@@ -558,7 +575,7 @@ impl WifiHost {
         g: &mut dyn GuestView,
     ) -> HleAction {
         if self
-            .stage_lines(stage)
+            .stage_lines(stage, st.mode)
             .nth(words[w::LINE] as usize)
             .is_some()
         {
@@ -608,13 +625,20 @@ impl WifiHost {
         a0: u32,
     ) -> HleAction {
         if words[w::STEP] == step::TIMESTAMP {
-            let Some(line) = self.stage_lines(stage).nth(words[w::LINE] as usize) else {
+            let Some(line) = self
+                .stage_lines(stage, st.mode)
+                .nth(words[w::LINE] as usize)
+            else {
                 return bad_step("wifi log line", words[w::LINE]);
             };
             let mac = hle_common::mac_text(&st.sta_mac);
+            let mut ap_mac = [0u8; 6];
+            ap_mac[..4].copy_from_slice(&words[w::AP_MAC].to_le_bytes());
+            ap_mac[4..].copy_from_slice(&words[w::AP_MAC + 1].to_le_bytes()[..2]);
             let text = line
                 .text
                 .replace("{mac}", &mac)
+                .replace("{ap_mac}", &hle_common::mac_text(&ap_mac))
                 .replace("{task}", &format!("{:x}", st.worker));
             words[w::STEP] = step::LOGGED;
             return self.log_call(line, &text, a0);
@@ -814,11 +838,15 @@ impl WifiHost {
     /// `esp_read_mac(&mac, ESP_MAC_WIFI_STA)`, so the eFuse base-MAC logic stays guest code.
     fn read_mac(&self, words: &mut [u32]) -> HleAction {
         words[w::STEP] = step::MAC;
+        self.read_mac_of(ESP_MAC_WIFI_STA)
+    }
+
+    fn read_mac_of(&self, kind: u32) -> HleAction {
         HleAction::from(
             CallRequest::new(
                 "esp_read_mac",
                 self.addr("esp_read_mac"),
-                &[Arg::Scratch(0), Arg::Val(ESP_MAC_WIFI_STA)],
+                &[Arg::Scratch(0), Arg::Val(kind)],
             )
             .with_scratch(vec![0; 8]),
         )
@@ -917,7 +945,6 @@ impl WifiHost {
         resume: &Resume,
     ) -> HleAction {
         words.resize(w::LEN, 0);
-        let _ = returned(resume);
         match words[w::STEP] {
             step::ENTRY => {
                 match self.inited(g) {
@@ -931,6 +958,12 @@ impl WifiHost {
                 if start {
                     st.state = DriverState::Started;
                     words[w::LINE] = 0;
+                    // The mode line of a mode with a SoftAP prints its MAC, which the blob reads
+                    // through the guest's `esp_read_mac` (`esp_adapter.c` `esp_read_mac_wrapper`).
+                    if st.mode & MODE_AP != 0 {
+                        words[w::STEP] = step::AP_MAC;
+                        return self.read_mac_of(ESP_MAC_WIFI_SOFTAP);
+                    }
                     return self.lines_or(Stage::Start, st, words, g);
                 }
                 if st.state == DriverState::Connected {
@@ -965,6 +998,12 @@ impl WifiHost {
                 st.records.clear();
                 words[w::LINE] = 0;
                 self.lines_or(Stage::Stop, st, words, g)
+            }
+            step::AP_MAC => {
+                let (_, scratch) = returned(resume);
+                words[w::AP_MAC] = word_at(scratch, 0);
+                words[w::AP_MAC + 1] = word_at(scratch, 4) & 0xFFFF;
+                self.lines_or(Stage::Start, st, words, g)
             }
             step::TIMESTAMP | step::LOGGED => {
                 let (a0, _) = returned(resume);
@@ -2237,6 +2276,98 @@ mod tests {
             HleAction::Return { a0, .. } => *a0,
             other => panic!("expected a return, got {other:?}"),
         }
+    }
+
+    /// The lines `esp_wifi_start` prints in `mode`, with the guest's `esp_read_mac` answering
+    /// `AP_MAC` for the SoftAP interface if the handler asks.
+    fn start_lines(mut h: WifiHost, mode: u32) -> Vec<String> {
+        const AP_MAC: [u8; 8] = [0x02, 0x00, 0x00, 0x11, 0x22, 0x34, 0, 0];
+        h.workers(WakeMode::U5Polling);
+        let mut g = Guest::default();
+        let mut st = Vec::new();
+        run_init(&mut h, &mut st, &mut g);
+        assert_eq!(
+            run_immediate(&mut h, &mut st, &mut g, handler::SET_MODE, [mode, 0]),
+            ESP_OK
+        );
+        let (mut hs, mut a) = h.enter(&mut st, HandlerKind(handler::START), &mut g);
+        if called(&a).0 == h.addr("esp_read_mac") {
+            assert_eq!(
+                called(&a).2,
+                [Arg::Scratch(0), Arg::Val(1)],
+                "ESP_MAC_WIFI_SOFTAP, read by the guest's own code"
+            );
+            a = h.resume(
+                &mut st,
+                &mut hs,
+                &mut g,
+                Resume::Returned {
+                    a0: 0,
+                    a1: 0,
+                    scratch: AP_MAC.to_vec(),
+                },
+            );
+        }
+        let (a, lines) = drain_lines(&mut h, &mut st, &mut hs, &mut g, a);
+        assert_eq!(
+            called(&a).0,
+            h.addr("xQueueSemaphoreTake"),
+            "the caller parks"
+        );
+        // `tag|format|text|`, as `drain_lines` joins the scratch.
+        lines
+            .iter()
+            .map(|l| l.split('|').nth(2).unwrap_or_default().to_string())
+            .collect()
+    }
+
+    const SOFTAP_LINES: [&str; 3] = [
+        "Total power save buffer number: 16",
+        "Init max length of beacon: 752/752",
+        "Init max length of beacon: 752/752",
+    ];
+
+    #[test]
+    fn start_in_station_mode_prints_the_station_lines() {
+        let want = ["mode : sta (02:00:00:11:22:33)", "enable tsf"];
+        assert_eq!(start_lines(host(), MODE_STA), want);
+        assert_eq!(start_lines(verified_host(), MODE_STA), want);
+    }
+
+    #[test]
+    fn start_in_softap_mode_prints_the_softap_lines_and_no_station_line() {
+        let mode_line = "mode : softAP (02:00:00:11:22:34)";
+        assert_eq!(
+            start_lines(host(), MODE_AP),
+            [mode_line],
+            "no station line, no `enable tsf`, and the sdkconfig's lines only for a verified shape"
+        );
+        assert_eq!(
+            start_lines(verified_host(), MODE_AP),
+            [&[mode_line][..], &SOFTAP_LINES[..]].concat()
+        );
+    }
+
+    #[test]
+    fn start_in_apsta_mode_names_both_interfaces_station_first() {
+        let head = [
+            "mode : sta (02:00:00:11:22:33) + softAP (02:00:00:11:22:34)",
+            "enable tsf",
+        ];
+        assert_eq!(start_lines(host(), MAX_MODE), head);
+        assert_eq!(
+            start_lines(verified_host(), MAX_MODE),
+            [&head[..], &SOFTAP_LINES[..]].concat()
+        );
+    }
+
+    #[test]
+    fn start_with_a_mode_of_zero_prints_no_start_line() {
+        assert_eq!(
+            start_lines(verified_host(), 0),
+            [""; 0],
+            "an explicit WIFI_MODE_NULL and a mode never set print different lines on the device"
+        );
     }
 
     fn run_init(h: &mut WifiHost, st: &mut Vec<u8>, g: &mut Guest) {
