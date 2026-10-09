@@ -120,6 +120,43 @@ describe("relay", () => {
     expect(await refused.json()).toEqual({ detail: `ai-passport.folotoy.cn answered with ${MAX_FIRMWARE_BYTES + 1} bytes, over the ${MAX_FIRMWARE_BYTES} the relay passes on` });
   });
 
+  test("a body with no stated length is cut off past the flash size, and passed whole up to it", async () => {
+    const chunk = new Uint8Array(1024 * 1024);
+    const streamed = (chunks: number, extra: number) =>
+      upstream(() => {
+        let sent = 0;
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            pull(controller) {
+              if (sent < chunks) {
+                controller.enqueue(chunk);
+              } else if (sent === chunks && extra > 0) {
+                controller.enqueue(new Uint8Array(extra));
+              } else {
+                controller.close();
+              }
+              sent += 1;
+            },
+          }),
+        );
+      });
+    const whole = MAX_FIRMWARE_BYTES / chunk.length;
+
+    const atLimit = (await relay(get("/play-site/api/download/community/full"), streamed(whole, 0).fetchUpstream)) as Response;
+    expect([atLimit.status, atLimit.headers.get("content-length")]).toEqual([200, null]);
+    expect((await atLimit.arrayBuffer()).byteLength).toBe(MAX_FIRMWARE_BYTES);
+
+    const over = (await relay(get("/play-site/api/download/community/endless"), streamed(whole, 1).fetchUpstream)) as Response;
+    expect(over.status).toBe(200);
+    let failure = "";
+    try {
+      await over.arrayBuffer();
+    } catch (error) {
+      failure = error instanceof Error ? error.message : String(error);
+    }
+    expect(failure).toBe(`the play site sent more than the ${MAX_FIRMWARE_BYTES} bytes the relay passes on`);
+  });
+
   test("a play the site does not have is a 404 that carries the relay's mark", async () => {
     const site = upstream(() => new Response(JSON.stringify({ detail: "玩法不存在" }), { status: 404 }));
     const response = (await relay(get("/play-site/api/plays/id/999999"), site.fetchUpstream)) as Response;

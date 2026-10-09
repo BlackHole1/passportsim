@@ -65,6 +65,23 @@ function refusal(status, detail) {
   return answer(status, JSON.stringify({ detail }), { "content-type": "application/json" });
 }
 
+/** `body` with a ceiling: the stream fails once more than `limit` bytes have passed through it. */
+function capped(body, limit) {
+  let passed = 0;
+  return body.pipeThrough(
+    new TransformStream({
+      transform(chunk, controller) {
+        passed += chunk.byteLength;
+        if (passed > limit) {
+          controller.error(new Error(`the play site sent more than the ${limit} bytes the relay passes on`));
+          return;
+        }
+        controller.enqueue(chunk);
+      },
+    }),
+  );
+}
+
 /**
  * The relay's answer to `request`, or `null` when its path is outside {@link RELAY_PREFIX} and so
  * not the relay's to answer. `fetchUpstream` is `fetch`, injected so a test can be the play site.
@@ -113,8 +130,11 @@ async function relay(request, fetchUpstream = fetch) {
       return refusal(502, `${new URL(UPSTREAM).host} answered with ${length} bytes, over the ${MAX_FIRMWARE_BYTES} the relay passes on`);
     }
     headers["content-length"] = length;
+    return answer(200, response.body, headers);
   }
-  return answer(200, response.body, headers);
+  // No length to judge by (a chunked or encoded body): the bytes are counted as they pass, and the
+  // stream fails past the ceiling, so neither the Worker nor the page reads a body without end.
+  return answer(200, response.body === null ? null : capped(response.body, MAX_FIRMWARE_BYTES), headers);
 }
 
 export default {
