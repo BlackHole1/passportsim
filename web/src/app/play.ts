@@ -60,8 +60,8 @@ export type PlayRef = { readonly ok: true; readonly id: number } | { readonly ok
 const PLAY_PATH = /^\/(?:(?:en|zh)\/)?plays\/([0-9]{1,9})\/?$/;
 
 /**
- * The play a typed text names: its number (`1039`) or the address of its page
- * (`https://ai-passport.folotoy.cn/plays/1039/`, with or without the scheme, the locale prefix or
+ * The play a typed text names: its number (`22`) or the address of its page
+ * (`https://ai-passport.folotoy.cn/plays/22/`, with or without the scheme, the locale prefix or
  * the trailing slash). Only the number is taken from a link.
  */
 export function parsePlayRef(text: string): PlayRef {
