@@ -379,10 +379,23 @@ mod w {
     pub const STEP: usize = 0;
     pub const RET: usize = 1;
     pub const LINE: usize = 2;
+    /// The mode `esp_wifi_start` began in. Its lines are chosen by this copy, because another task
+    /// can call `esp_wifi_set_mode` while a nested log call is out.
+    pub const MODE: usize = 3;
     /// The six bytes of the SoftAP MAC, little-endian in two words: `esp_wifi_start` in a mode
     /// with a SoftAP reads them for its mode line and keeps them only until it returns.
-    pub const AP_MAC: usize = 3;
-    pub const LEN: usize = 5;
+    pub const AP_MAC: usize = 4;
+    pub const LEN: usize = 6;
+}
+
+/// The mode whose lines `stage` prints: the one a start began in, since only `start` rows depend
+/// on the mode.
+fn line_mode(stage: Stage, st: &WifiState, words: &[u32]) -> u32 {
+    if stage == Stage::Start {
+        words[w::MODE]
+    } else {
+        st.mode
+    }
 }
 
 fn handler_name(kind: HandlerKind) -> Option<&'static str> {
@@ -575,7 +588,7 @@ impl WifiHost {
         g: &mut dyn GuestView,
     ) -> HleAction {
         if self
-            .stage_lines(stage, st.mode)
+            .stage_lines(stage, line_mode(stage, st, words))
             .nth(words[w::LINE] as usize)
             .is_some()
         {
@@ -627,7 +640,7 @@ impl WifiHost {
     ) -> HleAction {
         if words[w::STEP] == step::TIMESTAMP {
             let Some(line) = self
-                .stage_lines(stage, st.mode)
+                .stage_lines(stage, line_mode(stage, st, words))
                 .nth(words[w::LINE] as usize)
             else {
                 return bad_step("wifi log line", words[w::LINE]);
@@ -969,6 +982,7 @@ impl WifiHost {
                 if start {
                     st.state = DriverState::Started;
                     words[w::LINE] = 0;
+                    words[w::MODE] = st.mode;
                     // The mode line of a mode with a SoftAP prints its MAC, which the blob reads
                     // through the guest's `esp_read_mac` (`esp_adapter.c` `esp_read_mac_wrapper`).
                     if st.mode & MODE_AP != 0 {
@@ -2369,6 +2383,31 @@ mod tests {
         assert_eq!(
             start_lines(verified_host(), MAX_MODE),
             [&head[..], &SOFTAP_LINES[..]].concat()
+        );
+    }
+
+    #[test]
+    fn a_mode_set_while_start_is_logging_does_not_change_the_lines_of_that_start() {
+        let mut h = host();
+        h.workers(WakeMode::U5Polling);
+        let mut g = Guest::default();
+        let mut st = Vec::new();
+        run_init(&mut h, &mut st, &mut g);
+        run_immediate(&mut h, &mut st, &mut g, handler::SET_MODE, [MODE_STA, 0]);
+        let (mut hs, a) = h.enter(&mut st, HandlerKind(handler::START), &mut g);
+        assert_eq!(called(&a).0, h.addr("esp_log_timestamp"));
+        // Another task runs while the nested call is out and clears the mode.
+        run_immediate(&mut h, &mut st, &mut g, handler::SET_MODE, [0, 0]);
+        let (a, lines) = drain_lines(&mut h, &mut st, &mut hs, &mut g, a);
+        assert_eq!(
+            lines.len(),
+            2,
+            "the start prints the lines of the mode it began in: {lines:?}"
+        );
+        assert_eq!(
+            called(&a).0,
+            h.addr("xQueueSemaphoreTake"),
+            "and still queues its events and parks its caller"
         );
     }
 
