@@ -18,6 +18,8 @@ pub enum Stage {
     Start,
     /// Inside `esp_wifi_stop`, before its event.
     Stop,
+    /// Inside a successful `esp_wifi_deinit`, before it returns.
+    Deinit,
     /// Inside an `esp_wifi_deinit` the driver refuses because it is still started.
     DeinitRefused,
 }
@@ -122,6 +124,7 @@ impl LogLines {
                             "enable" => Stage::Enable,
                             "start" => Stage::Start,
                             "stop" => Stage::Stop,
+                            "deinit" => Stage::Deinit,
                             "deinit_refused" => Stage::DeinitRefused,
                             other => return Err(format!("unknown stage `{other}`")),
                         },

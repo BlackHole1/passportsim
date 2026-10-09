@@ -591,6 +591,7 @@ impl WifiHost {
                 self.queue_event(st, g, self.profile.driver.event_sta_stop, &[], true);
                 self.park_caller("wifi.stop", st, words, g)
             }
+            Stage::Deinit => self.finish_deinit(st, g),
             Stage::DeinitRefused => ret(words[w::RET]),
             Stage::Enable => HleAction::Fail(HleError::new(
                 HleErrorKind::Handler,
@@ -879,12 +880,22 @@ impl WifiHost {
                         &[Arg::Val(handle)],
                     ));
                 }
-                self.finish_deinit(st, g)
+                words[w::LINE] = 0;
+                self.lines_or(Stage::Deinit, st, words, g)
             }
-            step::INTR_FREED => self.finish_deinit(st, g),
+            step::INTR_FREED => {
+                words[w::LINE] = 0;
+                self.lines_or(Stage::Deinit, st, words, g)
+            }
             step::TIMESTAMP | step::LOGGED => {
                 let (a0, _) = returned(resume);
-                self.log_step(Stage::DeinitRefused, st, words, g, a0)
+                // Only the refusal sets a return code before its line.
+                let stage = if words[w::RET] == ESP_ERR_WIFI_NOT_STOPPED {
+                    Stage::DeinitRefused
+                } else {
+                    Stage::Deinit
+                };
+                self.log_step(stage, st, words, g, a0)
             }
             other => bad_step("wifi.deinit", other),
         }
@@ -2419,6 +2430,60 @@ mod tests {
 
         let (_, a) = h.enter(&mut st, HandlerKind(handler::DEINIT), &mut g);
         assert_eq!(value(&a), ESP_ERR_WIFI_NOT_INIT, "deinit_again");
+    }
+
+    /// The device prints `Deinit lldesc rx mblock:10` inside `esp_wifi_deinit`, and three lines
+    /// inside each `esp_wifi_stop` (`device-probe_wifi_ap-20261009T122214Z`: four stops, one
+    /// deinit).
+    #[test]
+    fn the_lldesc_line_is_printed_by_deinit_and_not_by_stop() {
+        let mut h = verified_host();
+        h.workers(WakeMode::U5Polling);
+        let mut g = Guest::default();
+        g.write(EVENT_BASE_AT, &EVENT_BASE.to_le_bytes()).unwrap();
+        let mut st = Vec::new();
+        run_init(&mut h, &mut st, &mut g);
+        let mut hs = run_start(&mut h, &mut st, &mut g);
+        assert_eq!(
+            value(&h.resume(&mut st, &mut hs, &mut g, returned_ok(1))),
+            ESP_OK
+        );
+
+        let (mut hs, a) = h.enter(&mut st, HandlerKind(handler::STOP), &mut g);
+        let (a, lines) = drain_lines(&mut h, &mut st, &mut hs, &mut g, a);
+        assert_eq!(lines.len(), 3, "a stop prints three lines: {lines:?}");
+        for (line, want) in lines
+            .iter()
+            .zip(["flush txq", "stop sw txq", "lmac stop hw txq"])
+        {
+            assert!(line.contains(want), "`{want}` in its place: {lines:?}");
+        }
+        assert_eq!(called(&a).0, h.addr("xQueueSemaphoreTake"));
+        assert_eq!(
+            value(&h.resume(&mut st, &mut hs, &mut g, returned_ok(1))),
+            ESP_OK,
+            "RC|esp_wifi_stop|0"
+        );
+
+        let (mut hs, a) = h.enter(&mut st, HandlerKind(handler::DEINIT), &mut g);
+        assert_eq!(called(&a).0, h.addr("vTaskDelete"));
+        let a = h.resume(&mut st, &mut hs, &mut g, returned_ok(0));
+        assert_eq!(called(&a).0, h.addr("vQueueDelete"));
+        let a = h.resume(&mut st, &mut hs, &mut g, returned_ok(0));
+        assert_eq!(called(&a).0, h.addr("vQueueDelete"));
+        let a = h.resume(&mut st, &mut hs, &mut g, returned_ok(0));
+        let (a, lines) = drain_lines(&mut h, &mut st, &mut hs, &mut g, a);
+        assert_eq!(lines.len(), 1, "a deinit prints one line: {lines:?}");
+        assert!(
+            lines[0].contains("Deinit lldesc rx mblock:10"),
+            "the deinit line: {lines:?}"
+        );
+        assert_eq!(value(&a), ESP_OK, "RC|esp_wifi_deinit|0");
+        assert_eq!(
+            WifiState::decode(&st).unwrap().state,
+            DriverState::Uninit,
+            "the driver deinited"
+        );
     }
 
     #[test]
