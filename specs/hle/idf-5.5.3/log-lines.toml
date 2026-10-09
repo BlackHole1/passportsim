@@ -115,6 +115,44 @@ text = "phy_version 1232,d493f299,Aug 25 2025,19:01:20"
 # `esp_wifi_stop`, before its event, `deinit` inside a successful `esp_wifi_deinit`, and
 # `deinit_refused` inside one the driver refuses.
 #
+# ## The `start` lines follow the Wi-Fi mode
+#
+# Every `start` row carries `mode`, the `wifi_mode_t` values it is printed in: `sta` (1), `ap` (2),
+# `apsta` (3), or several separated by commas. They are **class A**, each a line of the device
+# capture `device-probe_wifi_ap-20261009T122214Z` (two runs, equal but for timestamps; see its
+# `.notes.md`), which starts and stops the driver once per mode at the info level:
+#
+#     mode 1   mode : sta (<sta>)                      enable tsf
+#     mode 2   mode : softAP (<ap>)                    Total power save buffer number: 16
+#                                                      Init max length of beacon: 752/752  (twice)
+#     mode 3   mode : sta (<sta>) + softAP (<ap>)      enable tsf, then the three SoftAP lines
+#     mode 0   mode : null
+#
+# All lines of one start carry one timestamp and come before the start's first event.
+#
+# **A mode of 0 prints no `start` line.** The driver model keeps 0 both for an explicit
+# `WIFI_MODE_NULL` (the device prints `mode : null`) and for a mode the guest never set, and the
+# two differ on the device: the capture's build reads its mode back as 2 straight after
+# `esp_wifi_init`, not the station mode `esp_wifi.h` documents, and that build has
+# `CONFIG_ESP_WIFI_NVS_ENABLED=n` where the corpus builds have `y`, so what a corpus-shaped image
+# starts in with no `esp_wifi_set_mode` is UNVERIFIED. Neither line can be chosen, so none is.
+#
+# The two SoftAP lines are class `sdkconfig`, `config = "corpus"`: the blob prints half of the TX
+# buffer count (`ieee80211_power.o` `ieee80211_gpsq_init`; `CONFIG_ESP_WIFI_DYNAMIC_TX_BUFFER_NUM`
+# 32 in the capture's build and the corpus builds) and `CONFIG_ESP_WIFI_SOFTAP_BEACON_MAX_LEN` (752
+# in both). An image of another shape prints the mode line and `enable tsf` only.
+#
+# `{ap_mac}` is the six bytes a nested `esp_read_mac(mac, ESP_MAC_WIFI_SOFTAP)` wrote at
+# `esp_wifi_start`: the blob reads its MACs through `esp_read_mac_wrapper` (`esp_adapter.c`,
+# Apache-2.0), and in the capture `esp_wifi_get_mac(WIFI_IF_AP)` equals that call's answer and
+# differs from the station's. A guest that changed the address with
+# `esp_wifi_set_mac(WIFI_IF_AP, ...)` is not followed.
+#
+# The blob agrees (`libnet80211.a` of IDF v5.5.3, `riscv32-esp-elf-objdump -dr`): `ieee80211.o`
+# `wifi_mode_set` is one switch over the mode with one `wifi_log` per arm, and
+# `ieee80211_ioctl.o` `_do_wifi_start` calls `wifi_station_start`, whose line `enable tsf` is, only
+# when `mode & 0xFD == 1`.
+#
 # **Not here:** `phy_init: phy_version ...`. The device prints it once per boot, from whichever
 # radio enables the PHY first, and the BLE module already owns that line (stage `enable` above). A
 # module has no way to know another module printed it, so a Wi-Fi-only image is missing that one
@@ -371,6 +409,7 @@ text = "WiFi RX IRAM OP enabled"
 [[line]]
 module = "wifi"
 stage = "start"
+mode = "sta"
 level = "info"
 tag = "wifi"
 class = "blob"
@@ -380,11 +419,65 @@ text = "mode : sta ({mac})"
 [[line]]
 module = "wifi"
 stage = "start"
+mode = "ap"
+level = "info"
+tag = "wifi"
+class = "blob"
+format = "info_bare"
+text = "mode : softAP ({ap_mac})"
+
+[[line]]
+module = "wifi"
+stage = "start"
+mode = "apsta"
+level = "info"
+tag = "wifi"
+class = "blob"
+format = "info_bare"
+text = "mode : sta ({mac}) + softAP ({ap_mac})"
+
+[[line]]
+module = "wifi"
+stage = "start"
+mode = "sta, apsta"
 level = "info"
 tag = "wifi"
 class = "blob"
 format = "info_bare"
 text = "enable tsf"
+
+[[line]]
+module = "wifi"
+stage = "start"
+mode = "ap, apsta"
+level = "info"
+tag = "wifi"
+class = "sdkconfig"
+config = "corpus"
+format = "info_bare"
+text = "Total power save buffer number: 16"
+
+[[line]]
+module = "wifi"
+stage = "start"
+mode = "ap, apsta"
+level = "info"
+tag = "wifi"
+class = "sdkconfig"
+config = "corpus"
+format = "info_bare"
+text = "Init max length of beacon: 752/752"
+
+[[line]]
+module = "wifi"
+stage = "start"
+mode = "ap, apsta"
+level = "info"
+tag = "wifi"
+class = "sdkconfig"
+config = "corpus"
+format = "info_bare"
+text = "Init max length of beacon: 752/752"
 
 [[line]]
 module = "wifi"
