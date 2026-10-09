@@ -12,13 +12,14 @@ le firmware de démo, et le domaine personnalisé rattaché dans le tableau de b
 
 ## Ce que le paquet écrit
 
-Trois fichiers à côté de la page (`xtask/src/package/cloudflare.rs`) :
+Quatre fichiers à côté de la page (`xtask/src/package/cloudflare.rs`) :
 
 | Fichier | Rôle |
 |---|---|
-| `wrangler.jsonc` | Un Worker composé uniquement de ressources statiques, nommé `passportsim`, qui sert le dossier du bundle. Il n'y a pas de script Worker. `workers_dev: true` conserve l'URL `workers.dev` quand un domaine personnalisé est aussi déployé. |
+| `wrangler.jsonc` | Un Worker nommé `passportsim` qui sert le dossier du bundle comme ressources statiques, avec un seul script, `play-relay.js`. Les ressources sont servies d'abord : le script ne s'exécute que pour un chemin auquel aucun fichier ne correspond. `workers_dev: true` conserve l'URL `workers.dev` quand un domaine personnalisé est aussi déployé. |
 | `_headers` | Les en-têtes qu'envoie `passportsim serve` : `Cross-Origin-Opener-Policy: same-origin` et `Cross-Origin-Embedder-Policy: require-corp` (nécessaires à `SharedArrayBuffer`), `Cross-Origin-Resource-Policy: same-origin` et `X-Content-Type-Options: nosniff`. Il fixe aussi le type de contenu du `.pebundle` de la démo et des textes de licence. |
-| `.assetsignore` | Tient `wrangler.jsonc` et le dossier d'état `.wrangler/` hors du site. |
+| `.assetsignore` | Tient `wrangler.jsonc`, `play-relay.js` et le dossier d'état `.wrangler/` hors du site. |
+| `play-relay.js` | Le script du Worker : le relais du champ des jeux vers `ai-passport.folotoy.cn` (voir plus bas). C'est `web/src/edge/playRelay.js` tel quel. |
 
 Workers répond avec un `ETag` et `Cache-Control: public, max-age=0, must-revalidate` : un
 navigateur ne retélécharge donc la démo de 23,5 MiB que si elle a changé. `pemu_wasm.wasm` est
@@ -26,15 +27,30 @@ servi en `application/wasm`.
 
 ## Le déploiement ne stocke rien
 
-Un Worker composé uniquement de ressources statiques n'exécute aucun code : chaque requête est une
-simple lecture de fichier. Tout ce que fait un visiteur se passe dans son navigateur. Un firmware
-déposé est lu localement et transmis au Web Worker de la page (le « Worker » dont parle la page est
-ce thread du navigateur, pas un Cloudflare Worker), les instantanés restent dans la mémoire de la
-page, et l'historique des firmwares est dans l'IndexedDB du navigateur pour ce site.
+Chaque fichier de la page est une ressource statique, servie sans exécuter de code. Tout ce que
+fait un visiteur se passe dans son navigateur. Un firmware déposé est lu localement et transmis au
+Web Worker de la page (le « Worker » dont parle la page est ce thread du navigateur, pas un
+Cloudflare Worker), les instantanés restent dans la mémoire de la page, et l'historique des
+firmwares est dans l'IndexedDB du navigateur pour ce site.
 `web/tests/local.spec.ts` échoue sur toute requête qui n'est pas un GET vers l'origine de la page.
 
-Le démon natif, `passportsim serve`, est un autre programme : il tourne sur votre machine et écrit
-des reçus et des artefacts dans son dossier de données local.
+Le seul code côté serveur est le relais du champ des jeux. Le site des jeux de FoloToy ne répond
+qu'à ses propres pages : un navigateur sur une autre origine ne peut pas le lire. Quand un visiteur
+saisit le lien ou le numéro d'un jeu, la page demande à sa propre origine
+`/play-site/api/plays/id/<numéro>` puis `/play-site/api/download/...`, et le script du Worker
+transmet ces deux GET à `ai-passport.folotoy.cn` (`web/src/edge/playRelay.js`). C'est une liste
+d'autorisation, pas un proxy : l'hôte amont est fixe, tout autre chemin est un 404, ni la chaîne de
+requête, ni les cookies, ni les en-têtes du visiteur ne sont transmis, une redirection n'est pas
+suivie, et une requête faite par la page d'un autre site est refusée. Il ne stocke ni ne journalise
+rien ; comme tout serveur, il voit l'adresse du visiteur et le jeu demandé, et FoloToy voit une
+requête venant de Cloudflare. La page vérifie le firmware avec la taille et le SHA-256 annoncés par
+le site des jeux avant de le charger.
+
+Une requête relayée exécute le script du Worker et compte donc dans la limite de requêtes de
+Workers (voir Limites) ; une requête pour un fichier de la page ne compte pas. `passportsim serve`
+et un simple serveur statique n'ont pas de relais : le champ des jeux le dit alors et donne le lien
+de la page du jeu pour un téléchargement à la main. `just run` sert la page avec le même relais,
+pour le développement.
 
 ## Déployer
 
@@ -120,6 +136,7 @@ D'après la documentation de Cloudflare, consultée le 2026-09-27 :
 | Fichiers de ressources par version de Worker | 20 000 | 100 000 (Wrangler 4.34.0 ou plus récent) | idem |
 | Taille totale des ressources | aucune limite indiquée | aucune limite indiquée | idem |
 | Requêtes vers les ressources statiques | gratuites et illimitées | gratuites et illimitées | [Billing and limitations](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/) |
+| Requêtes qui exécutent le script du Worker (le relais des jeux, deux par jeu chargé) | 100 000 par jour, puis erreur 1027 pour ces requêtes | sans limite, facturées | [Workers limits](https://developers.cloudflare.com/workers/platform/limits/), consultée le 2026-10-08 |
 | Règles `_headers` / longueur de ligne | 100 règles, 2 000 caractères par ligne | idem | [Headers](https://developers.cloudflare.com/workers/static-assets/headers/) |
 
 Wrangler refuse tout le déploiement si un seul fichier dépasse 25 MiB. Un bundle avec la démo

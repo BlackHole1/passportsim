@@ -1,6 +1,6 @@
 // The static server the Playwright suites load the built page from: `web/dist` on 127.0.0.1 only,
 // with the two headers that make the page cross-origin isolated, since the pacing and audio paths
-// use SharedArrayBuffers only then. Usage: `bun tests/serve.ts [port]`.
+// use SharedArrayBuffers only then. Usage: `bun tests/serve.ts [port] [--play-relay]`.
 //
 // Beside `dist/` it serves what a release bundle carries, when this host has it:
 // - `/pemu_wasm.wasm`: the core `preconditions.ts` `findCore` finds, even when `dist/` holds one;
@@ -11,14 +11,20 @@
 // drag-and-drop test of `loader.spec.ts`. Only the files the variable's path holds are routed, by
 // the exact relative name the loader sees; the host path never appears in a URL, listing or error
 // body, and the images are never copied.
+//
+// With `--play-relay` it also answers `/play-site/...` with the relay the deployed site runs as its
+// Worker script (`src/edge/playRelay.js`), so the play box of a `just run` page loads real plays.
+// Off by default: the Playwright suites never reach the network, and answer the relay themselves.
 
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { extname, join, posix } from "node:path";
 import { pebundle, readOfficialFiles } from "./demoBundle";
+import playRelay from "../src/edge/playRelay.js";
 import { CORE_FILE, findCore, IMAGE_ROUTE, imageSource, imageUrl, imageVariable } from "./preconditions";
 
 const DIST = join(import.meta.dir, "..", "dist");
-const PORT = Number(process.argv[2] ?? process.env.PEMU_WEB_PORT ?? 4173);
+const PLAY_RELAY = process.argv.includes("--play-relay");
+const PORT = Number(process.argv.slice(2).find((arg) => !arg.startsWith("--")) ?? process.env.PEMU_WEB_PORT ?? 4173);
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -78,7 +84,11 @@ for (const [key, value] of Object.entries(process.env)) {
 Bun.serve({
   hostname: "127.0.0.1",
   port: PORT,
-  fetch(request) {
+  async fetch(request) {
+    const relayed = PLAY_RELAY ? await playRelay.relay(request) : null;
+    if (relayed !== null) {
+      return relayed;
+    }
     let path: string;
     try {
       path = decodeURIComponent(new URL(request.url).pathname);
@@ -107,4 +117,4 @@ Bun.serve({
     return new Response(Bun.file(file), { headers });
   },
 });
-console.log(`serving ${DIST} on http://127.0.0.1:${PORT}/`);
+console.log(`serving ${DIST} on http://127.0.0.1:${PORT}/${PLAY_RELAY ? ", with the play relay" : ""}`);

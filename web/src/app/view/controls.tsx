@@ -26,9 +26,9 @@ export function Field(props: { readonly id: string; readonly label: string; read
   );
 }
 
-const INPUT_SHELL =
+export const INPUT_SHELL =
   "relative inline-flex w-full min-w-0 rounded-lg border border-input bg-background not-dark:bg-clip-padding text-base shadow-xs/5 ring-ring/24 transition-shadow has-focus-visible:border-ring has-focus-visible:ring-[3px] has-disabled:opacity-64 sm:text-sm dark:bg-input/32";
-const INPUT_INNER =
+export const INPUT_INNER =
   "h-8.5 w-full min-w-0 rounded-[inherit] bg-transparent px-[calc(--spacing(3)-1px)] text-foreground leading-8.5 outline-none placeholder:text-muted-foreground/72 sm:h-7.5 sm:leading-7.5";
 
 export function NumberInput(props: {

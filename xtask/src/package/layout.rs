@@ -13,7 +13,7 @@
 //!   payload/schema/**                  licenses/official-demo.NOTICE  (when embedded)
 //!   payload/web/**                     install.sh  install.ps1
 //!   payload/firmware/**   (when embedded)  wrangler.jsonc  _headers  .assetsignore
-//!   docs/secrets.md
+//!   docs/secrets.md                    play-relay.js
 //!   docs/i18n/{zh-CN,ja,fr}/{quickstart,secrets,deploy-cloudflare}.md
 //! ```
 //!

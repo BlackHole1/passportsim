@@ -1,8 +1,10 @@
 //! The Cloudflare Workers project files of the web bundle (`docs/deploy-cloudflare.md`).
 //!
-//! The bundle directory is itself the project of an assets-only Worker: `_headers` carries the
-//! headers `passportsim serve` sends ([`webui::STATIC_HEADERS`]) and `.assetsignore` keeps the
-//! project file and `wrangler dev` state off the site. [`check`] fails a package whose largest file,
+//! The bundle directory is itself the project of a Worker that serves it as static assets:
+//! `_headers` carries the headers `passportsim serve` sends ([`webui::STATIC_HEADERS`]) and
+//! `.assetsignore` keeps the project files and `wrangler dev` state off the site. Its one script,
+//! [`RELAY_FILE`], runs only for a path no asset matches and relays the play box's two requests to
+//! the play site (`web/src/edge/playRelay.js`). [`check`] fails a package whose largest file,
 //! usually the gzip-compressed demo `.pebundle`, is over [`MAX_ASSET_BYTES`] before a deploy would.
 
 use std::fs;
@@ -17,17 +19,26 @@ pub const HEADERS_FILE: &str = "_headers";
 
 pub const IGNORE_FILE: &str = ".assetsignore";
 
+/// The Worker script: the play box's relay. Not `worker.js`, which is the page's own Web Worker.
+pub const RELAY_FILE: &str = "play-relay.js";
+
+/// The relay as shipped: the source file itself, which is plain JavaScript with no imports, so the
+/// bundle carries the bytes the web tests run (`web/src/edge/playRelay.test.ts`).
+pub const RELAY_SCRIPT: &str = include_str!("../../../web/src/edge/playRelay.js");
+
 /// The directory `wrangler dev` keeps its local state in, beside the project file.
 const STATE_DIR: &str = ".wrangler";
 
 /// Top-level names of the bundle that are not assets. Wrangler skips `.assetsignore`, `_headers`
-/// and `_redirects` by itself; the other two are listed in [`IGNORE_FILE`], because an assets
-/// directory of `.` would otherwise publish the project file and the local state.
-const NOT_ASSETS: [&str; 5] = [
+/// and `_redirects` by itself; the other three are listed in [`IGNORE_FILE`], because an assets
+/// directory of `.` would otherwise publish the project file, the Worker script and the local
+/// state.
+const NOT_ASSETS: [&str; 6] = [
     IGNORE_FILE,
     HEADERS_FILE,
     "_redirects",
     CONFIG_FILE,
+    RELAY_FILE,
     STATE_DIR,
 ];
 
@@ -50,8 +61,8 @@ pub const MAX_HEADER_LINE: usize = 2_000;
 /// overrides it.
 const WORKER_NAME: &str = "passportsim";
 
-/// The runtime behaviour the Worker is pinned to. An assets-only Worker runs no code, so this
-/// only has to be a date the Workers runtime accepts.
+/// The runtime behaviour the Worker is pinned to. The relay uses `fetch`, `Request`, `Response`
+/// and `URL` only, so any date the Workers runtime accepts will do.
 const COMPATIBILITY_DATE: &str = "2026-09-01";
 
 /// Type of the licence texts, which have no extension a browser or Wrangler can type by: they are
@@ -68,7 +79,10 @@ pub fn config_text() -> String {
            \"compatibility_date\": \"{COMPATIBILITY_DATE}\",\n  \
            // Kept on when a deploy names a custom domain, which would otherwise turn it off.\n  \
            \"workers_dev\": true,\n  \
-           // Assets only: no Worker script, so every request is a free static asset request.\n  \
+           // The play box's relay to the play site. It runs only for a path no asset matches.\n  \
+           \"main\": \"{RELAY_FILE}\",\n  \
+           // Assets are served first, so a request for a file of the page stays a free static\n  \
+           // asset request and never runs the script.\n  \
            \"assets\": {{ \"directory\": \".\" }}\n\
          }}\n"
     )
@@ -99,8 +113,10 @@ pub fn headers_text() -> String {
 
 pub fn ignore_text() -> String {
     format!(
-        "# Not assets: the Wrangler project file and the state `wrangler dev` keeps beside it.\n\
+        "# Not assets: the Wrangler project file, the Worker script and the state `wrangler dev`\n\
+         # keeps beside them.\n\
          /{CONFIG_FILE}\n\
+         /{RELAY_FILE}\n\
          /{STATE_DIR}/\n"
     )
 }
@@ -112,6 +128,7 @@ pub fn write(dir: &Path) -> Result<(), String> {
         (CONFIG_FILE, config_text()),
         (HEADERS_FILE, headers),
         (IGNORE_FILE, ignore_text()),
+        (RELAY_FILE, RELAY_SCRIPT.to_string()),
     ] {
         let path = dir.join(name);
         fs::write(&path, text).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -356,7 +373,7 @@ mod tests {
     }
 
     #[test]
-    fn the_project_is_assets_only_with_the_bundle_as_its_directory() {
+    fn the_project_serves_the_bundle_as_assets_and_its_only_script_is_the_relay() {
         let config = config_text();
         let json: String = config
             .lines()
@@ -369,12 +386,15 @@ mod tests {
         assert!(value["compatibility_date"].is_string());
         // Wrangler defaults `workers_dev` to off once a deploy names a route or custom domain.
         assert_eq!(value["workers_dev"], true);
+        assert_eq!(value["main"], RELAY_FILE);
+        // Assets first: a request for a file of the page must stay a free asset request.
         assert!(
-            value.get("main").is_none(),
-            "no Worker script: every request stays a free asset request"
+            value["assets"].get("run_worker_first").is_none(),
+            "the script must run only where no asset matches"
         );
+        assert_ne!(RELAY_FILE, "worker.js", "that is the page's Web Worker");
         let ignore = ignore_text();
-        for name in [CONFIG_FILE, STATE_DIR] {
+        for name in [CONFIG_FILE, RELAY_FILE, STATE_DIR] {
             assert!(
                 ignore.lines().any(|line| line.trim_matches('/') == name),
                 "{IGNORE_FILE} keeps `{name}` off the site: {ignore}"

@@ -8,21 +8,24 @@ Web バンドル(`passportsim-0.1.0-web/`、[クイックスタート](quickstar
 
 ## パッケージが書き出すもの
 
-ページの隣に 3 つのファイルを書き出します(`xtask/src/package/cloudflare.rs`)。
+ページの隣に 4 つのファイルを書き出します(`xtask/src/package/cloudflare.rs`)。
 
 | ファイル | 役割 |
 |---|---|
-| `wrangler.jsonc` | バンドルのディレクトリを配信する、アセットのみの Worker `passportsim`。Worker スクリプトはありません。`workers_dev: true` により、カスタムドメインもデプロイしたときに `workers.dev` の URL が残ります。 |
+| `wrangler.jsonc` | バンドルのディレクトリを静的アセットとして配信する Worker `passportsim`。スクリプトは `play-relay.js` の 1 つだけです。アセットが先に配信されるため、スクリプトはどのファイルにも一致しないパスでのみ実行されます。`workers_dev: true` により、カスタムドメインもデプロイしたときに `workers.dev` の URL が残ります。 |
 | `_headers` | `passportsim serve` が送るヘッダー：`Cross-Origin-Opener-Policy: same-origin` と `Cross-Origin-Embedder-Policy: require-corp`(`SharedArrayBuffer` に必要)、`Cross-Origin-Resource-Policy: same-origin`、`X-Content-Type-Options: nosniff`。デモの `.pebundle` とライセンス文のコンテンツタイプも指定します。 |
-| `.assetsignore` | `wrangler.jsonc` と `.wrangler/` の状態ディレクトリをサイトに含めません。 |
+| `.assetsignore` | `wrangler.jsonc`、`play-relay.js`、`.wrangler/` の状態ディレクトリをサイトに含めません。 |
+| `play-relay.js` | Worker スクリプト: プレイの入力欄から `ai-passport.folotoy.cn` への中継です(後述)。中身は `web/src/edge/playRelay.js` そのものです。 |
 
 Workers は `ETag` と `Cache-Control: public, max-age=0, must-revalidate` を返すため、ブラウザが 23.5 MiB のデモを再ダウンロードするのは変更があったときだけです。`pemu_wasm.wasm` は `application/wasm` で配信されます。
 
 ## デプロイ先には何も保存されない
 
-アセットのみの Worker はコードを実行しません。すべてのリクエストは静的ファイルの読み出しです。訪問者の操作はすべてその人のブラウザ内で完結します。ドロップしたファームウェアはローカルで読み込まれてページの Web Worker に渡され(ページに出てくる「Worker」はこのブラウザのスレッドで、Cloudflare Worker ではありません)、スナップショットはページのメモリに、ファームウェアの履歴はそのサイト用のブラウザの IndexedDB にとどまります。`web/tests/local.spec.ts` は、ページ自身のオリジンへの GET 以外のリクエストがあると失敗します。
+ページのファイルはすべて静的アセットで、配信時にコードは実行されません。訪問者の操作はすべてその人のブラウザ内で完結します。ドロップしたファームウェアはローカルで読み込まれてページの Web Worker に渡され(ページに出てくる「Worker」はこのブラウザのスレッドで、Cloudflare Worker ではありません)、スナップショットはページのメモリに、ファームウェアの履歴はそのサイト用のブラウザの IndexedDB にとどまります。`web/tests/local.spec.ts` は、ページ自身のオリジンへの GET 以外のリクエストがあると失敗します。
 
-ネイティブのデーモン `passportsim serve` は別のプログラムです。あなたのマシン上で動き、レシートと成果物をローカルのデータディレクトリに書き込みます。
+唯一のサーバー側コードはプレイの入力欄の中継です。FoloToy のプレイサイトは自身のページにしか応答しないため、ほかのオリジンのブラウザからは読み取れません。訪問者がプレイのリンクまたは番号を入力すると、ページは自身のオリジンに `/play-site/api/plays/id/<番号>` を、続いて `/play-site/api/download/...` を要求し、Worker スクリプトがこの 2 つの GET を `ai-passport.folotoy.cn` に渡します (`web/src/edge/playRelay.js`)。これは許可リストであり、プロキシではありません。上流のホストは固定で、それ以外のパスは 404 になり、訪問者のリクエストのクエリ、cookie、ヘッダーは渡されず、リダイレクトはたどらず、ほかのサイトのページからのリクエストは拒否されます。何も保存せず、記録もしません。どのサーバーとも同じく訪問者のアドレスと要求されたプレイは見えますが、FoloToy から見えるのは Cloudflare からのリクエストです。ページは読み込む前に、プレイサイトが申告したサイズと SHA-256 でファームウェアを照合します。
+
+中継されるリクエストは Worker スクリプトを実行するため、Workers のリクエスト上限に数えられます(「上限」を参照)。ページのファイルへのリクエストは数えられません。`passportsim serve` や通常の静的サーバーには中継がありません。その場合、プレイの入力欄はその旨を伝え、手動でダウンロードできるようプレイのページへのリンクを示します。`just run` は開発用に同じ中継付きでページを配信します。
 
 ## デプロイ
 
@@ -87,6 +90,7 @@ Cloudflare のドキュメントより(2026-09-27 時点)：
 | Worker のバージョンあたりのアセットファイル数 | 20,000 | 100,000(Wrangler 4.34.0 以降) | 同上 |
 | アセットの合計サイズ | 記載なし | 記載なし | 同上 |
 | 静的アセットへのリクエスト | 無料・無制限 | 無料・無制限 | [Billing and limitations](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/) |
+| Worker スクリプトを実行するリクエスト(プレイの中継、プレイ 1 つにつき 2 回) | 1 日 100,000 回、超過後はこれらのリクエストがエラー 1027 になる | 上限なし、従量課金 | [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)、2026-10-08 に参照 |
 | `_headers` のルール数 / 行の長さ | 100 ルール、1 行 2,000 文字 | 同じ | [Headers](https://developers.cloudflare.com/workers/static-assets/headers/) |
 
 25 MiB を超えるファイルが 1 つでもあると、Wrangler はデプロイ全体を拒否します。デモ付きのバンドルは 18 ファイルで、最大は約 7.0 MB の `pemu_wasm.wasm`、次が約 6.1 MB の `official.pebundle` です。これは 24.7 MB のデモを gzip で圧縮したもので、Cloudflare は `application/octet-stream` のファイルをそのまま送るため、ページ側で展開します。`cargo xtask package` は、上限を超えるファイルがあるか 20,000 ファイルを超えるとファイル名を示して失敗し、毎回余裕の大きさを表示します。

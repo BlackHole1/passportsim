@@ -1,9 +1,9 @@
 name: Deploy web
 
 # Builds the web bundle on macOS (the packaging host of the web target) and deploys it to
-# Cloudflare Workers as an assets-only Worker. The release workflow calls it with the web bundle it
-# already built, so the site serves the released bytes. docs/deploy-cloudflare.md lists the secrets
-# and variables.
+# Cloudflare Workers: the bundle as static assets, and its one script, the play box's relay. The
+# release workflow calls it with the web bundle it already built, so the site serves the released
+# bytes. docs/deploy-cloudflare.md lists the secrets and variables.
 
 on:
   workflow_dispatch:

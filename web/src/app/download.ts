@@ -1,8 +1,8 @@
 // How the page words a download the Worker reports (`worker/download.ts`): the sentence the status
 // line, the glass and the log show, from bytes received and the total `Content-Length` stated.
 
-import type { DownloadProgress } from "../worker/download";
-import type { Translate } from "./i18n";
+import type { DownloadProgress, DownloadWhat } from "../worker/download";
+import type { MessageKey, Translate } from "./i18n";
 
 export type { DownloadProgress };
 
@@ -52,18 +52,24 @@ export function downloadAmount(t: Translate, progress: Pick<DownloadProgress, "r
   return received === 0 ? "" : formatBytes(received);
 }
 
+const KEYS: Readonly<Record<DownloadWhat, { readonly title: MessageKey; readonly done: MessageKey; readonly failed: MessageKey }>> = {
+  core: { title: "download.core", done: "download.coreDone", failed: "download.coreFailed" },
+  firmware: { title: "download.firmware", done: "download.firmwareDone", failed: "download.firmwareFailed" },
+  play: { title: "download.play", done: "download.playDone", failed: "download.playFailed" },
+};
+
 /** What is being downloaded: `Downloading the demo firmware`. */
 export function downloadTitle(t: Translate, progress: Pick<DownloadProgress, "what">): string {
-  return t(progress.what === "core" ? "download.core" : "download.firmware");
+  return t(KEYS[progress.what].title);
 }
 
 /** One line for the status and the log, in whichever state the download is. */
 export function downloadText(t: Translate, progress: DownloadProgress): string {
   if (progress.error !== undefined) {
-    return t(progress.what === "core" ? "download.coreFailed" : "download.firmwareFailed", { detail: progress.error });
+    return t(KEYS[progress.what].failed, { detail: progress.error });
   }
   if (progress.done) {
-    return t(progress.what === "core" ? "download.coreDone" : "download.firmwareDone", { size: formatBytes(progress.received) });
+    return t(KEYS[progress.what].done, { size: formatBytes(progress.received) });
   }
   const amount = downloadAmount(t, progress);
   return amount === "" ? downloadTitle(t, progress) : `${downloadTitle(t, progress)} ${amount}`;
