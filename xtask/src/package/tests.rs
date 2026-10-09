@@ -2689,7 +2689,8 @@ fn part_four(clean: &Clean, test: &str, built: &super::Built) {
         assert!(body == packaged, "`{name}` is served byte for byte");
     }
     // The demo route: a corpus id this host resolves, else the payload's copy. Both outcomes are
-    // asserted against the receipt.
+    // asserted against the receipt. The daemon answers with the plain bundle, and the web bundle
+    // carries it gzip-compressed for the wire (`layout::write_web_bundle`).
     let (status, _, body) = http(
         &addr,
         "GET",
@@ -2699,6 +2700,7 @@ fn part_four(clean: &Clean, test: &str, built: &super::Built) {
     );
     match std::fs::read(built.web_dir.join(DEMO_BUNDLE)) {
         Ok(packaged) => {
+            let packaged = gunzip(&packaged);
             assert!(
                 matches!(
                     built.receipt.demo,
