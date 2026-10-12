@@ -291,6 +291,7 @@ export const en = {
   "audio.source.tone": "a synthesized sine at the chosen frequency",
   "audio.source.file": "a WAV from the host's audio directory",
   "header.badge": "Emulator",
+  "header.github": "PassportSim on GitHub",
   "audio.source.live": "getUserMedia; browser-only, absent on a native host",
   "audio.sourceName.silence": "Silence",
   "audio.sourceName.tone": "Tone",

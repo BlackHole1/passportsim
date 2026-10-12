@@ -291,6 +291,7 @@ export const fr: Messages = {
   "audio.source.tone": "une sinusoïde synthétique à la fréquence choisie",
   "audio.source.file": "un WAV du dossier audio de l'hôte",
   "header.badge": "Émulateur",
+  "header.github": "PassportSim sur GitHub",
   "audio.source.live": "getUserMedia ; navigateur seulement, absent sur un hôte natif",
   "audio.sourceName.silence": "Silence",
   "audio.sourceName.tone": "Tonalité",

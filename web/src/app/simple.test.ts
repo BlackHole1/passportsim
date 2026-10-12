@@ -117,6 +117,22 @@ describe("the language", () => {
   });
 });
 
+describe("the repository link", () => {
+  for (const mode of ["simple", "advanced"] as const) {
+    test(`in ${mode} mode the header's GitHub mark opens the repository in a new tab, named in the page's language`, async () => {
+      const { mount } = mountPage({ search: `?mode=${mode}&lang=fr` });
+      await settle();
+      const link = mount.querySelector(".app-header [data-link=github]") as HTMLAnchorElement;
+      expect(link.tagName).toBe("A");
+      expect(link.getAttribute("href")).toBe("https://github.com/BlackHole1/passportsim");
+      expect(link.getAttribute("target")).toBe("_blank");
+      expect(link.getAttribute("rel")).toBe("noreferrer");
+      expect(link.getAttribute("aria-label")).toBe("PassportSim sur GitHub");
+      expect(link.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+    });
+  }
+});
+
 describe("a load in simple mode", () => {
   function mergedBin(): Uint8Array {
     const bytes = new Uint8Array(0x20_000);
