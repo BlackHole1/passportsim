@@ -291,6 +291,7 @@ export const ja: Messages = {
   "audio.source.tone": "指定した周波数の合成正弦波",
   "audio.source.file": "ホストのオーディオディレクトリにある WAV",
   "header.badge": "エミュレータ",
+  "header.github": "GitHub の PassportSim",
   "audio.source.live": "getUserMedia。ブラウザのみで、ネイティブ環境にはありません",
   "audio.sourceName.silence": "無音",
   "audio.sourceName.tone": "トーン",

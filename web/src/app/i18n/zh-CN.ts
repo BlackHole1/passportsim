@@ -291,6 +291,7 @@ export const zhCN: Messages = {
   "audio.source.tone": "所选频率的合成正弦波",
   "audio.source.file": "主机音频目录中的 WAV",
   "header.badge": "模拟器",
+  "header.github": "PassportSim 的 GitHub 仓库",
   "audio.source.live": "getUserMedia；仅限浏览器，原生主机上没有",
   "audio.sourceName.silence": "静音",
   "audio.sourceName.tone": "正弦音",

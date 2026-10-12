@@ -114,6 +114,9 @@ into `main.js`, and the Tailwind CLI compiles `styles.css`; both files ship in e
 - **reselect** 5.3.0 and **@babel/runtime** 7.29.7 (Base UI dependencies): MIT.
 - **lucide-react** 0.555.0 (icons): ISC, Copyright (c) Lucide Contributors; parts derived from
   Feather, MIT, Copyright (c) 2013-2023 Cole Bemis.
+- **Simple Icons** 15.22.0 (the GitHub mark drawn in `web/src/app/view/Header.tsx`): CC0-1.0. Source:
+  <https://github.com/simple-icons/simple-icons>, `icons/github.svg`. The mark itself is a trademark
+  of GitHub, Inc., used here only to link to the project's repository.
 - **class-variance-authority** 0.7.1: Apache-2.0, Copyright (c) Joe Bell.
 - **clsx** 2.1.1: MIT, Copyright (c) Luke Edwards. **tailwind-merge** 3.4.0: MIT, Copyright (c)
   Dany Castillo.
